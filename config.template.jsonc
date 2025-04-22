@@ -175,10 +175,6 @@
     }
   },
 
-  //? This is the streamer where the /nextstream command will get the schedule from.
-  //! If you do not want to use this command, set this to null.
-  "nsStreamer": "your_twitch_username",
-
   //? These are the statuses that DrBot will periodically change between. (Every 2h -/+ 30m, adjustable in /src/events/changeDiscordStatus.evt.ts)
   //? If the status (case-insensitive) starts with "playing", "streaming", "listening", or "watching", DrBot will set the status accordingly. If none of these are present, DrBot will set your status as a custom status.
   //* If this is set to an empty array, DrBot will not change statuses, and will perserve the status that was set when DrBot started.
@@ -240,12 +236,22 @@
     // ...
   ],
 
+  //? This is the streamer where the /nextstream command will get the schedule from.
+  //! If you do not want to use this command, set this to null.
+  "nsStreamer": "your_twitch_username",
+
   //? These are the default messages that DrBot will send when a stream is cancelled or when a stream is live.
   //! Text in square brackets can't be edited without modifying src/commands/command-lib/mod/stream-message.cmdlib.ts
   "streamMessages": {
     "cancelled": "[updates-ping], the next stream is cancelled because [reason]. See you all next time!", // @Live Updates, the next stream is cancelled because I'm being sick. See you all next time!"
     "streaming": "[notifs-ping], we are currently live and playing [game]! Come join us over on Twitch! https://twitch.tv/example", // @Live Notifications, we are currently live and playing Valheim! Come join us over on Twitch! https://twitch.tv/drvem
   },
+  //? These settings are for the Starboard functionality. Set all of these to null to disable the feature. Like this -> ""
+  "starboardNumber": 3,
+  //? This is the emoji that the bot will search for to add messages to starboard
+  "starboardEmojiSTR": "❤️",
+  //? For custom emojis, use the ID of the emoji. (e.g "<:emoji_name:123456789012345678>")
+  "StarboardEmojiID": "❤️",
 
   //? This specifies resources for the bot to use, such as links to wordle answers and guesses. (Make sure to use raw links if using GitHub!)
   //! You can access these resources using 'global.app.config.resources.xyz'

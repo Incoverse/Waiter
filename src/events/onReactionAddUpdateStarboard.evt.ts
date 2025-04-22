@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Inimi | DrHooBs | Incoverse
+ * Copyright (c) 2025 Inimi | DrHooBs | Incoverse
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,9 +17,10 @@
 
 import { DrBotEvent, DrBotEventTypeSettings, DrBotEventTypes } from "@src/lib/base/DrBotEvent.js";
 import { Client, Embed, EmbedBuilder, Events, Guild, TextChannel } from "discord.js";
-
+import { DrBotGlobal } from "@src/interfaces/global.js";
 
 export default class ORAUS extends DrBotEvent {
+    declare global: DrBotGlobal;
     
     protected _type: DrBotEventTypes = "discordEvent";
 
@@ -31,6 +32,9 @@ export default class ORAUS extends DrBotEvent {
     
 
     public async runEvent(reaction, user, client: Client) {
+        if (global.app.config.starboardEmojiID === "" || global.app.config.starboardEmojiSTR === "" || global.app.config.starboardNumber === 0) {
+            return;
+        }
         if (reaction.partial) {
             try {
                 await reaction.fetch();
@@ -52,27 +56,28 @@ export default class ORAUS extends DrBotEvent {
                 value: `[Jump to message](${reaction.message.url})`
             })
             .setFooter({
-                text: `${reaction.message.id} • DrBot's Starboard`
+                text: `${reaction.message.id} • ${client.user.username}'s Starboard`
             })
 
-        if (reaction.emoji.name == "MrSzanto") {
+        if (reaction.emoji.name == global.app.config.starboardEmojiSTR) {
             let guild = reaction.message.guild as Guild;
-            let starboardChannel = guild.channels.cache.find(channel => channel.name === "starboard");
+            let starboardChannel = guild.channels.cache.find(channel => /star(-){0,1}board/gi.test(channel.name)); // Find a channel that has "starboard" in the name (varying formats)
             if (reaction.message.channel.id == starboardChannel.id) { return }
             if (!starboardChannel) {
                 console.log("Starboard channel not found");
                 return;
             }
             let count = reaction.count;
-            if (count >= 1) {
+            if (count >= global.app.config.starboardNumber) {
                 //Check if message is already starred
                 let msgs = await (starboardChannel as TextChannel).messages.fetch();
                 const existing = msgs.find(msg => msg.embeds[0]?.footer?.text == `${reaction.message.id} • DrBot's Starboard`);
                 if (existing) {
+                    embed.setAuthor(null)
                         console.log("Message already starred");
-                        if (count > existing.content.match(/<:MrSzanto:1277693330280550450> (\d+)/)[1]) {
+                        if (count > existing.content.match(new RegExp(`/${global.app.config.starboardEmojiID} (\d+)/)[1])`))) {
                             existing.edit({
-                                content: `<:MrSzanto:1277693330280550450> ${count}`,
+                                content: `${global.app.config.starboardEmojiID} ${count}`,
                                 embeds: [embed]
                             });
                         } else {
@@ -82,7 +87,7 @@ export default class ORAUS extends DrBotEvent {
                 else {
                 
                     await (starboardChannel as TextChannel).send({
-                        content: `<:MrSzanto:1277693330280550450> ${reaction.count}`,
+                        content: `${global.app.config.starboardEmojiID} ${reaction.count}`,
                         embeds: [embed]
                     });
                 }
