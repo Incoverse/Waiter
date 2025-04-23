@@ -44,6 +44,10 @@ export default class ORRUS extends DrBotEvent {
                 return;
             }
         }
+        if (reaction.message.channel.name.match(/^(staff|mod|admin)([-_][a-z0-9]+)*$/i)) {
+            return;
+        }
+
         let embed = new EmbedBuilder()
             .setAuthor({
                 name: reaction.message.author.username,

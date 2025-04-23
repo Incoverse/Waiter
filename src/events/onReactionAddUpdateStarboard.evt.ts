@@ -35,6 +35,7 @@ export default class ORAUS extends DrBotEvent {
         if (global.app.config.starboardEmojiID === "" || global.app.config.starboardEmojiSTR === "" || global.app.config.starboardNumber === 0) {
             return;
         }
+        
         if (reaction.partial) {
             try {
                 await reaction.fetch();
@@ -44,6 +45,12 @@ export default class ORAUS extends DrBotEvent {
                 return;
             }
         }
+
+    
+        if (reaction.message.channel.name.match(/^(staff|mod|admin)([-_][a-z0-9]+)*$/i)) {
+            return;
+        }
+
         let embed = new EmbedBuilder()
             .setAuthor({
                 name: reaction.message.author.username,
