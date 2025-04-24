@@ -32,7 +32,7 @@ export default class ORAUS extends DrBotEvent {
     
 
     public async runEvent(reaction, user, client: Client) {
-        if (global.app.config.starboardEmojiID === "" || global.app.config.starboardEmojiSTR === "" || global.app.config.starboardNumber === 0) {
+        if (!global.app.config.starboardEmojiID || !global.app.config.starboardEmojiSTR || !global.app.config.starboardNumber) {
             return;
         }
         
@@ -47,13 +47,13 @@ export default class ORAUS extends DrBotEvent {
         }
 
     
-        if (reaction.message.channel.name.match(/^(staff|mod|admin)([-_][a-z0-9]+)*$/i)) {
+        if (reaction.message.channel.name.match(/(staff|mod|admin)/i)) {
             return;
         }
 
         let embed = new EmbedBuilder()
             .setAuthor({
-                name: reaction.message.author.username,
+                name: reaction.message.author.displayName,
                 iconURL: reaction.message.author.displayAvatarURL()
 
             })
@@ -63,13 +63,14 @@ export default class ORAUS extends DrBotEvent {
                 value: `[Jump to message](${reaction.message.url})`
             })
             .setFooter({
-                text: `${reaction.message.id} • ${client.user.username}'s Starboard`
+                text: `${reaction.message.id} • ${client.user.displayName}'${client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`
             })
 
         if (reaction.emoji.name == global.app.config.starboardEmojiSTR) {
             let guild = reaction.message.guild as Guild;
             let starboardChannel = guild.channels.cache.find(channel => /star(-){0,1}board/gi.test(channel.name)); // Find a channel that has "starboard" in the name (varying formats)
-            if (reaction.message.channel.id == starboardChannel.id) { return }
+            if (reaction.message.channel.id == starboardChannel.id) return;
+            
             if (!starboardChannel) {
                 console.log("Starboard channel not found");
                 return;

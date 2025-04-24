@@ -246,7 +246,7 @@
     "cancelled": "[updates-ping], the next stream is cancelled because [reason]. See you all next time!", // @Live Updates, the next stream is cancelled because I'm being sick. See you all next time!"
     "streaming": "[notifs-ping], we are currently live and playing [game]! Come join us over on Twitch! https://twitch.tv/example", // @Live Notifications, we are currently live and playing Valheim! Come join us over on Twitch! https://twitch.tv/drvem
   },
-  //? These settings are for the Starboard functionality. Set all of these to null to disable the feature. Like this -> ""
+  //? These settings are for the Starboard functionality. Set any of these to null to disable the feature.
   "starboardNumber": 3,
   //? This is the emoji that the bot will search for to add messages to starboard
   "starboardEmojiSTR": "❤️",
