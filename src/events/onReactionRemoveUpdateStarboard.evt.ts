@@ -31,23 +31,20 @@ export default class ORRUS extends DrBotEvent {
     protected _priority: number = 0;
     
 
-    public async runEvent(reaction, user, client: Client) {
+    public async runEvent(reaction) {
         if (!global.app.config.starboardEmojiID || !global.app.config.starboardEmojiSTR || !global.app.config.starboardNumber) {
             return;
         }
         if (reaction.partial) {
             try {
                 await reaction.fetch();
-                await user.fetch();
+                await reaction.message.author.fetch();
+
             } catch (error) {
                 console.error("Something went wrong when fetching the message: ", error);
                 return;
             }
         }
-        if (reaction.message.channel.name.match(/(staff|mod|admin)/i)) {
-            return;
-        }
-
 
         let embed = new EmbedBuilder()
             .setAuthor({
@@ -60,7 +57,7 @@ export default class ORRUS extends DrBotEvent {
                 value: `[Jump to message](${reaction.message.url})`
             })
             .setFooter({
-                text: `${reaction.message.id} • ${client.user.displayName}'${client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`
+                text: `${reaction.message.id} • ${reaction.client.user.displayName}'${reaction.client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`
             })
 
 
@@ -71,6 +68,10 @@ export default class ORRUS extends DrBotEvent {
             let count = reaction.count;
 
             if (reaction.message.channel.id == starboardChannel.id) return;
+            
+            if (reaction.message.channel.name.match(/(staff|mod|admin)/i)) {
+                return;
+            }
 
             if (!starboardChannel) {
                 console.log("Starboard channel not found");
@@ -79,18 +80,14 @@ export default class ORRUS extends DrBotEvent {
             if (count >= global.app.config.starboardNumber) {
                 //Check if message is already starred
                 let msgs = await (starboardChannel as TextChannel).messages.fetch();
-                const existing = msgs.find(msg => msg.embeds[0]?.footer?.text == `${reaction.message.id} • ${client.user.displayName}'${client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`);
+                const existing = msgs.find(msg => msg.embeds[0]?.footer?.text == `${reaction.message.id} • ${reaction.client.user.displayName}'${reaction.client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`);
                 if (existing) {
                         console.log("Message already starred");
-                        embed.setAuthor(null)
-                        if (count != existing.content.match(new RegExp(`/${global.app.config.starboardEmojiID} (\d+)/)[1])`))) {
-                            existing.edit({
-                                content: `${global.app.config.starboardEmojiID} ${count}`,
-                                embeds: [embed]
-                            });
-                        } else {
-                            return;
-                        }
+                        existing.edit({
+                            content: `${global.app.config.starboardEmojiID} ${count}`,
+                            embeds: [embed]
+                        });
+                        
                     }
                 else {
                 
@@ -103,7 +100,7 @@ export default class ORRUS extends DrBotEvent {
                 //Check if message is already starred
                 let msgs = await (starboardChannel as TextChannel).messages.fetch();
 
-                const existing = msgs.find(msg => msg.embeds[0]?.footer?.text == `${reaction.message.id} • ${client.user.displayName}'${client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`);
+                const existing = msgs.find(msg => msg.embeds[0]?.footer?.text == `${reaction.message.id} • ${reaction.client.user.displayName}'${reaction.client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`);
                 if (existing) {
                     existing.delete();
                 }
