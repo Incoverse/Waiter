@@ -31,31 +31,28 @@ export default class ORAUS extends DrBotEvent {
     protected _priority: number = 0;
     
 
-    public async runEvent(reaction, user, client: Client) {
+    public async runEvent(reaction, user) {
         if (!global.app.config.starboardEmojiID || !global.app.config.starboardEmojiSTR || !global.app.config.starboardNumber) {
             return;
         }
-        
+
+
         if (reaction.partial) {
             try {
                 await reaction.fetch();
-                await user.fetch();
+                await reaction.message.author.fetch();
+
+                
             } catch (error) {
                 console.error("Something went wrong when fetching the message: ", error);
                 return;
             }
         }
 
-    
-        if (reaction.message.channel.name.match(/(staff|mod|admin)/i)) {
-            return;
-        }
-
         let embed = new EmbedBuilder()
             .setAuthor({
                 name: reaction.message.author.displayName,
                 iconURL: reaction.message.author.displayAvatarURL()
-
             })
             .setDescription(reaction.message.content)
             .addFields({
@@ -63,14 +60,19 @@ export default class ORAUS extends DrBotEvent {
                 value: `[Jump to message](${reaction.message.url})`
             })
             .setFooter({
-                text: `${reaction.message.id} • ${client.user.displayName}'${client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`
+                text: `${reaction.message.id} • ${reaction.client.user.displayName}'${reaction.client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`
             })
-
+        
         if (reaction.emoji.name == global.app.config.starboardEmojiSTR) {
             let guild = reaction.message.guild as Guild;
             let starboardChannel = guild.channels.cache.find(channel => /star(-){0,1}board/gi.test(channel.name)); // Find a channel that has "starboard" in the name (varying formats)
+
             if (reaction.message.channel.id == starboardChannel.id) return;
             
+            if (reaction.message.channel.name.match(/(staff|mod|admin)/i)) {
+                return;
+            }
+
             if (!starboardChannel) {
                 console.log("Starboard channel not found");
                 return;
@@ -79,11 +81,10 @@ export default class ORAUS extends DrBotEvent {
             if (count >= global.app.config.starboardNumber) {
                 //Check if message is already starred
                 let msgs = await (starboardChannel as TextChannel).messages.fetch();
-                const existing = msgs.find(msg => msg.embeds[0]?.footer?.text == `${reaction.message.id} • DrBot's Starboard`);
+                const existing = msgs.find(msg => msg.embeds[0]?.footer?.text == `${reaction.message.id} • ${reaction.client.user.displayName}'${reaction.client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`);
                 if (existing) {
-                    embed.setAuthor(null)
                         console.log("Message already starred");
-                        if (count > existing.content.match(new RegExp(`/${global.app.config.starboardEmojiID} (\d+)/)[1])`))) {
+                        if (count > existing.content.match(new RegExp(`${global.app.config.starboardEmojiID} (\\d+)`))[1]) {
                             existing.edit({
                                 content: `${global.app.config.starboardEmojiID} ${count}`,
                                 embeds: [embed]

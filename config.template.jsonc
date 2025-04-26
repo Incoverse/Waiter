@@ -251,7 +251,7 @@
   //? This is the emoji that the bot will search for to add messages to starboard
   "starboardEmojiSTR": "❤️",
   //? For custom emojis, use the ID of the emoji. (e.g "<:emoji_name:123456789012345678>")
-  "StarboardEmojiID": "❤️",
+  "starboardEmojiID": "❤️",
 
   //? This specifies resources for the bot to use, such as links to wordle answers and guesses. (Make sure to use raw links if using GitHub!)
   //! You can access these resources using 'global.app.config.resources.xyz'
