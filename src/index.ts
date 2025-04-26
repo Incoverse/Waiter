@@ -543,7 +543,8 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
       ],
       partials: [
         Partials.Channel,
-        Partials.Message
+        Partials.Message,
+        Partials.Reaction
       ]
     });
 

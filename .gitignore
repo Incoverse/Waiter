@@ -119,3 +119,5 @@ pre-dist
 
 ## Do not include the config file
 config.jsonc
+
+.idea
