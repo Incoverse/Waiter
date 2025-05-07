@@ -29,9 +29,9 @@ export default class OnReadySetupDB extends DrBotEvent {
   protected _priority: number = Number.MAX_SAFE_INTEGER;
   protected _typeSettings: DrBotEventTypeSettings = {};
 
-  public async runEvent(client: Discord.Client): Promise<void> {
-    super.runEvent(client);
-        
+
+  public async setup(client: Discord.Client, reason: "reload" | "startup" | "duringRun" | null): Promise<boolean> {
     storage.method == "file" ? await setupFiles() : await setupMongo();
+    return super.setup(client, reason);
   }
 }

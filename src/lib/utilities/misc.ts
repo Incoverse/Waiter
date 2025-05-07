@@ -16,7 +16,7 @@
  */
 
 import { DrBotGlobal } from "@src/interfaces/global.js";
-import { ActionRowBuilder, ButtonBuilder, ButtonComponentData, ButtonStyle, CategoryChannel, ChannelType, Client, Collection, EmbedBuilder, Guild, GuildBan, GuildBanManager, GuildMember, PermissionFlagsBits, Routes, Snowflake, TextChannel } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonComponentData, ButtonStyle, CategoryChannel, ChannelType, Client, Collection, EmbedBuilder, Emoji, Guild, GuildBan, GuildBanManager, GuildMember, PermissionFlagsBits, Routes, Snowflake, TextChannel } from "discord.js";
 import { fileURLToPath } from "url";
 import { DrBotEvent } from "../base/DrBotEvent.js";
 import { DrBotCommand } from "../base/DrBotCommand.js";
@@ -890,4 +890,46 @@ export async function getActivePunishments(client: Client, user_id: string, guil
 
   return returnObj;
 
+}
+
+
+export function isSameEmoji(emoji1: Emoji | string, emoji2: Emoji| string): boolean {
+  if (typeof emoji1 === "string" && typeof emoji2 === "string") {
+      return emoji1 === emoji2;
+  } else if (emoji1 instanceof Emoji && emoji2 instanceof Emoji) {
+      return emoji1.id === emoji2.id;
+  } else {
+      if (typeof emoji1 === "string" && isCustomEmoji(emoji1)) {
+          const customEmoji = breakDownCustomEmoji(emoji1);
+          if (emoji2 instanceof Emoji) {
+              return customEmoji.id === emoji2.id;
+          }
+          if (typeof emoji2 === "string" && isCustomEmoji(emoji2)) {
+              const customEmoji2 = breakDownCustomEmoji(emoji2);
+              return customEmoji.id === customEmoji2.id;
+          }
+
+          return false;
+      }
+      if (typeof emoji2 === "string" && isCustomEmoji(emoji2)) {
+          return isSameEmoji(emoji2, emoji1);
+      }
+      return false;
+  }
+}
+
+export function isCustomEmoji(emoji: Emoji | string): boolean {
+  if (typeof emoji === "string") {
+      return (emoji.startsWith("<:") || emoji.startsWith("<a:")) && emoji.endsWith(">") && emoji.split(":").length === 3;
+  } else {
+      return false
+  }
+}
+
+export function breakDownCustomEmoji(emoji: string): { name: string, id: string } {
+  const parts = emoji.split(":");
+  return {
+      name: parts[1],
+      id: parts[2].slice(0, -1)
+  }
 }
