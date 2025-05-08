@@ -49,7 +49,7 @@ export abstract class DrBotCommand {
     private            _fileHash: string = ""; //! Used to detect changes during reloads
     
     constructor(client: Discord.Client, filename?: string) {
-        this._fullPath = new Error().stack.split("\n")[2].replace(/.*file:\/\//, "").replace(/:[0-9]+:[0-9]+.*/g, "").replace(/^\//, process.platform === "win32" ? "" : "/")
+        this._fullPath = decodeURIComponent(new Error().stack.split("\n")[2].replace(/.*file:\/\//, "").replace(/:[0-9]+:[0-9]+.*/g, "").replace(/^\//, process.platform === "win32" ? "" : "/"))
         if (filename) this._filename = filename;
         else {
             //! Find the class caller, get their filename, and set it as the filename

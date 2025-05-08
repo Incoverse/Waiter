@@ -277,7 +277,8 @@ export function stopTicketingSystem(client: Client) {
         text: "The ticketing system has been temporarily disabled. Please try again later."
       })
 
-      const button = new ButtonBuilder(botMSG.components[0].components[0].toJSON() as ButtonComponentData);
+      //TODO: Change the "any" to the proper type
+      const button = new ButtonBuilder((botMSG.components[0] as any).components[0].toJSON() as ButtonComponentData);
 
       button.setDisabled(true);
 
@@ -299,7 +300,8 @@ export function startTicketingSystem(client: Client) {
 
       embed.setFooter({text: ""})
 
-      const button = new ButtonBuilder(botMSG.components[0].components[0].toJSON() as ButtonComponentData);
+      //TODO: Change the "any" to the proper type
+      const button = new ButtonBuilder((botMSG.components[0] as any).components[0].toJSON() as ButtonComponentData);
 
       button.setDisabled(false);
 
@@ -894,42 +896,39 @@ export async function getActivePunishments(client: Client, user_id: string, guil
 
 
 export function isSameEmoji(emoji1: Emoji | string, emoji2: Emoji| string): boolean {
-  if (typeof emoji1 === "string" && typeof emoji2 === "string") {
-      return emoji1 === emoji2;
-  } else if (emoji1 instanceof Emoji && emoji2 instanceof Emoji) {
-      return emoji1.id === emoji2.id;
-  } else {
-      if (typeof emoji1 === "string" && isCustomEmoji(emoji1)) {
-          const customEmoji = breakDownCustomEmoji(emoji1);
-          if (emoji2 instanceof Emoji) {
-              return customEmoji.id === emoji2.id;
-          }
-          if (typeof emoji2 === "string" && isCustomEmoji(emoji2)) {
-              const customEmoji2 = breakDownCustomEmoji(emoji2);
-              return customEmoji.id === customEmoji2.id;
-          }
+  const brokenEmoji1 = breakDownEmoji(emoji1);
+  const brokenEmoji2 = breakDownEmoji(emoji2);
 
-          return false;
-      }
-      if (typeof emoji2 === "string" && isCustomEmoji(emoji2)) {
-          return isSameEmoji(emoji2, emoji1);
-      }
-      return false;
-  }
+  return brokenEmoji1.id == brokenEmoji2.id && brokenEmoji1.name == brokenEmoji2.name
 }
 
 export function isCustomEmoji(emoji: Emoji | string): boolean {
   if (typeof emoji === "string") {
       return (emoji.startsWith("<:") || emoji.startsWith("<a:")) && emoji.endsWith(">") && emoji.split(":").length === 3;
   } else {
-      return false
+      return false;
   }
 }
 
-export function breakDownCustomEmoji(emoji: string): { name: string, id: string } {
-  const parts = emoji.split(":");
-  return {
-      name: parts[1],
-      id: parts[2].slice(0, -1)
+export function breakDownEmoji(emoji: string | Emoji): { name: string, id: string } {
+  if (typeof emoji === "string") {
+    if (isCustomEmoji(emoji)) {
+      const parts = (emoji as string).split(":");
+      return {
+        name: parts[1].trim() || null,
+        id: parts[2].slice(0, -1).trim() || null
+      };
+    } else {
+      return {
+        name: emoji.trim() || null,
+        id: null
+      }
+    }
+  } else {
+    return {
+      name: emoji.name?.trim() || null,
+      id: emoji.id?.trim() || null
+    }
   }
+  
 }

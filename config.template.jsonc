@@ -232,7 +232,7 @@
       "customVariables": {
         "math": "(()=>{return 13+43+23+5+45+9})()" 
       }
-    },
+    }
     // ...
   ],
 
@@ -244,14 +244,19 @@
   //! Text in square brackets can't be edited without modifying src/commands/command-lib/mod/stream-message.cmdlib.ts
   "streamMessages": {
     "cancelled": "[updates-ping], the next stream is cancelled because [reason]. See you all next time!", // @Live Updates, the next stream is cancelled because I'm being sick. See you all next time!"
-    "streaming": "[notifs-ping], we are currently live and playing [game]! Come join us over on Twitch! https://twitch.tv/example", // @Live Notifications, we are currently live and playing Valheim! Come join us over on Twitch! https://twitch.tv/drvem
+    "streaming": "[notifs-ping], we are currently live and playing [game]! Come join us over on Twitch! https://twitch.tv/example" // @Live Notifications, we are currently live and playing Valheim! Come join us over on Twitch! https://twitch.tv/drvem
   },
-  //? These settings are for the Starboard functionality. Set any of these to null to disable the feature.
-  "starboardNumber": 3,
-  //? This is the emoji that the bot will search for to add messages to starboard
-  "starboardEmojiSTR": "❤️",
-  //? For custom emojis, use the ID of the emoji. (e.g "<:emoji_name:123456789012345678>")
-  "starboardEmojiID": "❤️",
+  "starboard": {
+    //? Whether or not the starboard is enabled
+    "enabled": false,
+    //? The amount of reactions needed to add a message to the starboard
+    "triggerAmount": 3,
+    //? The emoji that will be used to add messages to the starboard.
+    //? For custom emojis, use the ID of the emoji. (e.g "<:emoji_name:123456789012345678>")
+    "emoji": "⭐",
+    //? The channel where the starboard messages will be sent to (#ChannelName or &ChannelID). Use null to automatically find the channel
+    "channel": null
+  },
 
   //? This specifies resources for the bot to use, such as links to wordle answers and guesses. (Make sure to use raw links if using GitHub!)
   //! You can access these resources using 'global.app.config.resources.xyz'
@@ -358,6 +363,7 @@
     }
   },
 
-  
-  "configVersion": 1
+  //? This is the version of the config file.
+  //! DO NOT CHANGE THIS UNLESS YOU KNOW WHAT YOU'RE DOING.
+  "version": 1
 }

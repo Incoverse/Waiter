@@ -30,13 +30,41 @@ export default class ORAUS extends DrBotEvent {
     protected _typeSettings: DrBotEventTypeSettings = {
         listenerKey: Events.MessageReactionAdd,
     }
-
     protected _priority: number = 0;
+
+    private starboardChannel : TextChannel | null = null;
+
     
     public async setup(client: Client, reason: "reload" | "startup" | "duringRun" | null): Promise<boolean> {
         if (!global.app.config.starboard.enabled) {
             return null
         }
+
+        let guild = client.guilds.cache.get(global.app.config.mainServer) || await client.guilds.fetch(global.app.config.mainServer);
+        if (global.app.config.starboard.channel) {
+            if (global.app.config.starboard.channel.startsWith("#")) {
+                const name = global.app.config.starboard.channel.substring(1);
+                this.starboardChannel = guild.channels.cache.find(channel => channel.name == name) as TextChannel;
+            } else if (global.app.config.starboard.channel.startsWith("@")) {
+                const id = global.app.config.starboard.channel.substring(1);
+                this.starboardChannel = (guild.channels.cache.get(id) || await guild.channels.fetch(id)) as TextChannel;
+            } else {
+                global.app.config.starboard.channel = null;
+                global.logger.debugWarn("Starboard channel is not a valid channel ID or name", this.fileName);
+            }
+        }
+
+        if (global.app.config.starboard.channel == null) {
+            this.starboardChannel = guild.channels.cache.find(channel => /star(-){0,1}board/gi.test(channel.name)) as TextChannel; // Find a channel that has "starboard" in the name (varying formats)
+        }
+
+        if (!this.starboardChannel) {
+            global.logger.debugWarn("Starboard channel not found, cannot proceed.", this.fileName);
+            return false;
+        } else {
+            global.logger.debug(`Starboard channel found: ${this.starboardChannel.name}`, this.fileName);
+        }
+
         return super.setup(client, reason);
     }
 
@@ -45,62 +73,49 @@ export default class ORAUS extends DrBotEvent {
             try {
                 await reaction.fetch();
                 await reaction.message.author.fetch();
-
-                
             } catch (error) {
-                console.error("Something went wrong when fetching the message: ", error);
+                global.logger.error("Something went wrong when fetching the message: ", error);
                 return;
             }
         }
+
+        if (reaction.message.guildId != global.app.config.mainServer) return;
+
+        const channelIsNSFW = (reaction.message.channel as TextChannel).nsfw;
 
         let embed = new EmbedBuilder()
             .setAuthor({
                 name: reaction.message.author.displayName,
                 iconURL: reaction.message.author.displayAvatarURL()
             })
-            .setDescription(reaction.message.content)
-            .addFields({
-                name: "Source",
-                value: `[Jump to message](${reaction.message.url})`
-            })
-            .setFooter({
-                text: `${reaction.message.id} • ${reaction.client.user.displayName}'${reaction.client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`
-            })
+            .setDescription(`${channelIsNSFW?"||":""}${reaction.message.content}${channelIsNSFW?"||":""}\n\n[**[Jump to Source]**](${reaction.message.url})`)
+            .setTimestamp(reaction.message.createdAt)
+            .setColor("#E67E23")
         
         if (isSameEmoji(reaction.emoji, global.app.config.starboard.emoji)) {
-            let guild = reaction.message.guild as Guild;
-            let starboardChannel = guild.channels.cache.find(channel => /star(-){0,1}board/gi.test(channel.name)); // Find a channel that has "starboard" in the name (varying formats)
 
-            if (reaction.message.channel.id == starboardChannel.id) return;
+            if (reaction.message.channel.id == this.starboardChannel.id) return;
             
             if ((reaction.message.channel as TextChannel).name.match(/(staff|mod|admin)/i)) {
                 return;
             }
 
-            if (!starboardChannel) {
-                console.log("Starboard channel not found");
-                return;
-            }
             let count = reaction.count;
             if (count >= global.app.config.starboard.triggerAmount) {
                 //Check if message is already starred
-                let msgs = await (starboardChannel as TextChannel).messages.fetch();
-                const existing = msgs.find(msg => msg.embeds[0]?.footer?.text == `${reaction.message.id} • ${reaction.client.user.displayName}'${reaction.client.user.displayName.toLowerCase().endsWith("s") ? "" : "s"} Starboard`);
+                let msgs = await (this.starboardChannel as TextChannel).messages.fetch();    
+                const existing = msgs.find(msg => msg.embeds[0]?.description?.match(/(?!\/[0-9]{19,999}\/[0-9]{16,999}\/)[0-9]{16,999}(?=.$)/mg)[0] == reaction.message.id);
                 if (existing) {
-                        console.log("Message already starred");
-                        if (count > parseInt(existing.content.match(/f/i)[1])) {
-                            existing.edit({
-                                content: `${global.app.config.starboard.emoji} ${count}`,
-                                embeds: [embed]
-                            });
-                        } else {
-                            return;
-                        }
+                    if (count > parseInt(existing.content.match(/\s+.*?(\d+)/i)[1])) {
+                        existing.edit({
+                            content: existing.content.replace(existing.content.match(/\s+.*?(\d+)/i)[1], `${count}`),
+                        });
+                    } else {
+                        return;
                     }
-                else {
-                
-                    await (starboardChannel as TextChannel).send({
-                        content: `${global.app.config.starboard.emoji} ${reaction.count}`,
+                } else {
+                    await (this.starboardChannel as TextChannel).send({
+                        content: `${global.app.config.starboard.emoji} **${reaction.count}**\n-# **In <#${(reaction.message.channel as TextChannel).id}>**${channelIsNSFW ? " (**:warning: NSFW channel**)":""}`,
                         embeds: [embed]
                     });
                 }

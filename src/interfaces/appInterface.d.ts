@@ -23,12 +23,13 @@ import {
   ActivityType,
 } from "discord.js";
 import { ObjectId } from "mongodb";
-import { Permissions } from "./permissions";
+import { Permissions } from "./permissions.js";
 
 interface AppInterface {
   version: string;
   owners: Array<string>;
   config: {
+    version: any;
     externalOwners: Array<string>;
     lowPrivileged: boolean;
     mainServer: string;

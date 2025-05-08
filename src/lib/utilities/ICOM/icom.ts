@@ -76,7 +76,6 @@ export default class ICOMWS {
             if (ev.reason && this.debug) this.logger(`Connection closed by server:`, chalk.redBright(ev?.reason));
             return
         };
-        if (this.debug) this.logger(`Connection closed or unable to connect, attempting to reconnect in 30s... (code: ${ev?.code ?? "unknown"}, reason: ${ev?.reason ?? "unknown"})`);
         sleep(30000).then(() => {
             this.ws = new WebSocket(`${connectionURL}${this.UUID}`);
             this.ws.on("open", this.onWebsocketConnected.bind(this))
