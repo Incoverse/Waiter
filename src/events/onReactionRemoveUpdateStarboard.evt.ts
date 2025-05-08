@@ -77,7 +77,7 @@ export default class ORRUS extends DrBotEvent {
                 await reaction.message.author.fetch();
 
             } catch (error) {
-                global.logger.error("Something went wrong when fetching the message: ", error);
+                global.logger.error("Something went wrong when fetching the message: ", error, this.fileName);
                 return;
             }
         }

@@ -74,7 +74,7 @@ export default class ORAUS extends DrBotEvent {
                 await reaction.fetch();
                 await reaction.message.author.fetch();
             } catch (error) {
-                global.logger.error("Something went wrong when fetching the message: ", error);
+                global.logger.error("Something went wrong when fetching the message: ", error, this.fileName);
                 return;
             }
         }
