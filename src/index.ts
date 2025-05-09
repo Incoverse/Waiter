@@ -57,6 +57,7 @@ import { setupHandler, unloadHandler } from "./lib/utilities/misc.js";
 import os from "os";
 import md5 from "md5";
 import { DrBotSubcommand } from "./lib/base/DrBotSubcommand.js";
+import { updateConfig } from "./lib/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -298,9 +299,18 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
     );
     process.exit(1);
   }
-  const config = JsonCParser.parse(
+  let config = JsonCParser.parse(
     readFileSync("./config.jsonc", { encoding: "utf-8" })
   );
+
+  const configUpdateResult = await updateConfig("./config.jsonc");
+  if (configUpdateResult.fatal) process.exit(1)
+  if (configUpdateResult.updated) {
+    config = JsonCParser.parse(
+      readFileSync("./config.jsonc", { encoding: "utf-8" })
+    );
+  }
+
   global.logName = `DrBot-${new Date().getTime()}.log`;
   // if the logs folder doesn't exist, create it. if the log folder has more than 10 files, delete the oldest one. you can check which one is the oldest one by the numbers after DrBot- and before .log. the lower the number, the older it is
   if (!existsSync("./logs")) {
@@ -836,10 +846,10 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
             let files = readdirSync(folder, {recursive: true})
             for (let file of files) {
                 if (!(file as string).endsWith(".cmdlib.js") || file instanceof Buffer) continue
-                const subcommand = await import((process.platform == "win32" ? "file://" : "" ) + join(folder, file))
+                const subcommand = await import((process.platform == "win32" ? "file://" : "" ) + join(folder, String(file)))
                 if (!subcommand.default || !extendsDrBotSubcommand(subcommand.default)) continue
                 if (!subcommand.default.parentCommand) {
-                  global.logger.warn(`Subcommand with class name ${chalk.yellowBright(subcommand.default.name)} (${chalk.yellowBright(basename(file))}) does not have a parent command defined. Skipping...`,returnFileName());
+                  global.logger.warn(`Subcommand with class name ${chalk.yellowBright(subcommand.default.name)} (${chalk.yellowBright(basename(String(file)))}) does not have a parent command defined. Skipping...`,returnFileName());
                   global.logger.debugWarn(`You can define a parent command by adding a static property named 'parentCommand' to the class.`,returnFileName())
                   continue
                 }

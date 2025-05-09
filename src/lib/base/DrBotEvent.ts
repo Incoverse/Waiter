@@ -131,7 +131,20 @@ export abstract class DrBotEvent {
     public get eventSettings() {return this._eventSettings}
 
 
+    /**
+     * 
+     * @param client The client instance for discord.js
+     * @param reason The reason for the setup, either "reload", "startup" or "duringRun"
+     * @returns true if the setup was successful, false if it failed. Use null to silently fail (no logging, but won't load)
+     */
     public async setup(client: Discord.Client, reason: "reload"|"startup"|"duringRun"|null): Promise<boolean> {return true};
+    
+    /**
+     * 
+     * @param client The client instance for discord.js
+     * @param reason The reason for the setup, either "reload", "shuttingDown" or null
+     * @returns true if the unload was successful, false if it failed.
+     */
     public async unload(client: Discord.Client, reason: "reload"|"shuttingDown"|null): Promise<boolean> {return true}
 
 

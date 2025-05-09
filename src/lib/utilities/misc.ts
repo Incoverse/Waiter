@@ -16,7 +16,7 @@
  */
 
 import { DrBotGlobal } from "@src/interfaces/global.js";
-import { ActionRowBuilder, ButtonBuilder, ButtonComponentData, ButtonStyle, CategoryChannel, ChannelType, Client, Collection, EmbedBuilder, Guild, GuildBan, GuildBanManager, GuildMember, PermissionFlagsBits, Routes, Snowflake, TextChannel } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonComponentData, ButtonStyle, CategoryChannel, ChannelType, Client, Collection, EmbedBuilder, Emoji, Guild, GuildBan, GuildBanManager, GuildMember, PermissionFlagsBits, Routes, Snowflake, TextChannel } from "discord.js";
 import { fileURLToPath } from "url";
 import { DrBotEvent } from "../base/DrBotEvent.js";
 import { DrBotCommand } from "../base/DrBotCommand.js";
@@ -277,7 +277,8 @@ export function stopTicketingSystem(client: Client) {
         text: "The ticketing system has been temporarily disabled. Please try again later."
       })
 
-      const button = new ButtonBuilder(botMSG.components[0].components[0].toJSON() as ButtonComponentData);
+      //TODO: Change the "any" to the proper type
+      const button = new ButtonBuilder((botMSG.components[0] as any).components[0].toJSON() as ButtonComponentData);
 
       button.setDisabled(true);
 
@@ -299,7 +300,8 @@ export function startTicketingSystem(client: Client) {
 
       embed.setFooter({text: ""})
 
-      const button = new ButtonBuilder(botMSG.components[0].components[0].toJSON() as ButtonComponentData);
+      //TODO: Change the "any" to the proper type
+      const button = new ButtonBuilder((botMSG.components[0] as any).components[0].toJSON() as ButtonComponentData);
 
       button.setDisabled(false);
 
@@ -890,4 +892,43 @@ export async function getActivePunishments(client: Client, user_id: string, guil
 
   return returnObj;
 
+}
+
+
+export function isSameEmoji(emoji1: Emoji | string, emoji2: Emoji| string): boolean {
+  const brokenEmoji1 = breakDownEmoji(emoji1);
+  const brokenEmoji2 = breakDownEmoji(emoji2);
+
+  return brokenEmoji1.id == brokenEmoji2.id && brokenEmoji1.name == brokenEmoji2.name
+}
+
+export function isCustomEmoji(emoji: Emoji | string): boolean {
+  if (typeof emoji === "string") {
+      return (emoji.startsWith("<:") || emoji.startsWith("<a:")) && emoji.endsWith(">") && emoji.split(":").length === 3;
+  } else {
+      return false;
+  }
+}
+
+export function breakDownEmoji(emoji: string | Emoji): { name: string, id: string } {
+  if (typeof emoji === "string") {
+    if (isCustomEmoji(emoji)) {
+      const parts = (emoji as string).split(":");
+      return {
+        name: parts[1].trim() || null,
+        id: parts[2].slice(0, -1).trim() || null
+      };
+    } else {
+      return {
+        name: emoji.trim() || null,
+        id: null
+      }
+    }
+  } else {
+    return {
+      name: emoji.name?.trim() || null,
+      id: emoji.id?.trim() || null
+    }
+  }
+  
 }

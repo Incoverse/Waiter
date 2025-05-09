@@ -83,8 +83,8 @@ export default class OnMessageEval extends DrBotEvent {
           .replace(new RegExp("^(\.DrBot-EVAL(-DEV|-PROD|-"+global.identifier+")? )","m"), "")
           .replace(startRegex, "")
           .replace(endRegex, "");
-        let msg = await message.channel.send("DrBot ID: ``"+global.identifier+"``\nRunning....");
-        let cleaned;
+        let msg = await (message.channel as Discord.TextChannel).send("DrBot ID: ``"+global.identifier+"``\nRunning....");
+        let cleaned: string;
         try {
 
           //! This function can be used in EVAL
@@ -145,7 +145,7 @@ export default class OnMessageEval extends DrBotEvent {
 
           msg.edit(`DrBot ID: \`\`${global.identifier}\`\`\n\`\`\`${language}\n${parts.shift()}\n\`\`\``);
           for (let msg of parts) {
-            message.channel.send(`\`\`\`${language}\n${msg}\n\`\`\``);
+            (message.channel as Discord.TextChannel).send(`\`\`\`${language}\n${msg}\n\`\`\``);
           }
         } catch (err) {
             msg.edit(`DrBot ID: \`\`${global.identifier}\`\`\n***An error occurred during execution*** \`\`\`xl\n${err.stack ? err.stack : err}\n\`\`\``);
@@ -153,6 +153,4 @@ export default class OnMessageEval extends DrBotEvent {
       }
     }
   }
-
-  
 }

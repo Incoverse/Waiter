@@ -23,12 +23,13 @@ import {
   ActivityType,
 } from "discord.js";
 import { ObjectId } from "mongodb";
-import { Permissions } from "./permissions";
+import { Permissions } from "./permissions.js";
 
 interface AppInterface {
   version: string;
   owners: Array<string>;
   config: {
+    version: any;
     externalOwners: Array<string>;
     lowPrivileged: boolean;
     mainServer: string;
@@ -74,6 +75,17 @@ interface AppInterface {
       cancelled: string,
       streaming: string
     }
+    starboard: {
+      //? Whether or not the starboard is enabled
+      enabled: boolean,
+      //? The amount of reactions needed to add a message to the starboard
+      triggerAmount: number,
+      //? The emoji that will be used to add messages to the starboard.
+      //? For custom emojis, use the ID of the emoji. (e.g "<:emoji_name:123456789012345678>")
+      emoji: string,
+      //? The channel where the starboard messages will be sent to (#ChannelName or &ChannelID). Use null to automatically find the channel
+      channel: null | string,
+    },
     statuses: (string|{customVariables?: {[key:string]:string};condition?: string; text: string, url?: string, status?: "online" | "dnd" | "idle" | "invisible"
 })[],
     resources: {

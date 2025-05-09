@@ -28,7 +28,7 @@ import storage from "@src/lib/utilities/storage.js";
 
 export default class OnReadySetupTicketingSystem extends DrBotEvent {
   protected _type: DrBotEventTypes = "onStart";
-  protected _priority: number = 2;
+  protected _priority: number = 0;
   protected _typeSettings: DrBotEventTypeSettings = {};
 
   public collector = null
