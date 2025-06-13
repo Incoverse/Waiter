@@ -49,7 +49,7 @@ export function getFullCMD(interaction: CommandInteraction, noOptions: boolean =
 
     for (const permission of permissionSet) {
       const id = permission.selector.slice(1)
-      if (id == global.app.config.mainServer) return true
+      if (id == global.app.server) return true
       if (permission.selector.startsWith("#")) {
         if (user.guild.channels.cache.has(id)) return true
       } else if (permission.selector.startsWith("&")) {
@@ -80,7 +80,7 @@ export async function analyzePerms (interaction: CommandInteraction, permissions
             if (!permission.canUse) {
                 return false;
             }
-        } else if (id == (BigInt(global.app.config.mainServer) - 1n).toString()) {
+        } else if (id == (BigInt(global.app.server) - 1n).toString()) {
             defaultChannelPermission = permission.canUse;
         }
     }
@@ -94,7 +94,7 @@ export async function analyzePerms (interaction: CommandInteraction, permissions
         if (!permission.canUse) {
           return false;
         }
-      } else if (id == global.app.config.mainServer) {
+      } else if (id == global.app.server) {
         defaultUserPermission = permission.canUse;
       }
     }

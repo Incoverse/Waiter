@@ -26,8 +26,18 @@ import { ObjectId } from "mongodb";
 import { Permissions } from "./permissions.js";
 
 interface AppInterface {
+  /**
+   * * The version of DrBot.
+   */
   version: string;
+    /**
+   * * Owners of the bot (IDs)
+   */
   owners: Array<string>;
+  /**
+   * * The server ID of the server where DrBot is running.
+   */
+  server: string;
   config: {
     version: any;
     externalOwners: Array<string>;
@@ -35,7 +45,7 @@ interface AppInterface {
     mainServer: string;
     developmentServer: string;
     autoCompile: boolean;
-    showErrors: boolean;
+    showDetailedErrors: boolean;
     debugging: {
       debugMessages: boolean;
       internalCommunication: boolean;
@@ -71,10 +81,6 @@ interface AppInterface {
       }
     };
     nsStreamer: string;
-    streamMessages: {
-      cancelled: string,
-      streaming: string
-    }
     starboard: {
       //? Whether or not the starboard is enabled
       enabled: boolean,

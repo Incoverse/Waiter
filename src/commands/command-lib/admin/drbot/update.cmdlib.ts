@@ -15,7 +15,7 @@
   * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { ButtonBuilder, ButtonStyle, CommandInteraction, CommandInteractionOptionResolver } from "discord.js";
+import { ButtonBuilder, ButtonStyle, CommandInteraction, CommandInteractionOptionResolver, SlashCommandSubcommandBuilder } from "discord.js";
 import { DrBotGlobal } from "@src/interfaces/global.js";
 import { fileURLToPath } from "url";
 import { promisify } from "util";
@@ -24,6 +24,7 @@ import { existsSync, statSync } from "fs"
 import { join } from "path"
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import { Client, EmbedBuilder, ActionRowBuilder } from "discord.js";
+import AdminDrBotGroup from "./_group.cmdlib.js";
 const execPromise = promisify(exec);
 
 declare const global: DrBotGlobal;
@@ -55,19 +56,17 @@ function getRemoteURL(gitRemoteOutput: string): {
 
 export default class UpdateDrBot extends DrBotSubcommand {
 
-  static parentCommand = "Admin"
+    static parent = AdminDrBotGroup
 
-    public setup(parentCommand: any, client: Client<boolean>): Promise<boolean> {
-        (parentCommand.options as any)
-            .find((option: any) => option.name == "drbot")
-            .addSubcommand((subcommand) =>
+    public async setup(addCallback, client: Client<boolean>): Promise<boolean> {
+        await addCallback((subcommand: SlashCommandSubcommandBuilder) =>
                 subcommand
                   .setName("update")
                   .setDescription("Update DrBot from the GitHub repository.")
-            )
+        )
 
         this._loaded = true;
-        return Promise.resolve(true);
+        return super.setup(addCallback, client);
     }
     
     public async runSubCommand(interaction: CommandInteraction): Promise<any> {

@@ -34,27 +34,6 @@ export default class Mod extends DrBotCommand {
     .setName("mod")
     .setDescription("Mod Commands")  
 
-    public async autocomplete(interaction: Discord.AutocompleteInteraction) {
-      const optionName = interaction.options.getFocused(true).name
-      const focusedValue = interaction.options.getFocused();
-      
-      if (optionName == "rule") {
-        const choices = global.server.main.rules.map((rule) => {
-          return {
-            name: `${rule.index}. ${rule.title}`,
-            value: `${rule.title}`
-          }
-        })
-
-        choices.push({
-          name: "Manual",
-          value: "manual"
-        })
-        
-        await interaction.respond(choices.filter((choice) => choice.name.toLowerCase().includes(focusedValue.toLowerCase())).slice(0, 25));
-      }
-    }
-
 
     public async runCommand(interaction: Discord.CommandInteraction) {
       await Promise.all(Array.from(this._subcommands.values()).map((subcommand) => subcommand.runSubCommand(interaction)))

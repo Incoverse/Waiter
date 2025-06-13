@@ -25,20 +25,19 @@ import {exec} from "child_process";
 const execPromise = promisify(exec);
 import moment from "moment-timezone";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
+import AdminDrBotGroup from "./_group.cmdlib.js";
 
 
 export default class DrBotRestart extends DrBotSubcommand {
 
-  static parentCommand = "Admin"
+  static parent = AdminDrBotGroup
 
-  public async setup(parentCommand: SlashCommandBuilder, client: Discord.Client<boolean>): Promise<boolean> {
-      
-    (parentCommand.options as any).find((option: any) => option.name == "drbot")
-    .addSubcommand((subcommand) =>
-      subcommand
-        .setName("restart")
-        .setDescription("Force a restart of DrBot.")
-    )
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+      await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
+          subcommand
+            .setName("restart")
+            .setDescription("Force a restart of DrBot.")
+      ) 
 
     this._loaded = true;
     return true;

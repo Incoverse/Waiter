@@ -515,17 +515,9 @@ export default class Wordle extends DrBotCommand {
                 doReward(rewards)
               }
               
-              function doReward(reward: string | {type: string, format: string}) {
-                if (reward == "message") {
-                  let newMessage = message
-                    .replace("{user}", `<@${interaction.user.id}>`)
-                    .replace("{streak}", stats.streak.toString())
-                    .replace("{s}", stats.streak == 1 ? "" : "s")
-                    .replace("{S}", stats.streak == 1 ? "" : "S")
-
-                    interaction.channel.send({ content: newMessage })
-                } else if (reward instanceof Object && reward.type == "message") {
-                  let newMessage = reward.format
+              function doReward(reward: string | {type: string, format?: string}) {
+                if (reward instanceof Object && reward.type == "message") {
+                  let newMessage = (reward.format ?? message)
                     .replace("{user}", `<@${interaction.user.id}>`)
                     .replace("{streak}", stats.streak.toString())
                     .replace("{s}", stats.streak == 1 ? "" : "s")
@@ -825,7 +817,7 @@ export default class Wordle extends DrBotCommand {
           if (selector.match(/!?[0-9]{18}/)) return {type: "channel", id: selector.replace("#", "")};
           else {
             const server = await interaction.client.guilds.fetch(
-              global.app.config.mainServer
+              global.app.server
             );
             const channels = await server.channels.fetch();
             const channel = channels.find(
@@ -842,7 +834,7 @@ export default class Wordle extends DrBotCommand {
           if (selector.match(/!?[0-9]{18}/)) return {type: "role", id: selector.replace("&", "")};
           else {
             const server = await interaction.client.guilds.fetch(
-              global.app.config.mainServer
+              global.app.server
             );
             const roles = await server.roles.fetch();
             const role = roles.find(

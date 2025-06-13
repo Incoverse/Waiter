@@ -19,8 +19,6 @@ import * as Discord from "discord.js";
 import { DrBotGlobal } from "@src/interfaces/global.js";
 import { DrBotCommand, DrBotSlashCommand } from "@src/lib/base/DrBotCommand.js";
 import axios from "axios";
-import exp from "constants";
-import { CronJob } from "cron";
 
 declare const global: DrBotGlobal;
 export default class NextStream extends DrBotCommand {

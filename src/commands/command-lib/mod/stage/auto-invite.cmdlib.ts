@@ -20,6 +20,7 @@ import * as Discord from "discord.js";
 import { DrBotGlobal } from "@src/interfaces/global.js";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import storage from "@src/lib/utilities/storage.js";
+import ModStageGroup from "./_group.cmdlib.js";
 
 
 declare const global: DrBotGlobal;
@@ -27,11 +28,10 @@ declare const global: DrBotGlobal;
 let listener = null;
 
 export default class StageAutoInvite extends DrBotSubcommand {
-  static parentCommand: string = "Mod";
-
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder, client: Discord.Client): Promise<boolean> {
-    (parentSlashCommand.options as any).find((option: any) => option.name == "stage")
-    .addSubcommand((subcommand) =>
+  static parent = ModStageGroup;
+  
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
       subcommand
         .setName("auto-invite")
         .setDescription("Automatically invite all users that request to speak.")
@@ -41,7 +41,7 @@ export default class StageAutoInvite extends DrBotSubcommand {
             .setDescription("Whether to enable or disable auto-invite.")
         )
     )
-    return super.setup(parentSlashCommand, client);
+    return super.setup(addCallback, client);
   }
 
   public unload(parentCommand: any, client: Discord.Client): Promise<boolean> {

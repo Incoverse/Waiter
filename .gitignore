@@ -119,6 +119,7 @@ pre-dist
 
 ## Do not include the config file
 config.jsonc
+config.bkup.jsonc
 
 .idea
 launch.json

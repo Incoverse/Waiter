@@ -46,7 +46,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
     })
 
     global.appealSystem.onCheckMemberQuery = async ({user_id}) => {
-        const member = client.guilds.cache.get(global.app.config.mainServer).members.cache.get(user_id);
+        const member = client.guilds.cache.get(global.app.server).members.cache.get(user_id);
         const offensesByUser = await storage.findOne("offense", {user_id});
 
         return !!member || !!offensesByUser;
@@ -95,7 +95,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
       }
 
       if (offense.appeal?.miscellaneous?.discordChannelID) {
-        let offenseChannel = await client.guilds.cache.get(global.app.config.mainServer).channels.fetch(offense.appeal?.miscellaneous?.discordChannelID) as Discord.TextChannel;
+        let offenseChannel = await client.guilds.cache.get(global.app.server).channels.fetch(offense.appeal?.miscellaneous?.discordChannelID) as Discord.TextChannel;
 
         if (offenseChannel) {
 
@@ -141,7 +141,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
           
           
   
-          const guild = client.guilds.cache.get(global.app.config.mainServer) ?? await client.guilds.fetch(global.app.config.mainServer);
+          const guild = client.guilds.cache.get(global.app.server) ?? await client.guilds.fetch(global.app.server);
           storage.findOne("user", { id: offense.user_id }).then(async (user)=>{
             const email = user.email;
             if (email) {
@@ -243,7 +243,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
           user_id: closer_id,
         })
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer) ?? await client.guilds.fetch(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server) ?? await client.guilds.fetch(global.app.server);
         const offenseUser = client.users.cache.get(offense.user_id) ?? await client.users.fetch(offense.user_id)
         const closerUser = client.users.cache.get(closer_id) ?? await client.users.fetch(closer_id)
         let modLogChannel = guild.channels.cache.find((channel) => channel.name.includes("mod-log") || channel.name.includes("mod-logs") && channel.type == Discord.ChannelType.GuildText)
@@ -281,7 +281,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
 
 
         if (offense.appeal?.miscellaneous?.discordChannelID) {
-          const channel = await client.guilds.cache.get(global.app.config.mainServer).channels.fetch(offense.appeal?.miscellaneous?.discordChannelID) as Discord.TextChannel;
+          const channel = await client.guilds.cache.get(global.app.server).channels.fetch(offense.appeal?.miscellaneous?.discordChannelID) as Discord.TextChannel;
           channel.delete("Appeal approved.")
           delete offense.appeal.miscellaneous.discordChannelID
           delete offense.appeal.miscellaneous.webhookIDs
@@ -313,7 +313,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
         
         
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer) ?? await client.guilds.fetch(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server) ?? await client.guilds.fetch(global.app.server);
         storage.findOne("user", { id: offense.user_id }).then(async (user)=>{
           const email = user.email;
           if (email) {
@@ -400,7 +400,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
 
 
       //! Add appeal to Discord as a channel
-      const channels = await client.guilds.cache.get(global.app.config.mainServer).channels.fetch()
+      const channels = await client.guilds.cache.get(global.app.server).channels.fetch()
       const category = channels.find((channel) => channel.type === Discord.ChannelType.GuildCategory && channel.name.toLowerCase().includes("appeals")); 
       const appealingUser = client.users.cache.get(user_id) ?? await client.users.fetch(user_id)
       const punisherUser = client.users.cache.get(offense.action_taken_by) ?? await client.users.fetch(offense.action_taken_by)
@@ -414,7 +414,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
         if (userChannel) {
           channelName += "-"+(offenseChannels.filter((channel) => channel.name.startsWith(`${channelName}`)).length + 1);
         }
-        const newChannel = await client.guilds.cache.get(global.app.config.mainServer).channels.create({...{
+        const newChannel = await client.guilds.cache.get(global.app.server).channels.create({...{
           name: channelName,
           parent: category.id,
           type: Discord.ChannelType.GuildText,
@@ -465,7 +465,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
         })
       }
 
-      const guild = client.guilds.cache.get(global.app.config.mainServer);
+      const guild = client.guilds.cache.get(global.app.server);
 
       let modLogChannel = guild.channels.cache.find((channel) => channel.name.includes("mod-log") || channel.name.includes("mod-logs") && channel.type == Discord.ChannelType.GuildText)
       if (modLogChannel) {
@@ -549,7 +549,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
           user_id: closer_id,
         })
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer) ?? await client.guilds.fetch(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server) ?? await client.guilds.fetch(global.app.server);
         const offenseUser = client.users.cache.get(offense.user_id) ?? await client.users.fetch(offense.user_id)
         const closerUser = client.users.cache.get(closer_id) ?? await client.users.fetch(closer_id)
         let modLogChannel = guild.channels.cache.find((channel) => channel.name.includes("mod-log") || channel.name.includes("mod-logs") && channel.type == Discord.ChannelType.GuildText)
@@ -587,7 +587,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
 
 
         if (offense.appeal?.miscellaneous?.discordChannelID) {
-          const channel = await client.guilds.cache.get(global.app.config.mainServer).channels.fetch(offense.appeal?.miscellaneous?.discordChannelID) as Discord.TextChannel;
+          const channel = await client.guilds.cache.get(global.app.server).channels.fetch(offense.appeal?.miscellaneous?.discordChannelID) as Discord.TextChannel;
           channel.delete("Appeal closed.")
           delete offense.appeal.miscellaneous.discordChannelID
           delete offense.appeal.miscellaneous.webhookIDs
@@ -771,7 +771,7 @@ export default class OnReadySetupAppealSystem extends DrBotEvent {
 
 
       const retractorUser = client.users.cache.get(user_id) ?? await client.users.fetch(user_id)
-      const guild = client.guilds.cache.get(global.app.config.mainServer) ?? await client.guilds.fetch(global.app.config.mainServer);
+      const guild = client.guilds.cache.get(global.app.server) ?? await client.guilds.fetch(global.app.server);
       let modLogChannel = guild.channels.cache.find((channel) => channel.name.includes("mod-log") || channel.name.includes("mod-logs") && channel.type == Discord.ChannelType.GuildText)
       if (modLogChannel) {
         modLogChannel.fetch().then((channel: Discord.Channel) => {

@@ -36,7 +36,7 @@ export async function reloadCommands(client: Client, commands = Object.keys(glob
           await global.rest.put(
             Routes.applicationGuildCommands(
               client.user.id,
-              global.app.config.mainServer
+              global.app.server
             ),
             {
               body: commands
@@ -60,15 +60,15 @@ export async function removeCommand(client, commandName:string) {
   return new Promise<boolean>(async (resolve, reject) => {
       try {
           if (commandName == "*") {
-            await global.rest.put(Routes.applicationGuildCommands(client.user.id, global.app.config.mainServer), { body: [] })
+            await global.rest.put(Routes.applicationGuildCommands(client.user.id, global.app.server), { body: [] })
             resolve(true);
           } else {
-            const guild = await client.guilds.fetch(global.app.config.mainServer);
+            const guild = await client.guilds.fetch(global.app.server);
             if (!guild) return reject(false);
             const command = await guild.commands.fetch();
             const commandId = command.find(cmd=>cmd.name == commandName).id;
             if (!commandId) return reject(false);
-            await global.rest.delete(Routes.applicationGuildCommand(client.user.id, global.app.config.mainServer, commandId))
+            await global.rest.delete(Routes.applicationGuildCommand(client.user.id, global.app.server, commandId))
             resolve(true);
           }
       } catch (error) {
@@ -84,7 +84,7 @@ export async function addCommand(client: Client, command: any) {
           await global.rest.post(
             Routes.applicationGuildCommands(
               client.user.id,
-              global.app.config.mainServer
+              global.app.server
             ),
             {
               body: command
@@ -160,7 +160,7 @@ export function createTicketingSystem(client: Client) {
   return new Promise<{channel: TextChannel, category: CategoryChannel}>(async (resolve, reject) => {
     try {
       // find a channel named <name> to check if it already exists
-      const guild = await client.guilds.fetch(global.app.config.mainServer);
+      const guild = await client.guilds.fetch(global.app.server);
 
       let makeTicketChannel = null
       if (global.server.main.data.ticketingSystem?.makeATicketChannel) {
@@ -243,7 +243,7 @@ export function createTicketingSystem(client: Client) {
 export function disableTicketingSystem(client: Client) {
   return new Promise(async (resolve, reject) => {
     try {
-      const guild = await client.guilds.fetch(global.app.config.mainServer);
+      const guild = await client.guilds.fetch(global.app.server);
       let ticketChannel = guild.channels.cache.find((channel) => channel.id == global.server.main.data.ticketingSystem?.makeATicketChannel && channel.type == ChannelType.GuildText) as TextChannel;
       let ticketCategory = guild.channels.cache.find((channel) => channel.id == global.server.main.data.ticketingSystem?.ticketsCategory && channel.type == ChannelType.GuildCategory);
       if (ticketChannel) {
@@ -267,7 +267,7 @@ export function disableTicketingSystem(client: Client) {
 export function stopTicketingSystem(client: Client) {
   return new Promise(async (resolve, reject) => {
     try {
-      const guild = await client.guilds.fetch(global.app.config.mainServer);
+      const guild = await client.guilds.fetch(global.app.server);
       let ticketChannel = guild.channels.cache.find((channel) => channel.id == global.server.main.data.ticketingSystem?.makeATicketChannel && channel.type == ChannelType.GuildText) as TextChannel;
       const botMSG = (await ticketChannel.messages.fetch()).first();
 
@@ -292,7 +292,7 @@ export function stopTicketingSystem(client: Client) {
 export function startTicketingSystem(client: Client) {
   return new Promise(async (resolve, reject) => {
     try {
-      const guild = await client.guilds.fetch(global.app.config.mainServer);
+      const guild = await client.guilds.fetch(global.app.server);
       let ticketChannel = guild.channels.cache.find((channel) => channel.id == global.server.main.data.ticketingSystem?.makeATicketChannel && channel.type == ChannelType.GuildText) as TextChannel;
       const botMSG = (await ticketChannel.messages.fetch()).first();
 
@@ -546,7 +546,7 @@ export async function getUser(client: Client, user_id: string): Promise<{
 
 export async function isAppealAdmin(client: Client, user_id: string): Promise<boolean> {
 
-  const guild = await client.guilds.fetch(global.app.config.mainServer);
+  const guild = await client.guilds.fetch(global.app.server);
 
   const member = await guild.members.fetch(user_id).catch(() => null);
 
@@ -623,7 +623,7 @@ export async function punishmentControl(client: Client, offenses?: Offense[]) {
     userOffenses.get(offense.user_id).push(offense);
   }
 
-  const guild = await client.guilds.fetch(global.app.config.mainServer);
+  const guild = await client.guilds.fetch(global.app.server);
 
   const banManager = guild.bans
 
@@ -788,7 +788,7 @@ async function unmuteProcedure(user_id: string, offense_id: string, guild: any) 
 }
 
 export async function setupAppeals(client: Client): Promise<CategoryChannel> {
-  const guild = await client.guilds.fetch(global.app.config.mainServer);
+  const guild = await client.guilds.fetch(global.app.server);
   const channels = await guild.channels.fetch();
 
   let appealCategory = channels.find((channel) => channel.name == "appeals" && channel.type == ChannelType.GuildCategory)
@@ -931,4 +931,23 @@ export function breakDownEmoji(emoji: string | Emoji): { name: string, id: strin
     }
   }
   
+}
+
+export function breakObjectToString(obj: any): Array<string> {
+  const result: Array<string> = [];
+  const helper = (obj: any, prefix: string) => {
+    for (const key in obj) {
+      if (
+        typeof obj[key] === "object" &&
+        obj[key] !== null &&
+        !Array.isArray(obj[key])
+      ) {
+        helper(obj[key], prefix ? `${prefix}.${key}` : key);
+      } else {
+        result.push(prefix ? `${prefix}.${key}` : key);
+      }
+    }
+  };
+  helper(obj, "");
+  return result;
 }

@@ -28,7 +28,7 @@ export default class OnReadyCatchUpDB extends DrBotEvent {
   protected _typeSettings: DrBotEventTypeSettings = {};
 
   public async setup(client:Discord.Client) {
-    const roles = await client.guilds.fetch(global.app.config.mainServer).then(guild => guild.roles.fetch())
+    const roles = await client.guilds.fetch(global.app.server).then(guild => guild.roles.fetch())
     // check if there is a role that includes "new member" in it's name
     if (!roles.some((role) => role.name.toLowerCase().includes("new member"))) {
       global.logger.debugError(`A role with 'new member' in the name could not be found. Cannot continue.`, this.fileName)
@@ -40,7 +40,7 @@ export default class OnReadyCatchUpDB extends DrBotEvent {
   public async runEvent(client: Discord.Client): Promise<void> {
     super.runEvent(client);
 
-    const guild = await client.guilds.fetch(global.app.config.mainServer);
+    const guild = await client.guilds.fetch(global.app.server);
 
 
 
@@ -54,7 +54,7 @@ export default class OnReadyCatchUpDB extends DrBotEvent {
         });
         global.logger.debug(
           `Inserted a new serverdata document for the server '${chalk.yellow(
-            global.app.config.mainServer
+            global.app.server
           )}'.`,
           this.fileName
         );

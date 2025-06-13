@@ -190,7 +190,7 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
         global.logger.debug(`Express server for oauth2 is now running and listening on port ${chalk.whiteBright(port)}.`, this.fileName
         )
     });
-    const guild = await client.guilds.fetch(global.app.config.mainServer);
+    const guild = await client.guilds.fetch(global.app.server);
     const owner = await guild.fetchOwner();
 
     const manageGuild = Array.from((await guild.members.fetch()).values()).filter((member) => member.permissions.has("ManageGuild") || member.permissions.has("Administrator"));

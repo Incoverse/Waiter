@@ -58,9 +58,9 @@ export default class OnReadySetupICOMWS extends DrBotEvent {
 
     this.ICOMWS.onServerInfoQuery = async () => {
         return {
-            name: client.guilds.cache.get(global.app.config.mainServer).name,
-            id: global.app.config.mainServer,
-            iconURL: client.guilds.cache.get(global.app.config.mainServer).iconURL({extension: "png"}),
+            name: client.guilds.cache.get(global.app.server).name,
+            id: global.app.server,
+            iconURL: client.guilds.cache.get(global.app.server).iconURL({extension: "png"}),
         }
     }
 

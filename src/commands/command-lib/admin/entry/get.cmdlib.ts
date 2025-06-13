@@ -25,17 +25,16 @@ import {exec} from "child_process";
 import moment from "moment-timezone";
 import storage from "@src/lib/utilities/storage.js";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
+import AdminEntryGroup from "./_group.cmdlib.js";
 
 declare const global: DrBotGlobal;
 const __filename = fileURLToPath(import.meta.url);
 
 export default class GetEntry extends DrBotSubcommand {
-  static parentCommand: string = "Admin";
+  static parent = AdminEntryGroup;
 
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder): Promise<boolean> {
-
-    (parentSlashCommand.options as any).find((option: any) => option.name == "entry")
-    .addSubcommand(subcommand =>
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
       subcommand
         .setName("get")
         .setDescription("Get a user's entry from the database")
@@ -79,11 +78,27 @@ export default class GetEntry extends DrBotSubcommand {
         return;
       }
       delete result._id;
-      await interaction.reply({
-        content: "```json\n" + JSON.stringify(result, null, 2) + "```",
-        ephemeral: true,
-        allowedMentions: { parse: [] },
-      }); 
+
+      const messageContent = "```json\n" + JSON.stringify(result, null, 2) + "```"
+
+      if (messageContent.length > 2000) {
+        const fileName = `entry-${user.id}.json`;
+        const fileContent = JSON.stringify(result, null, 2);
+        const buffer = Buffer.from(fileContent, "utf-8");
+
+        await interaction.reply({
+          content: `${user.username}'s entry:`,
+          files: [{ name: fileName, attachment: buffer }],
+          ephemeral: true,
+          allowedMentions: { parse: [] },
+        });
+      } else {
+        await interaction.reply({
+          content: messageContent,
+          ephemeral: true,
+          allowedMentions: { parse: [] },
+        });
+      }
     }
 }
 

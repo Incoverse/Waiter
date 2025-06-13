@@ -68,7 +68,7 @@ export default class OnReadySetupTicketingSystem extends DrBotEvent {
   public async runEvent(client: Discord.Client): Promise<void> {
     super.runEvent(client);
 
-        const guild = await client.guilds.fetch(global.app.config.mainServer);
+        const guild = await client.guilds.fetch(global.app.server);
 
         if (!global.server.main?.data?.ticketingSystem?.enabled) return global.logger.debugWarn("Ticketing system is not enabled. Cannot continue.", this.fileName)
 

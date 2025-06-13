@@ -23,6 +23,7 @@ import { readFileSync, existsSync, readdirSync } from "fs";
 import { DrBotSubcommand } from "./DrBotSubcommand.js";
 import { DrBotGlobal } from "@src/interfaces/global.js";
 import CacheManager from "../utilities/cacheManager.js";
+import { DrBotSubcommandGroup } from "./DrBotSubcommandGroup.js";
 
 declare const global: DrBotGlobal;
 
@@ -33,7 +34,7 @@ export abstract class DrBotCommand {
     
     
     private            _subcommandHashes: Map<DrBotSubcommand, string> = new Map(); 
-    protected          _subcommands: Map<string, DrBotSubcommand> = new Map();
+    public             _subcommands: Map<string, DrBotSubcommand> = new Map();
     private            _filename: string = "";
     private            _fullPath: string = "";
     public             _loaded: boolean = false;
@@ -47,8 +48,12 @@ export abstract class DrBotCommand {
     protected abstract _slashCommand: DrBotSlashCommand;
     private            _hash: string = ""; //! Used to detect changes during reloads 
     private            _fileHash: string = ""; //! Used to detect changes during reloads
-    
+    private            client: Discord.Client;
+
+    private            children: Map<string, DrBotSubcommand | DrBotSubcommandGroup> = new Map();
+
     constructor(client: Discord.Client, filename?: string) {
+        this.client = client;
         this._fullPath = decodeURIComponent(new Error().stack.split("\n")[2].replace(/.*file:\/\//, "").replace(/:[0-9]+:[0-9]+.*/g, "").replace(/^\//, process.platform === "win32" ? "" : "/"))
         if (filename) this._filename = filename;
         else {
@@ -62,22 +67,50 @@ export abstract class DrBotCommand {
 
     public readonly setupSubCommands = async (client: Discord.Client) => {
         let hashes = []
-        for (let subcommandKey of Array.from(global.subcommands.keys()).toSorted((a,b)=>{
-            if (a.split("@")[0].toLowerCase().includes("initiator")) return -1
-            if (b.split("@")[0].toLowerCase().includes("initiator")) return 1
-            return a.localeCompare(b)
-        })) {
+
+        let groups = Array.from(global.subcommands.entries())
+            .filter(([key]) => key.startsWith("G-"))
+            .map(([, value]) => value)
+            .filter((value) => value.parent === this.constructor)
+            .map((value) => {
+                let group: DrBotSubcommandGroup = new value();
+                
+                
+                const setupResult = group.prep()
+                if (!setupResult) {
+                    global.logger.debugWarn(`Subcommand group ${group.constructor.name} is not setup correctly. Skipping...`, this.constructor.name);
+                    return null;
+                }
+
+                return group;
+            }).filter((value) => value !== null);
             
-            if (!subcommandKey.endsWith("@" + this.constructor.name)) continue;
+        for (let subcommand of Array.from(global.subcommands.keys()).filter((key) => key.startsWith("S-"))) {
+            let subcommandClass = global.subcommands.get(subcommand);
 
-            let subcommand = global.subcommands.get(subcommandKey)
-            subcommand = new subcommand()
+            let parent = subcommandClass?.parent;
 
-            if (await subcommand.setup(this._slashCommand, client)) {
-                this._subcommands.set(subcommandKey, subcommand)
+            if (!parent) {
+                global.logger.debugWarn(`Subcommand ${subcommand} has no parent`, "DrBotCommand");
+                continue
             }
-            hashes.push(subcommand.hash)
-            
+
+            if (this.extendsDrBotSubcommandGroup(parent)) {
+                let group = groups.find((group) => group.constructor === parent);
+
+                if (group) {
+                    global.logger.debug("Setting up subcommand: " + subcommand.split("@")[0].replace(/^S-/,"") + " in group: " + group.name, this._filename)
+                    group.addChild(new subcommandClass());
+                }
+            } else if (this.extendsDrBotCommand(parent)) {
+                if (parent !== this.constructor) continue
+                global.logger.debug("Setting up subcommand: " + subcommand.split("@")[0].replace(/^S-/,"") + " in command: " + this._slashCommand.name, this._filename)
+                this.addChild(new subcommandClass());
+            }
+        }
+
+        for (let group of groups) {
+            this.addGroup(group);
         }
 
         if (this._subcommands.size > 0) {
@@ -148,6 +181,72 @@ export abstract class DrBotCommand {
             this.constructor.name +
             " - " + this._filename
         )
+    }
+
+    public getSubCommands() {
+        return this._subcommands
+    }
+
+    public async addChild(subcommand: DrBotSubcommand): Promise<boolean> {
+        if (this._slashCommand == null) {
+            throw new Error("Slash command is not initialized");
+        }
+
+        const setupResult = await subcommand.setup((async (scf: any) => {
+            const sc = await scf(new Discord.SlashCommandSubcommandBuilder());
+            (this._slashCommand as Discord.SlashCommandBuilder).addSubcommand(sc);
+            subcommand._cmdName = sc.name;
+            return sc;
+        }), this.client);
+
+        if (!setupResult) {
+            global.logger.debugWarn(`Subcommand ${subcommand.constructor.name} is not setup correctly. Skipping...`, subcommand.constructor.name);
+            return setupResult;
+        }
+
+        this.children.set(subcommand._cmdName, subcommand);
+
+        return true;
+
+    }
+
+    private extendsDrBotCommand(command: any): command is typeof DrBotCommand {
+      return command && command.prototype instanceof DrBotCommand;
+    };
+
+    private extendsDrBotSubcommandGroup(subcommandGroup: any): subcommandGroup is typeof DrBotSubcommandGroup {
+      return subcommandGroup && subcommandGroup.prototype instanceof DrBotSubcommandGroup;
+    };
+
+    public getWithName(name: string): DrBotSubcommand | null {
+        const split = name.split(" ")
+
+        if (this.children.has(split[0])) {
+            const child = this.children.get(split[0]);
+            if (child instanceof DrBotSubcommand) {
+                return child;
+            } else if (child instanceof DrBotSubcommandGroup) {
+                const subcommand = child.getWithName(split[1]);
+                if (subcommand) {
+                    return subcommand;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public addGroup(group: DrBotSubcommandGroup): void {
+        if (this._slashCommand == null) {
+            throw new Error("Slash command is not initialized");
+        }
+
+        if (this.children.has(group.name)) {
+            throw new Error("Subcommand group is already attached to a command");
+        }
+
+        (this._slashCommand as Discord.SlashCommandBuilder).addSubcommandGroup(group.getGroup());
+        this.children.set(group.name, group);
     }
 
 }

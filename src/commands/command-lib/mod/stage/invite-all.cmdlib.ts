@@ -20,16 +20,16 @@ import * as Discord from "discord.js";
 import { DrBotGlobal } from "@src/interfaces/global.js";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import storage from "@src/lib/utilities/storage.js";
+import ModStageGroup from "./_group.cmdlib.js";
 
 
 declare const global: DrBotGlobal;
 
 export default class StageInviteAll extends DrBotSubcommand {
-  static parentCommand: string = "Mod";
-
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder): Promise<boolean> {
-    (parentSlashCommand.options as any).find((option: any) => option.name == "stage")
-    .addSubcommand((subcommand) =>
+  static parent = ModStageGroup;
+  
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
       subcommand
         .setName("invite-all")
         .setDescription("Invite all users or all mods to speak in the current stage channel.")

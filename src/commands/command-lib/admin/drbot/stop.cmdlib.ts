@@ -22,6 +22,7 @@ import chalk from "chalk";
 import { promisify } from "util";
 import { exec } from "child_process";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
+import AdminDrBotGroup from "./_group.cmdlib.js";
 const execPromise = promisify(exec);
 
 declare const global: DrBotGlobal;
@@ -29,16 +30,14 @@ const __filename = fileURLToPath(import.meta.url);
 
 export default class StopDrBot extends DrBotSubcommand {
 
-  static parentCommand = "Admin"
+  static parent = AdminDrBotGroup
 
-  public async setup(parentCommand: any, client: Discord.Client<boolean>) {
-    (parentCommand.options as any)
-      .find((option: any) => option.name == "drbot")
-      .addSubcommand((subcommand: Discord.SlashCommandBuilder) =>
-        subcommand
-          .setName("stop")
-          .setDescription("Forcefully stop DrBot.")
-      );
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+        await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
+          subcommand
+            .setName("stop")
+            .setDescription("Forcefully stop DrBot.")
+        );
 
     this._loaded = true;
     return true;

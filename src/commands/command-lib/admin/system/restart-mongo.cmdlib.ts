@@ -25,6 +25,7 @@ import { promisify } from "util";
 import {exec} from "child_process";
 import moment from "moment-timezone";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
+import AdminSystemGroup from "./_group.cmdlib.js";
 const execPromise = promisify(exec);
 
 
@@ -32,9 +33,9 @@ declare const global: DrBotGlobal;
 const __filename = fileURLToPath(import.meta.url);
 
 export default class RestartMongoDB extends DrBotSubcommand {
-  static parentCommand: string = "Admin";
+  static parent = AdminSystemGroup;
 
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder): Promise<boolean> {
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
     if (storage.method == "file") {
       global.logger.debug(
         "MongoDB restart command disabled as this instance of DrBot is using the file storage method.",
@@ -105,8 +106,7 @@ export default class RestartMongoDB extends DrBotSubcommand {
 
 
 
-    (parentSlashCommand.options as any).find((option: any) => option.name == "system")
-    .addSubcommand((subcommand) =>
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
       subcommand
         .setName("restart-database")
         .setDescription("Restart DrBot's database")

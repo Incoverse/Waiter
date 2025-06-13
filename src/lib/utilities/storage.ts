@@ -65,23 +65,23 @@ function parseDataType(input): { collection: string, filePathRelative: string } 
     switch (input) {
         case "user":
             return {
-                collection: "USERDATA_" + global.app.config.mainServer,
-                filePathRelative: `${global.app.config.development ? "development" : "production"}/userdata/${global.app.config.mainServer}.json`
+                collection: "USERDATA_" + global.app.server,
+                filePathRelative: `${global.app.config.development ? "development" : "production"}/userdata/${global.app.server}.json`
             }
         case "server":
             return {
-                collection: "SERVERDATA_" + global.app.config.mainServer,
-                filePathRelative: `${global.app.config.development ? "development" : "production"}/serverdata/${global.app.config.mainServer}.json`
+                collection: "SERVERDATA_" + global.app.server,
+                filePathRelative: `${global.app.config.development ? "development" : "production"}/serverdata/${global.app.server}.json`
             }
         case "offense":
             return {
-                collection: "OFFENSEDATA_" + global.app.config.mainServer,
-                filePathRelative: `${global.app.config.development ? "development" : "production"}/offensedata/${global.app.config.mainServer}.json`
+                collection: "OFFENSEDATA_" + global.app.server,
+                filePathRelative: `${global.app.config.development ? "development" : "production"}/offensedata/${global.app.server}.json`
             }
         case "ticket":
             return {
-                collection: "TICKETDATA_" + global.app.config.mainServer,
-                filePathRelative: `${global.app.config.development ? "development" : "production"}/ticketdata/${global.app.config.mainServer}.json`
+                collection: "TICKETDATA_" + global.app.server,
+                filePathRelative: `${global.app.config.development ? "development" : "production"}/ticketdata/${global.app.server}.json`
             }
         default:
             global.logger.debugError("Invalid data type: " + input, returnFileName(import.meta.url))
@@ -91,10 +91,10 @@ function parseDataType(input): { collection: string, filePathRelative: string } 
 
 export async function setupFiles() {
     const shouldExist = [
-        `${global.app.config.development ? "development" : "production"}/userdata/${global.app.config.mainServer}.json`,
-        `${global.app.config.development ? "development" : "production"}/serverdata/${global.app.config.mainServer}.json`,
-        `${global.app.config.development ? "development" : "production"}/offensedata/${global.app.config.mainServer}.json`,
-        `${global.app.config.development ? "development" : "production"}/ticketdata/${global.app.config.mainServer}.json`
+        `${global.app.config.development ? "development" : "production"}/userdata/${global.app.server}.json`,
+        `${global.app.config.development ? "development" : "production"}/serverdata/${global.app.server}.json`,
+        `${global.app.config.development ? "development" : "production"}/offensedata/${global.app.server}.json`,
+        `${global.app.config.development ? "development" : "production"}/ticketdata/${global.app.server}.json`
     ]
     for (const file of shouldExist) {
         let filePath = path.join(process.cwd(), global.app.config.backupStoragePath, file)
@@ -105,10 +105,10 @@ export async function setupFiles() {
             global.logger.debug("Created file: " + chalk.yellowBright(file), returnFileName(import.meta.url))
         }
     }
-    dataLocations.userdata =    `userdata/${global.app.config.mainServer}.json`,
-    dataLocations.serverdata =  `serverdata/${global.app.config.mainServer}.json`,
-    dataLocations.offensedata = `offensedata/${global.app.config.mainServer}.json`
-    dataLocations.ticketdata = `ticketdata/${global.app.config.mainServer}.json`
+    dataLocations.userdata =    `userdata/${global.app.server}.json`,
+    dataLocations.serverdata =  `serverdata/${global.app.server}.json`,
+    dataLocations.offensedata = `offensedata/${global.app.server}.json`
+    dataLocations.ticketdata = `ticketdata/${global.app.server}.json`
 }
 
 
@@ -301,8 +301,8 @@ export async function setupMongo() {
     if (method == "file") return false
 
     const requiredCollectionsMap = new Map([
-        [`USERDATA_${global.app.config.mainServer}`, null],
-        [`SERVERDATA_${global.app.config.mainServer}`, {
+        [`USERDATA_${global.app.server}`, null],
+        [`SERVERDATA_${global.app.server}`, {
                 "rules": [],
                 "games": [],
                 "data": {
@@ -314,8 +314,8 @@ export async function setupMongo() {
                   }
               }   
         }],
-        [`OFFENSEDATA_${global.app.config.mainServer}`, null],
-        [`TICKETDATA_${global.app.config.mainServer}`, null]
+        [`OFFENSEDATA_${global.app.server}`, null],
+        [`TICKETDATA_${global.app.server}`, null]
     ]);
 
     try {
@@ -335,10 +335,10 @@ export async function setupMongo() {
         return false
     }
 
-    dataLocations.userdata =    `USERDATA_${global.app.config.mainServer}`
-    dataLocations.serverdata =  `SERVERDATA_${global.app.config.mainServer}`
-    dataLocations.offensedata = `OFFENSEDATA_${global.app.config.mainServer}`
-    dataLocations.ticketdata =  `TICKETDATA_${global.app.config.mainServer}`
+    dataLocations.userdata =    `USERDATA_${global.app.server}`
+    dataLocations.serverdata =  `SERVERDATA_${global.app.server}`
+    dataLocations.offensedata = `OFFENSEDATA_${global.app.server}`
+    dataLocations.ticketdata =  `TICKETDATA_${global.app.server}`
     
 }
 

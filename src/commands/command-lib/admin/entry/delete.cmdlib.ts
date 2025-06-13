@@ -25,17 +25,16 @@ import {exec} from "child_process";
 import moment from "moment-timezone";
 import storage from "@src/lib/utilities/storage.js";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
+import AdminEntryGroup from "./_group.cmdlib.js";
 
 declare const global: DrBotGlobal;
 const __filename = fileURLToPath(import.meta.url);
 
 export default class DelEntry extends DrBotSubcommand {
-  static parentCommand: string = "Admin";
+  static parent = AdminEntryGroup;
 
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder): Promise<boolean> {
-
-    (parentSlashCommand.options as any).find((option: any) => option.name == "entry")
-    .addSubcommand(subcommand =>
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
         subcommand
             .setName("delete")
             .setDescription("Delete a user's entry from the database")

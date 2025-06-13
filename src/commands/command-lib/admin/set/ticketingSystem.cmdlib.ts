@@ -24,6 +24,7 @@ import { exec } from "child_process";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import { createTicketingSystem, disableTicketingSystem, startTicketingSystem, stopTicketingSystem } from "@src/lib/utilities/misc.js";
 import storage from "@src/lib/utilities/storage.js";
+import AdminSetGroup from "./_group.cmdlib.js";
 const execPromise = promisify(exec);
 
 declare const global: DrBotGlobal;
@@ -31,9 +32,9 @@ const __filename = fileURLToPath(import.meta.url);
 
 export default class ticketingConfig extends DrBotSubcommand {
 
-  static parentCommand = "Admin"
+    static parent = AdminSetGroup;
 
-  public async setup(parentCommand: any, client: Discord.Client<boolean>) {
+    public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
 
     if (!global.moduleInfo.events.includes("OnReadySetupTicketingSystem")) {
       global.logger.error(
@@ -44,9 +45,7 @@ export default class ticketingConfig extends DrBotSubcommand {
     }
 
 
-    (parentCommand.options as any)
-      .find((option: any) => option.name == "set")
-      .addSubcommand((subcommand: Discord.SlashCommandBuilder) =>
+      await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
         subcommand
           .setName("ticketing-system")
           .setDescription("Configurations for the ticketing system.")

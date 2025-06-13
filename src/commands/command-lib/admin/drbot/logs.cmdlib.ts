@@ -21,20 +21,19 @@ import { DrBotGlobal } from "@src/interfaces/global.js";
 import { fileURLToPath } from "url";
 import {readdirSync, statSync} from "fs";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
+import AdminDrBotGroup from "./_group.cmdlib.js";
 
 declare const global: DrBotGlobal;
 
 
 export default class DrBotLogs extends DrBotSubcommand {
 
-    static parentCommand = "Admin"
+    static parent = AdminDrBotGroup
 
-    public async setup(parentCommand: SlashCommandBuilder, client: Discord.Client) {
-        (parentCommand.options as any).find((option: any) => option.name == "drbot")
-            .addSubcommand((subcommand) =>
-                subcommand
-                .setName("logs").setDescription("Get DrBot's logs.")
-            )
+    public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+        await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
+            subcommand.setName("logs").setDescription("Get DrBot's logs.")
+        )
 
         this._loaded = true;
         return true;

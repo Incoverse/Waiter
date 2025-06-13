@@ -17,15 +17,15 @@
 
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import storage from "@src/lib/utilities/storage.js";
-import { Client, CommandInteraction, CommandInteractionOptionResolver, EmbedBuilder, SlashCommandBuilder } from "discord.js";
+import { AutocompleteInteraction, Client, CommandInteraction, CommandInteractionOptionResolver, EmbedBuilder, SlashCommandBuilder, SlashCommandSubcommandBuilder } from "discord.js";
+import AdminRulesGroup from "./_group.cmdlib.js";
 
 export default class RulesEdit extends DrBotSubcommand {
 
-    static parentCommand = "Admin";
+    static parent = AdminRulesGroup;
 
-    public async setup(parentCommand: SlashCommandBuilder, client: Client) {
-      (parentCommand.options as any).find((option: any) => option.name == "rules")
-      .addSubcommand((subcommand) =>
+      public async setup(addCallback, client: Client<boolean>): Promise<boolean> {
+        await addCallback((subcommand: SlashCommandSubcommandBuilder) =>
         subcommand
           .setName("edit")
           .setDescription("Edit a rule")
@@ -66,6 +66,22 @@ export default class RulesEdit extends DrBotSubcommand {
 
       this._loaded = true;
       return true;
+  }
+
+  public async autocomplete(interaction: AutocompleteInteraction) {
+    const optionName = interaction.options.getFocused(true).name
+    const focusedValue = interaction.options.getFocused();
+    
+    if (optionName == "rule") {
+        const choices = global.server.main.rules.map((rule) => {
+            return {
+                name: `${rule.index}. ${rule.title}`,
+                value: `${rule.title}`
+            }
+        }) 
+           
+        await interaction.respond(choices.filter((choice) => choice.name.toLowerCase().includes(focusedValue.toLowerCase())).slice(0, 25));
+    }
   }
 
   public async runSubCommand(interaction: CommandInteraction) {

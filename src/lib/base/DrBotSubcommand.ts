@@ -24,10 +24,12 @@ import CacheManager from "../utilities/cacheManager.js";
 
 export abstract class DrBotSubcommand {
 
+    public _cmdName: string = "";
+
     static defaultSetupTimeoutMS = 30000;
     static defaultUnloadTimeoutMS = 30000;
     
-    // static parentCommand: string; //! The parent command's class name (e.g "Admin" for admin.cmd.ts). This is required for subcommands
+    // static parent: DrBotCommand | DrBotSubcommandGroup; //! The parent's class. This is required for subcommands
 
     
     private            _filename: string = "";
@@ -56,18 +58,18 @@ export abstract class DrBotSubcommand {
 
     public abstract runSubCommand(interaction: Discord.CommandInteraction): Promise<any> 
     public async autocomplete(interaction: Discord.AutocompleteInteraction): Promise<any> {
-        return 
+        return new Promise<void>(async (res) => res(await interaction.respond([])))
     }
 
 
     public get subCommandSettings() {return this._commandSettings}
 
 
-    public async setup(parentCommand, client: Discord.Client): Promise<boolean> {
+    public async setup(addCallback: (sc: Discord.SlashCommandSubcommandBuilder) => Promise<Discord.SlashCommandSubcommandBuilder>, client: Discord.Client): Promise<boolean> {
         this._loaded = true;    
         return true;
     };
-    public async unload(parentCommand, client: Discord.Client): Promise<boolean> {
+    public async unload(parent, client: Discord.Client): Promise<boolean> {
         this._loaded = false;
         return true;
     }

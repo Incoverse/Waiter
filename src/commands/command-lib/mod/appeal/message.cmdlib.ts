@@ -21,6 +21,7 @@ import { DrBotGlobal } from "@src/interfaces/global.js";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import { getOffense, getUser, hideSensitiveData, sendEmail } from "@src/lib/utilities/misc.js";
 import storage from "@src/lib/utilities/storage.js";
+import ModAppealGroup from "./_group.cmdlib.js";
 
 
 declare const global: DrBotGlobal;
@@ -31,13 +32,11 @@ const appealUpdatedEmail = "<h1>Appeal Updated</h1><br/>Hello {name},<br/><br/>Y
 
 
 export default class AppealMessage extends DrBotSubcommand {
-  static parentCommand: string = "Mod";
-
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder): Promise<boolean> {
+  static parent = ModAppealGroup;
+  
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
     if (!global.app.config.appealSystem.website) return false;
-
-    (parentSlashCommand.options as any).find((option: any) => option.name == "appeal")
-    .addSubcommand((subcommand) =>
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
       subcommand
         .setName("send-message")
         .setDescription("Send a message to the user in the appeal channel.")

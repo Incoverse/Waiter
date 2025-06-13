@@ -26,6 +26,7 @@ import {exec} from "child_process";
 import moment from "moment-timezone";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import { generateOffenseID, getOffense, getOffenses, punishmentControl } from "@src/lib/utilities/misc.js";
+import Mod from "@src/commands/mod.cmd.js";
 const execPromise = promisify(exec);
 
 
@@ -42,12 +43,32 @@ const punishmentTypeMap = {
 
 
 export default class ModPunish extends DrBotSubcommand {
-  static parentCommand: string = "Mod";
+  static parent = Mod;
+  
+    public async autocomplete(interaction: Discord.AutocompleteInteraction) {
+      const optionName = interaction.options.getFocused(true).name
+      const focusedValue = interaction.options.getFocused();
+      
+      if (optionName == "rule") {
+        const choices = global.server.main.rules.map((rule) => {
+          return {
+            name: `${rule.index}. ${rule.title}`,
+            value: `${rule.title}`
+          }
+        })
 
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder, client: Discord.Client): Promise<boolean> {
+        choices.push({
+          name: "Manual",
+          value: "manual"
+        })
+        
+        await interaction.respond(choices.filter((choice) => choice.name.toLowerCase().includes(focusedValue.toLowerCase())).slice(0, 25));
+      }
+    }
 
-    parentSlashCommand
-    .addSubcommand((subcommand) =>
+
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
       subcommand
         .setName("punish")
         .setDescription("Show the rules stored in DrBot's database.")
@@ -375,7 +396,7 @@ export default class ModPunish extends DrBotSubcommand {
                       name: user.displayName,
                       iconURL: user.displayAvatarURL()
                   })
-                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been warned.${!manual ?`\n\nThis is your **${getOrdinalNum(offense.offense_count)}** violation of this rule. Any further violations may result in a more severe punishment.`:""}${appealSystemActive ? "\n\nIf you believe this warning was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.config.mainServer}/offenses?appeal=${offense.id}).`:""}`)
+                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been warned.${!manual ?`\n\nThis is your **${getOrdinalNum(offense.offense_count)}** violation of this rule. Any further violations may result in a more severe punishment.`:""}${appealSystemActive ? "\n\nIf you believe this warning was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.server}/offenses?appeal=${offense.id}).`:""}`)
                   .addFields({name:"Type", value:"Warning"},{name:"Offense ID", value: offense.id})
                   .setColor(Discord.Colors.Yellow)
                   .setFooter({
@@ -394,7 +415,7 @@ export default class ModPunish extends DrBotSubcommand {
                       name: user.displayName,
                       iconURL: user.displayAvatarURL()
                   })
-                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been ${offense.original_duration ? "temporarily ":""}timed out for the duration of **${offense.original_duration ?? "Indefinite"}**. ${offense.original_duration?"Your timeout ends "+discordTimestamp+".\n\nAfter this time has passed, you may continue interacting with the server.":""}${!manual ?`\n\nThis is your **${getOrdinalNum(offense.offense_count)}** violation of this rule. Any further violations may result in a more severe punishment.`:""}${appealSystemActive ? "\n\nIf you believe this timeout was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.config.mainServer}/offenses?appeal=${offense.id}).`:""}`)
+                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been ${offense.original_duration ? "temporarily ":""}timed out for the duration of **${offense.original_duration ?? "Indefinite"}**. ${offense.original_duration?"Your timeout ends "+discordTimestamp+".\n\nAfter this time has passed, you may continue interacting with the server.":""}${!manual ?`\n\nThis is your **${getOrdinalNum(offense.offense_count)}** violation of this rule. Any further violations may result in a more severe punishment.`:""}${appealSystemActive ? "\n\nIf you believe this timeout was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.server}/offenses?appeal=${offense.id}).`:""}`)
                   .addFields(
                     {name:"Type", value:"Timeout", inline: true},
                     {name:"Duration", value: offense.ends_at ? formatDuration(parseDuration(offense.original_duration), true) : "∞", inline: true},
@@ -416,7 +437,7 @@ export default class ModPunish extends DrBotSubcommand {
                       name: user.displayName,
                       iconURL: user.displayAvatarURL()
                   })
-                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been kicked from the server.${!manual ?`\n\nThis is your **${getOrdinalNum(offense.offense_count)}** violation of this rule. Any further violations may result in a more severe punishment.`:""}${appealSystemActive ? "\n\nIf you believe this kick was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.config.mainServer}/offenses?appeal=${offense.id}).`:""}`)
+                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been kicked from the server.${!manual ?`\n\nThis is your **${getOrdinalNum(offense.offense_count)}** violation of this rule. Any further violations may result in a more severe punishment.`:""}${appealSystemActive ? "\n\nIf you believe this kick was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.server}/offenses?appeal=${offense.id}).`:""}`)
                   .addFields({name:"Type", value:"Kick"}, {name:"Offense ID", value: offense.id})
                   .setColor(Discord.Colors.Orange)
                   .setFooter({
@@ -435,7 +456,7 @@ export default class ModPunish extends DrBotSubcommand {
                       name: user.displayName,
                       iconURL: user.displayAvatarURL()
                   })
-                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been temporarily banned from the server for the duration of **${offense.original_duration}**. Your ban ends ${discordTimestamp}.${!manual ?`\n\nThis is your **${getOrdinalNum(offense.offense_count)}** violation of this rule. Any further violations may result in a more severe punishment.`:""}${appealSystemActive ? "\n\nIf you believe this ban was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.config.mainServer}/offenses?appeal=${offense.id}).`:""}`)
+                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been temporarily banned from the server for the duration of **${offense.original_duration}**. Your ban ends ${discordTimestamp}.${!manual ?`\n\nThis is your **${getOrdinalNum(offense.offense_count)}** violation of this rule. Any further violations may result in a more severe punishment.`:""}${appealSystemActive ? "\n\nIf you believe this ban was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.server}/offenses?appeal=${offense.id}).`:""}`)
                   .addFields(
                     {name:"Type", value:"Temporary Ban", inline: true},
                     {name:"Duration", value: formatDuration(parseDuration(offense.original_duration), true), inline: true},
@@ -457,7 +478,7 @@ export default class ModPunish extends DrBotSubcommand {
                       name: user.displayName,
                       iconURL: user.displayAvatarURL()
                   })
-                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been permanently banned from the server.${appealSystemActive ? "\n\nIf you believe this ban was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.config.mainServer}/offenses?appeal=${offense.id}).`:""}`)
+                  .setDescription(`Hello ${user.displayName},\n\nWe have determined that your recent actions in the server have violated rule\n**${offense.rule_index}: ${offense.violation}**\n\nAs a result of your aforementioned behavior, you have been permanently banned from the server.${appealSystemActive ? "\n\nIf you believe this ban was issued in error, you may appeal it [here]("+global.app.config.appealSystem.website+`/servers/${global.app.server}/offenses?appeal=${offense.id}).`:""}`)
                   .addFields({name:"Type", value:"Permanent Ban"}, {name:"Offense ID", value: offense.id})
                   .setColor(Discord.Colors.Red)
                   .setFooter({
