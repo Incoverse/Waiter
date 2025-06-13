@@ -35,7 +35,7 @@ export default class OnReadyFetchServerRules extends DrBotEvent {
       const serverdataDocument = await storage.findOne("server", {})
       if (!serverdataDocument) {
         global.logger.debugError(
-          `ServerData document for '${global.app.config.mainServer}' could not be found. Cannot continue.`,
+          `ServerData document for '${global.app.server}' could not be found. Cannot continue.`,
           this.fileName
         );
         return;

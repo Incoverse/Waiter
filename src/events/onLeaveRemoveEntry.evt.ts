@@ -34,7 +34,7 @@ export default class OnLeaveRemoveEntry extends DrBotEvent {
     super.runEvent(member);
 
     if (member.user.bot) return;
-    if (member.guild.id !== global.app.config.mainServer) return;
+    if (member.guild.id !== global.app.server) return;
     if (global.newMembers.includes(member.user.id)) global.newMembers.splice(global.newMembers.indexOf(member.user.id),1)
     try {
       await storage.deleteOne("user", { id: member.id });

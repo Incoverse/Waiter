@@ -76,8 +76,6 @@ export default class ICOMAppealSystem {
                 global.logger.debugError(`Error parsing message:`, e, returnFileName(import.meta.url));
             }
 
-            console.log(data);
-
             if (data.type === "query") {
                 if (data.query === "offenses") {
                     const parametersAreValid = this.validateParameters(data.data ?? {}, [{name:"user_id", type:"string"}]);

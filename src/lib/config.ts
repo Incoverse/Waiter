@@ -24,16 +24,15 @@ import JsonCParser from "jsonc-parser";
 
 declare const global: DrBotGlobal;
 
-export const maxVersion = 1
+export const maxVersion = 2
 
 export async function updateConfig(path: string): Promise<{
     updated: boolean;
     fatal?: boolean;
 }> {
 
-    let config;
+    let config: Partial<AppInterface["config"]>;
     try {
-
         config = JsonCParser.parse(readFileSync(path, { encoding: "utf-8" }))
     } catch (error) {
         global.logger.error(`Failed to read config file: ${error}`, "CONFIG");
@@ -56,7 +55,7 @@ export async function updateConfig(path: string): Promise<{
     
     // Backup the config to config.bkup.jsonc
     try {
-        const backupPath = join(global.dirName, "config.bkup.jsonc");
+        const backupPath = join(global.dirName, "..", "config.bkup.jsonc");
         writeFileSync(backupPath, JSON.stringify(newConfig, null, 2));
         global.logger.debug(`Backup of config created at ${backupPath}`, "CONFIG");
     } catch (error) {
@@ -70,13 +69,15 @@ export async function updateConfig(path: string): Promise<{
             break;
         }
         newConfig = await updateMethod(newConfig);
-        global.logger.debug(`Updated config from version ${newConfig.version} to ${newConfig.version + 1}`, "CONFIG");
+        global.logger.debug(`CFG: ${newConfig.version} -> ${newConfig.version + 1}`, "CONFIG");
         newConfig.version++;
     }
 
     global.logger.log(`Updated config from version ${oldVersion} to ${newConfig.version}`, "CONFIG");
 
-    config.version = maxVersion;
+    newConfig.version = maxVersion;
+    const configPath = join(global.dirName, "..", "config.jsonc");
+    writeFileSync(configPath, JSON.stringify(newConfig, null, 2));
     return { updated: true };
 }
 
@@ -90,6 +91,25 @@ const updateMethods: {
         //* Do changes to config here
         // Example: config.new.key = config.old.key; delete config.old.key;
 
+        config = renameObjKey({oldObj: config, oldKey: "showErrors", newKey: "showDetailedErrors"})
+        
+
         return config
     }
 }
+
+
+const renameObjKey = ({oldObj, oldKey, newKey}) => {
+  const keys = Object.keys(oldObj);
+  const newObj = keys.reduce((acc, val)=>{
+    if(val === oldKey){
+        acc[newKey] = oldObj[oldKey];
+    }
+    else {
+        acc[val] = oldObj[val];
+    }
+    return acc;
+  }, {});
+
+  return newObj;
+};

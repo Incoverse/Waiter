@@ -26,6 +26,8 @@ declare const global: DrBotGlobal;
 import { DrBotEventTypes, DrBotEvent, DrBotEventTypeSettings } from "@src/lib/base/DrBotEvent.js";
 import prettyMilliseconds from "pretty-ms";
 import axios from "axios";
+import { CronJob } from "cron";
+import dayjs from "dayjs";
 
 export default class ChangeDiscordStatus extends DrBotEvent {
   protected _type: DrBotEventTypes = "runEvery"
@@ -49,11 +51,77 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     return super.setup(client, reason)
   }
 
+  private docizarization = false
+  private bdTimer: CronJob | null = null;
+  
+
 
   public async runEvent(client: Discord.Client) {
     super.runEvent(client);
+    if (this.docizarization) return
     this._running = true;
     // -----------
+
+
+    const docBirthday = global.birthdays.find((b) => b.id == "338846772992409600") || {
+        id: "338846772992409600",
+        birthday: "1991-06-20",
+        timezone: "Europe/Stockholm",
+        passed: false,
+    }
+
+    if (docBirthday) {
+        const birthday = moment.tz(docBirthday.birthday, docBirthday.timezone || "Europe/Berlin")
+        const date = moment.tz(docBirthday.birthday, docBirthday.timezone || "Europe/Berlin").year(moment.tz(docBirthday.timezone).year());
+        let now = moment.tz(docBirthday.timezone || "Europe/Berlin");
+
+
+        // if or less than 7 days
+        if (date.diff(now, "milliseconds") < 7 * 24 * 60 * 60 * 1000) {
+            this.docizarization = true;
+
+
+            this.bdTimer = new CronJob("* * * * *", async () => {
+
+                now = moment.tz(docBirthday.timezone || "Europe/Berlin");
+
+                let age = parseInt(dayjs(now.toDate()).diff(dayjs(birthday.toDate()), "year", true).toString().split(".")[0]) + 1
+                const timeLeft = date.diff(now, "milliseconds");
+                
+                if (timeLeft <= 0) {
+                    global.logger.debug("Docizarization is over, stopping timer.", this.fileName);
+                    this.bdTimer.stop();
+                    this.bdTimer = null;
+                    this.docizarization = false;
+                    return this.runEvent(client); // Restart the event to reset the status
+                }
+
+                const remainderToOneMin = timeLeft % (1000 * 60)
+                
+                let time = prettyMilliseconds(timeLeft + (1000 * 60 - remainderToOneMin), { secondsDecimalDigits: 0, }).replace(/[0-9]*s$/, "").trim()
+              
+
+                client.user.setPresence({
+                    status: Discord.PresenceUpdateStatus.Online,
+                    activities: [{
+                        type: Discord.ActivityType.Custom,
+                        name: `🎉 DrVem turns ${age} in ${time}`,
+                        
+                    }]
+                });
+                
+            })
+
+
+            this.bdTimer.start();
+            this.bdTimer.fireOnTick();
+
+            return
+        }
+    }
+
+
+
 
     const statuses = global.app.config.statuses;
 
@@ -211,7 +279,7 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     let message = status;
 
     if (message.match(/{members}/)) {
-        const members = client.guilds.cache.get(global.app.config.mainServer).memberCount;
+        const members = client.guilds.cache.get(global.app.server).memberCount;
         message = message.replace(/{members}/g, members.toString());
         message = message.replace(/{members\[(.*?):(.*?)\]}/g, members == 1 ? "$1" : "$2");
     }
@@ -314,7 +382,7 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     if (message.match(/{member:status:([^{}\[\]:]+)}/)) {
         const memberResolvable = message.match(/{member:status:([^{}\[\]:]+)}/)[1];
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server);
 
         
         let member;
@@ -336,7 +404,7 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     if (message.match(/{member:activity:([^{}\[\]:]+)}/)) {
         const memberResolvable = message.match(/{member:activity:([^{}\[\]:]+)}/)[1];
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server);
 
         
         let member: Discord.GuildMember;
@@ -392,7 +460,7 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     if (message.match(/{member:activity-name:([^{}\[\]:]+)}/)) {
         const memberResolvable = message.match(/{member:activity-name:([^{}\[\]:]+)}/)[1];
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server);
 
         
         let member: Discord.GuildMember;
@@ -429,7 +497,7 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     if (message.match(/{member:activity-type:([^{}\[\]:]+)}/)) {
         const memberResolvable = message.match(/{member:activity-type:([^{}\[\]:]+)}/)[1];
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server);
 
         
         let member: Discord.GuildMember;
@@ -484,7 +552,7 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     if (message.match(/{member:activity-state:([^{}\[\]:]+)}/)) {
         const memberResolvable = message.match(/{member:activity-state:([^{}\[\]:]+)}/)[1];
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server);
 
         
         let member: Discord.GuildMember;
@@ -521,7 +589,7 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     if (message.match(/{member:activity-details:([^{}\[\]:]+)}/)) {
         const memberResolvable = message.match(/{member:activity-details:([^{}\[\]:]+)}/)[1];
 
-        const guild = client.guilds.cache.get(global.app.config.mainServer);
+        const guild = client.guilds.cache.get(global.app.server);
 
         
         let member: Discord.GuildMember;

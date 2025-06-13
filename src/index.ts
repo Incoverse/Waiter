@@ -34,6 +34,8 @@ import {
   ActivityType,
   Colors,
   basename,
+  AutocompleteInteraction,
+  CommandInteraction,
 } from "discord.js";
 import { AppInterface } from "@src/interfaces/appInterface.js";
 import { DrBotGlobal, LoggedEventEmitter } from "@src/interfaces/global.js";
@@ -58,6 +60,7 @@ import os from "os";
 import md5 from "md5";
 import { DrBotSubcommand } from "./lib/base/DrBotSubcommand.js";
 import { updateConfig } from "./lib/config.js";
+import { DrBotSubcommandGroup } from "./lib/base/DrBotSubcommandGroup.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -76,6 +79,22 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
 (async () => {
   const fullRunStart = process.hrtime.bigint();
   console.clear();
+
+  global.logName = `DrBot-${new Date().getTime()}.log`;
+  // if the logs folder doesn't exist, create it. if the log folder has more than 10 files, delete the oldest one. you can check which one is the oldest one by the numbers after DrBot- and before .log. the lower the number, the older it is
+  if (!existsSync("./logs")) {
+    mkdirSync("./logs");
+  } else {
+    const logFiles = readdirSync("./logs");
+    if (logFiles.length > 9) {
+      const oldestLog = logFiles.sort((a, b) => {
+        return parseInt(a.split("-")[1].split(".")[0]) - parseInt(b.split("-")[1].split(".")[0]);
+      })[0];
+      unlinkSync(`./logs/${oldestLog}`);
+    }
+  }
+  const logStream = createWriteStream(`./logs/${global.logName}`);
+
   global.logger = {
     log: async (...args: any[]) => {
 
@@ -188,10 +207,10 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
         return new Promise((resolve) => {
             if (config.debugging.debugMessages) {
                 console.log(
-                    chalk.white.bold(
+                    chalk.gray.bold(
                     "[" +
                     moment().format("M/D/y HH:mm:ss") +
-                    "] [" +
+                    "]") + chalk.white.bold(" [" +
                     sender +
                     "]"), ...message
                 );
@@ -226,7 +245,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
             if (config.debugging.debugMessages) {
                 message = (message && message.length == 1 && message[0].stack) ? message[0].stack : message
                 console.error(
-                    chalk.white.bold(
+                    chalk.gray.bold(
                     "[" +
                     moment().format("M/D/y HH:mm:ss") +
                     "] ")+chalk.redBright("[" +
@@ -261,7 +280,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
         return new Promise((resolve) => {
             if (config.debugging.debugMessages) {
                 console.log(
-                    chalk.white.bold(
+                    chalk.gray.bold(
                     "[" +
                     moment().format("M/D/y HH:mm:ss") +
                     "] ")+chalk.yellow("[" +
@@ -299,6 +318,9 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
     );
     process.exit(1);
   }
+
+  global.dirName = __dirname;
+
   let config = JsonCParser.parse(
     readFileSync("./config.jsonc", { encoding: "utf-8" })
   );
@@ -311,24 +333,11 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
     );
   }
 
-  global.logName = `DrBot-${new Date().getTime()}.log`;
-  // if the logs folder doesn't exist, create it. if the log folder has more than 10 files, delete the oldest one. you can check which one is the oldest one by the numbers after DrBot- and before .log. the lower the number, the older it is
-  if (!existsSync("./logs")) {
-    mkdirSync("./logs");
-  } else {
-    const logFiles = readdirSync("./logs");
-    if (logFiles.length > 9) {
-      const oldestLog = logFiles.sort((a, b) => {
-        return parseInt(a.split("-")[1].split(".")[0]) - parseInt(b.split("-")[1].split(".")[0]);
-      })[0];
-      unlinkSync(`./logs/${oldestLog}`);
-    }
-  }
-  const logStream = createWriteStream(`./logs/${global.logName}`);
 
   const app: AppInterface = {
     version: JSON.parse(readFileSync("./package.json", { encoding: "utf-8" }))
       .version,
+    server: null,
     config: config,
     owners: [], //? this will be filled in later
   };
@@ -504,7 +513,6 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
   global.app.config.development = process.env.DEVELOPMENT == "YES";
 
 
-  global.dirName = __dirname;
   global.mongoConnectionString =
     `mongodb://${process.env.DBUSERNAME}:${process.env.DBPASSWD}@${global.app.config.mongoDBServer}/?authMechanism=DEFAULT&tls=true&family=4`;
   //! Becomes something like: mongodb://username:password@server.com/?authMechanism=DEFAULT&tls=true&family=4
@@ -518,9 +526,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
 
   global.resources = {};
 
-  if (global.app.config.development) {
-    global.app.config.mainServer = global.app.config.developmentServer;
-  }
+  global.app.server = global.app.config.development ? global.app.config.developmentServer : global.app.config.mainServer;
   try {
     if (process.env.TOKEN == null) {
       global.logger.log(
@@ -562,25 +568,40 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
 
     global.logger.log(`${chalk.white("[I]")} ${chalk.yellow("Logging in...")} ${chalk.white("[I]")}`, returnFileName());
 
-    client.on(Events.InteractionCreate, async (interaction: any) => {
+    client.on(Events.InteractionCreate, async (interaction: AutocompleteInteraction) => {
       if (global.status.noInteract) return
       if (!fullyReady) return
       if (interaction.isAutocomplete()) {
         if (global.status.updating) return await interaction.respond([
-          "DrBot is currently updating, please wait a moment and try again."
+          {
+            name: "DrBot is currently updating, please wait a moment and try again.",
+            value: "--"
+          }
         ])
 
-        const responsibleHandler = global.requiredModules[Object.keys(global.requiredModules).filter((a) => a.startsWith("cmd"))
+        const responsibleHandler: DrBotCommand = global.requiredModules[Object.keys(global.requiredModules).filter((a) => a.startsWith("cmd"))
         .find((a) => global.requiredModules[a].slashCommand.name == interaction.commandName)]
 
         if (!responsibleHandler) return
 
-        if (responsibleHandler.autocomplete) {
+        const group = (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup() || ""
+        const subcommand = (interaction.options as CommandInteractionOptionResolver).getSubcommand() || ""
+
+        const searchString = (`${group} ${subcommand}`).trim()
+
+        const subCommandHandler = (responsibleHandler as DrBotCommand).getWithName(searchString)
+
+
+
+        const handleAutocomplete = (subCommandHandler && subCommandHandler instanceof DrBotSubcommand) ? subCommandHandler.autocomplete : (responsibleHandler as DrBotCommand).autocomplete
+                
+        if (handleAutocomplete) {
+
           try {
-            await responsibleHandler.autocomplete(interaction, global.requiredModules);
+            await handleAutocomplete(interaction);
           } catch (e) {
             global.logger.debugError(
-              `An error occurred while running the autocomplete for command '${interaction.commandName}'!`,
+              `An error occurred while running the autocomplete for command '${`${interaction.commandName} ${group} ${subcommand}`.trim()}'!`,
               returnFileName()
             );
             global.logger.debugError(e, returnFileName());
@@ -634,7 +655,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
           ],
           ephemeral: true,
         })
-      if (interaction.guildId !== global.app.config.mainServer) return;
+      if (interaction.guildId !== global.app.server) return;
     }
 
       try {
@@ -689,7 +710,20 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
 
           if (await checkPermissions(interaction, fullCmd)) {
               try {
-                responsibleHandler.runCommand(interaction).then(async (res)=>{
+
+                const group = (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup() || ""
+                const subcommand = (interaction.options as CommandInteractionOptionResolver).getSubcommand() || ""
+
+                const searchString = (`${group} ${subcommand}`).trim()
+
+                const subCommandHandler = (responsibleHandler as DrBotCommand).getWithName(searchString)
+
+
+
+                const handleCommand = (subCommandHandler && subCommandHandler instanceof DrBotSubcommand) ? subCommandHandler.runSubCommand : (responsibleHandler as DrBotCommand).runCommand
+                
+
+               handleCommand(interaction).then(async (res)=>{
                   if (res == false) return
                   if (!interaction.replied && !interaction.deferred) {
                     global.logger.debugWarn(
@@ -712,7 +746,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
                   await interaction.followUp({
                     content:
                       "⚠️ There was an error while executing this command!" +
-                      (global.app.config.showErrors == true
+                      (global.app.config.showDetailedErrors == true
                         ? "\n\n``" +
                           (global.app.owners.includes(interaction.user.id)
                             ? e.stack.toString()
@@ -725,7 +759,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
                   await interaction.reply({
                     content:
                       "⚠️ There was an error while executing this command!" +
-                      (global.app.config.showErrors == true
+                      (global.app.config.showDetailedErrors == true
                         ? "\n\n``" +
                           (global.app.owners.includes(interaction.user.id)
                             ? e.stack.toString()
@@ -769,8 +803,8 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
       global.logger.log("------------------------", returnFileName());
 
 
-      // Check if bot has every permission it needs in global.app.config.mainServer
-      const guild = await client.guilds.fetch(global.app.config.mainServer);
+      // Check if bot has every permission it needs in global.app.server
+      const guild = await client.guilds.fetch(global.app.server);
       const me = await guild.members.fetch(client.user.id);
       const perms = me.permissions;
       let hasAllPerms = true
@@ -813,9 +847,9 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
       global.communicationChannel.on("ipc-query", async (data: any) => {
         if (data.type == "server:info") {
           global.communicationChannel.emit("ipc-query-"+data.nonce, {
-              name: client.guilds.cache.get(global.app.config.mainServer).name,
-              id: global.app.config.mainServer,
-              icon: client.guilds.cache.get(global.app.config.mainServer).iconURL(),
+              name: client.guilds.cache.get(global.app.server).name,
+              id: global.app.server,
+              icon: client.guilds.cache.get(global.app.server).iconURL(),
           })
         }
       })
@@ -833,35 +867,79 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
       if (storage.method == "file" && !global.app.config.skipMongoFailWait) await sleep(3000);
 
 
-      function extendsDrBotSubcommand(subcommand: any): subcommand is typeof DrBotSubcommand {
-        return subcommand && subcommand.prototype instanceof DrBotSubcommand;
+      function extendsDrBotCommand(command: any): command is typeof DrBotCommand {
+        return command && command.prototype instanceof DrBotCommand;
       };
 
-      performance.start("subcommandSaving")
+      function extendsDrBotSubcommand(subcommandGroup: any): subcommandGroup is typeof DrBotSubcommand {
+        return subcommandGroup && subcommandGroup.prototype instanceof DrBotSubcommand;
+      };
+
+      function extendsDrBotSubcommandGroup(subcommandGroup: any): subcommandGroup is typeof DrBotSubcommandGroup {
+        return subcommandGroup && subcommandGroup.prototype instanceof DrBotSubcommandGroup;
+      };
+
+      performance.start("subcommandGroupSaving")
       if (!global.subcommands) {
         global.subcommands = new Map()
-    
-        let folder = resolve("dist/commands/command-lib")
-        if (existsSync(folder)) {
-            let files = readdirSync(folder, {recursive: true})
-            for (let file of files) {
-                if (!(file as string).endsWith(".cmdlib.js") || file instanceof Buffer) continue
-                const subcommand = await import((process.platform == "win32" ? "file://" : "" ) + join(folder, String(file)))
-                if (!subcommand.default || !extendsDrBotSubcommand(subcommand.default)) continue
-                if (!subcommand.default.parentCommand) {
-                  global.logger.warn(`Subcommand with class name ${chalk.yellowBright(subcommand.default.name)} (${chalk.yellowBright(basename(String(file)))}) does not have a parent command defined. Skipping...`,returnFileName());
-                  global.logger.debugWarn(`You can define a parent command by adding a static property named 'parentCommand' to the class.`,returnFileName())
-                  continue
-                }
+      }
 
-                if (global.subcommands.has(subcommand.default.name + "@" + subcommand.default.parentCommand)) {
-                  global.logger.error(`Subcommand with class name '${chalk.redBright(subcommand.default.name)}' for command with class name '${chalk.redBright(subcommand.default.parentCommand)}' already exists. Conflict detected.`,returnFileName());
-                  throw new Error(`SUBCOMMAND_ALREADY_EXISTS`) //? trigger an uncaughtException, also triggering the shutdown process (onExit)
-                  continue
-                }
-                global.subcommands.set(subcommand.default.name + "@" + subcommand.default.parentCommand, subcommand.default)
+      let folder = resolve("dist/commands/command-lib")
+      if (existsSync(folder)) {
+          let files = readdirSync(folder, {recursive: true})
+          for (let file of files) {
+              if (!(file as string).endsWith(".cmdlib.js") || file instanceof Buffer) continue
+              const subcommandGroup = await import((process.platform == "win32" ? "file://" : "" ) + join(folder, String(file)))
+              if (!subcommandGroup.default || !extendsDrBotSubcommandGroup(subcommandGroup.default)) continue
+              if (!subcommandGroup.default.parent) {
+                global.logger.warn(`Subcommand with class name ${chalk.yellowBright(subcommandGroup.default.name)} (${chalk.yellowBright(basename(String(file)))}) does not have a parent defined. Skipping...`,returnFileName());
+                global.logger.debugWarn(`You can define a parent by adding a static property named 'parent' to the class.`,returnFileName())
+                continue
               }
-        }
+
+              if (!extendsDrBotCommand(subcommandGroup.default.parent)) {
+                global.logger.warn(`Subcommand with class name ${chalk.yellowBright(subcommandGroup.default.name)} (${chalk.yellowBright(basename(String(file)))}) has an invalid parent. Skipping...`,returnFileName());
+                global.logger.debugWarn(`You can define a parent by adding a static property named 'parent' to the class.`,returnFileName())
+                continue
+              }
+
+              if (global.subcommands.has("G-"+subcommandGroup.default.name + "@" + subcommandGroup.default.parent.name)) {
+                global.logger.error(`Subcommand group with class name '${chalk.redBright(subcommandGroup.default.name)}' for command with class name '${chalk.redBright(subcommandGroup.default.parent.name)}' already exists. Conflict detected.`,returnFileName());
+                throw new Error(`SUBCOMMAND_GRP_ALREADY_EXISTS`) //? trigger an uncaughtException, also triggering the shutdown process (onExit)
+              }
+
+              global.subcommands.set("G-"+subcommandGroup.default.name + "@" + subcommandGroup.default.parent.name, subcommandGroup.default)
+            }
+      }
+
+      performance.end("subcommandGroupSaving", {silent: true})
+
+      performance.start("subcommandSaving")
+    
+      if (existsSync(folder)) {
+          let files = readdirSync(folder, {recursive: true})
+          for (let file of files) {
+              if (!(file as string).endsWith(".cmdlib.js") || file instanceof Buffer) continue
+              const subcommandGroup = await import((process.platform == "win32" ? "file://" : "" ) + join(folder, String(file)))
+              if (!subcommandGroup.default || !extendsDrBotSubcommand(subcommandGroup.default)) continue
+              if (!subcommandGroup.default.parent) {
+                global.logger.warn(`Subcommand with class name ${chalk.yellowBright(subcommandGroup.default.name)} (${chalk.yellowBright(basename(String(file)))}) does not have a parent defined. Skipping...`,returnFileName());
+                global.logger.debugWarn(`You can define a parent by adding a static property named 'parent' to the class.`,returnFileName())
+                continue
+              }
+
+              if (!extendsDrBotCommand(subcommandGroup.default.parent) && !extendsDrBotSubcommandGroup(subcommandGroup.default.parent)) {
+                global.logger.warn(`Subcommand with class name ${chalk.yellowBright(subcommandGroup.default.name)} (${chalk.yellowBright(basename(String(file)))}) has an invalid parent. Skipping...`,returnFileName());
+                global.logger.debugWarn(`You can define a parent by adding a static property named 'parent' to the class.`,returnFileName())
+                continue
+              }
+
+              if (global.subcommands.has("S-"+subcommandGroup.default.name + "@" + subcommandGroup.default.parent.name)) {
+                global.logger.error(`Subcommand with class name '${chalk.redBright(subcommandGroup.default.name)}' for command with class name '${chalk.redBright(subcommandGroup.default.parent.name)}' already exists. Conflict detected.`,returnFileName());
+                throw new Error(`SUBCOMMAND_ALREADY_EXISTS`) //? trigger an uncaughtException, also triggering the shutdown process (onExit)
+              }
+              global.subcommands.set("S-"+subcommandGroup.default.name + "@" + subcommandGroup.default.parent.name, subcommandGroup.default)
+            }
       }
       performance.end("subcommandSaving", {silent: true})
 
@@ -1085,7 +1163,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
           await global.rest.put(
             Routes.applicationGuildCommands(
               client.user.id,
-              global.app.config.mainServer
+              global.app.server
             ),
             {
               body: commands,
@@ -1096,7 +1174,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
         }
       })();
       const mainServer = await client.guilds.fetch(
-        global.app.config.mainServer
+        global.app.server
       );
       // let users: Array<UserResolvable> = [];
       // await mainServer.members
@@ -1107,7 +1185,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
       //   .catch(console.error);
 
       // const guild: Guild = await client.guilds.fetch(
-      //   global.app.config.mainServer
+      //   global.app.server
       // );
       await guild.roles
         .fetch()
@@ -1213,7 +1291,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
       const finalTotalTime = performance.end("fullRun", {silent: !global.app.config.debugging.performances})
       global.logger.log("", returnFileName());
       global.logger.log(`All commands and events have been registered. ${chalk.yellowBright(eventFiles.length)} event(s), ${chalk.yellowBright(commands.length)} command(s).`, returnFileName());
-      global.logger.debug("------------------------", returnFileName());
+      global.logger.log("------------------------", returnFileName());
       global.logger.debug("Bot log in time: " + chalk.yellowBright(finalLogInTime), returnFileName());
       global.logger.debug("Permission check time: " + chalk.yellowBright(finalPermissionCheckTime), returnFileName());
       global.logger.debug("Command registration time: " + chalk.yellowBright(finalCommandRegistrationTime), returnFileName());
@@ -1221,7 +1299,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
       global.logger.debug("Event registration time: " + chalk.yellowBright(finalEventRegistrationTime), returnFileName());
       global.logger.debug("", returnFileName());
       global.logger.debug("Full load time: " + chalk.yellowBright(finalTotalTime), returnFileName());
-      global.logger.log("------------------------", returnFileName());
+      global.logger.debug("------------------------", returnFileName());
       /* prettier-ignore */
       const DaT = DateFormatter.formatDate(new Date(),`MMMM ????, YYYY @ hh:mm:ss A`).replace("????", getOrdinalNum(new Date().getDate()))
       global.logger.log(`Current date & time is: ${chalk.cyanBright(DaT)}`, returnFileName());

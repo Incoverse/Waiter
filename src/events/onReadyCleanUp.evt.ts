@@ -34,7 +34,7 @@ export default class OnReadyCleanUp extends DrBotEvent {
     this._running = true;
     // -----------
 
-    const mainServer = await client.guilds.fetch(global.app.config.mainServer);
+    const mainServer = await client.guilds.fetch(global.app.server);
     const channels = await mainServer.channels.fetch()
 
     //! Find and delete all UNO Chat threads

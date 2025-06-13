@@ -25,17 +25,17 @@ import {exec} from "child_process";
 import moment from "moment-timezone";
 import storage from "@src/lib/utilities/storage.js";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
+import AdminEditGroup from "./_group.cmdlib.js";
 
 declare const global: DrBotGlobal;
 const __filename = fileURLToPath(import.meta.url);
 
 export default class EditBirthday extends DrBotSubcommand {
-  static parentCommand: string = "Admin";
 
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder): Promise<boolean> {
+  static parent = AdminEditGroup;
 
-    (parentSlashCommand.options as any).find((option: any) => option.name == "edit")
-    .addSubcommand((subcommand) =>
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
       subcommand
         .setName("birthday")
         .setDescription("Edit/get a user's birthday")

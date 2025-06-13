@@ -41,7 +41,7 @@ export default class ORRUS extends DrBotEvent {
         }
 
 
-        let guild = client.guilds.cache.get(global.app.config.mainServer) || await client.guilds.fetch(global.app.config.mainServer);
+        let guild = client.guilds.cache.get(global.app.server) || await client.guilds.fetch(global.app.server);
         if (global.app.config.starboard.channel) {
             if (global.app.config.starboard.channel.startsWith("#")) {
                 const name = global.app.config.starboard.channel.substring(1);
@@ -82,7 +82,7 @@ export default class ORRUS extends DrBotEvent {
             }
         }
 
-        if (reaction.message.guildId != global.app.config.mainServer) return;
+        if (reaction.message.guildId != global.app.server) return;
 
 
         if (isSameEmoji(reaction.emoji, global.app.config.starboard.emoji)) {

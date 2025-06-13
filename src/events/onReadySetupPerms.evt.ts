@@ -75,11 +75,11 @@ export default class OnReadySetupPerms extends DrBotEvent {
 
 
         const allCommands = await (
-        await client.guilds.fetch(global.app.config.mainServer)
+        await client.guilds.fetch(global.app.server)
         ).commands.fetch();
         for (const command of Object.keys(permissions)) {
         if (!allCommands.some((cmd) => cmd.name == command)) {
-            global.logger.error(`Invalid command: ${command} | Command could not be found in '${global.app.config.mainServer}'.`, this.fileName);
+            global.logger.error(`Invalid command: ${command} | Command could not be found in '${global.app.server}'.`, this.fileName);
             continue;
         }
         const commandId = allCommands.find((cmd) => cmd.name == command).id;
@@ -104,7 +104,7 @@ export default class OnReadySetupPerms extends DrBotEvent {
             "https://discord.com/api/v10/applications/" +
                 process.env.cID +
                 "/guilds/" +
-                global.app.config.mainServer +
+                global.app.server +
                 "/commands/" +
                 commandId +
                 "/permissions",
@@ -147,7 +147,7 @@ export default class OnReadySetupPerms extends DrBotEvent {
     }
     private async getCurrentPerms(commandId) {
         const tokenResponseData = await fetch(
-        `https://discord.com/api/v10/applications/${process.env.cID}/guilds/${global.app.config.mainServer}/commands/${commandId}/permissions`, {
+        `https://discord.com/api/v10/applications/${process.env.cID}/guilds/${global.app.server}/commands/${commandId}/permissions`, {
             headers: {
                 Authorization: `Bearer ` + process.env.ACCESS_TKN,
             },
@@ -182,10 +182,10 @@ export default class OnReadySetupPerms extends DrBotEvent {
                 selector.replace("#", "") == "all" ||
                 selector.replace("#", "") == "*"
             ) {
-                return (BigInt(global.app.config.mainServer) - 1n).toString();
+                return (BigInt(global.app.server) - 1n).toString();
             }
             const server = await client.guilds.fetch(
-                global.app.config.mainServer
+                global.app.server
             );
             const channels = await server.channels.fetch();
             const channel = channels.find(
@@ -202,10 +202,10 @@ export default class OnReadySetupPerms extends DrBotEvent {
             if (selector.match(/!?[0-9]{18}/)) return selector.replace("&", "");
             else {
             if (selector.replace("&", "") == "everyone") {
-                return global.app.config.mainServer;
+                return global.app.server;
             }
             const server = await client.guilds.fetch(
-                global.app.config.mainServer
+                global.app.server
             );
             const roles = await server.roles.fetch();
             const role = roles.find(

@@ -19,7 +19,7 @@
   "lowPrivileged": false,
 
   //? This the main server that the bot will operate on if "DEVELOPMENT" is set to "NO" in .env (ID)
-  //* global.app.config.mainServer will automatically get replaced with global.app.config.developmentServer if running in development mode.
+  //* global.app.server will automatically get replaced with global.app.config.developmentServer if running in development mode.
   "mainServer": "1234567890123456789",
   //? This is the development server that the bot will operate on if "DEVELOPMENT" is set to "YES" in .env (ID)
   "developmentServer": "1234567890123456789",
@@ -32,7 +32,7 @@
   //? Show errors on "There was an error while executing this command!".
   //? If the user that ran the command is an owner, detailed error information will be shown.
   //! For development purposes, it is recommended to keep this on.
-  "showErrors": true,
+  "showDetailedErrors": true,
   //? This option shows messages like "registered command xyz", "running event xyz", etc. recommended to be on for satisfication purposes.
   "debugging": {
     //? This option shows debug messages in the console coming frmo global.logger.debug* functions.
@@ -239,13 +239,6 @@
   //? This is the streamer where the /nextstream command will get the schedule from.
   //! If you do not want to use this command, set this to null.
   "nsStreamer": "your_twitch_username",
-
-  //? These are the default messages that DrBot will send when a stream is cancelled or when a stream is live.
-  //! Text in square brackets can't be edited without modifying src/commands/command-lib/mod/stream-message.cmdlib.ts
-  "streamMessages": {
-    "cancelled": "[updates-ping], the next stream is cancelled because [reason]. See you all next time!", // @Live Updates, the next stream is cancelled because I'm being sick. See you all next time!"
-    "streaming": "[notifs-ping], we are currently live and playing [game]! Come join us over on Twitch! https://twitch.tv/example" // @Live Notifications, we are currently live and playing Valheim! Come join us over on Twitch! https://twitch.tv/drvem
-  },
   "starboard": {
     //? Whether or not the starboard is enabled
     "enabled": false,

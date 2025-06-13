@@ -90,7 +90,7 @@ export default class Help extends DrBotCommand {
 
 
       for (let i = 0; i < commands.length; i += 10) {
-        const guildCommands = await (await interaction.client.guilds.fetch(global.app.config.mainServer)).commands.fetch();
+        const guildCommands = await (await interaction.client.guilds.fetch(global.app.server)).commands.fetch();
         const page = new Discord.EmbedBuilder()
           .setTitle("All Commands")
           .setDescription(commands.slice(i, i + 10).map(command => {

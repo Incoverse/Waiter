@@ -21,16 +21,16 @@ import { DrBotGlobal } from "@src/interfaces/global.js";
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import { getOffense, getUser, sendEmail } from "@src/lib/utilities/misc.js";
 import storage from "@src/lib/utilities/storage.js";
+import ModStageGroup from "./_group.cmdlib.js";
 
 
 declare const global: DrBotGlobal;
 
 export default class StageRaiseHand extends DrBotSubcommand {
-  static parentCommand: string = "Mod";
-
-  public async setup(parentSlashCommand: Discord.SlashCommandBuilder): Promise<boolean> {
-    (parentSlashCommand.options as any).find((option: any) => option.name == "stage")
-    .addSubcommand((subcommand) =>
+  static parent = ModStageGroup;
+  
+  public async setup(addCallback, client: Discord.Client<boolean>): Promise<boolean> {
+    await addCallback((subcommand: Discord.SlashCommandSubcommandBuilder) =>
       subcommand
         .setName("raise-hand")
         .setDescription("Allow or deny users to raise their hand in the current stage channel.")

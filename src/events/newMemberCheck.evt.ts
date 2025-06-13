@@ -31,7 +31,7 @@ export default class NewMemberCheck extends DrBotEvent {
   };
 
   public async setup(client:Discord.Client) {
-    const roles = await client.guilds.fetch(global.app.config.mainServer).then(guild => guild.roles.fetch())
+    const roles = await client.guilds.fetch(global.app.server).then(guild => guild.roles.fetch())
     // check if there is a role that includes "new member" in it's name
     if (!roles.some((role) => role.name.toLowerCase().includes("new member"))) {
       global.logger.debugError(`A role with 'new member' in the name could not be found. Cannot continue.`,  this.fileName)
@@ -47,7 +47,7 @@ export default class NewMemberCheck extends DrBotEvent {
 
     this._running = true;
     // -----------
-    const guild = await client.guilds.fetch(global.app.config.mainServer);
+    const guild = await client.guilds.fetch(global.app.server);
     let updated = [];
     let newMembersRole = null;
     await guild.roles.fetch().then((roles) => {

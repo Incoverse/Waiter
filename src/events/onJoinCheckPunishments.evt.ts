@@ -35,7 +35,7 @@ export default class onJoinCheckPunishments extends DrBotEvent {
   ): Promise<void> {
     super.runEvent(member);
     if (member.user.bot) return;
-    if (member.guild.id !== global.app.config.mainServer) return;
+    if (member.guild.id !== global.app.server) return;
 
     const offenses = await storage.find("offense", { user_id: member.id });
 

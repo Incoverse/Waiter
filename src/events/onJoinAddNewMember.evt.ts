@@ -33,9 +33,9 @@ export default class OnJoinAddNewMember extends DrBotEvent {
   ): Promise<void> {
     super.runEvent(member);
     if (member.user.bot) return;
-    if (member.guild.id !== global.app.config.mainServer) return;
+    if (member.guild.id !== global.app.server) return;
 
-    const guild = await member.client.guilds.fetch(global.app.config.mainServer);
+    const guild = await member.client.guilds.fetch(global.app.server);
     let newMembersRole = null;
     await guild.roles.fetch().then(async (roles) => {
       roles.forEach((role) => {

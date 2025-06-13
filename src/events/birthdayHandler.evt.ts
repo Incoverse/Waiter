@@ -32,8 +32,8 @@ export default class BirthdayHandler extends DrBotEvent {
     runImmediately: true,
   };
   public async setup(client:Discord.Client) {
-    const channels = await client.guilds.fetch(global.app.config.mainServer).then(guild => guild.channels.fetch())
-    const roles = await client.guilds.fetch(global.app.config.mainServer).then(guild => guild.roles.fetch())
+    const channels = await client.guilds.fetch(global.app.server).then(guild => guild.channels.fetch())
+    const roles = await client.guilds.fetch(global.app.server).then(guild => guild.roles.fetch())
     // check if there is a channel that includes "birthdays" in it's name
     if (!roles.some((role) => role.name.toLowerCase().includes("birthday"))) {
       global.logger.debugWarn(`A role with 'birthday' in the name could not be found.`, this.fileName)
@@ -59,7 +59,7 @@ export default class BirthdayHandler extends DrBotEvent {
         );
         if (dSB >= 1) {
           client.guilds
-            .fetch(global.app.config.mainServer)
+            .fetch(global.app.server)
             .then(async (guild) => {
               await guild.roles.fetch().then((roles) => {
                 roles.every(async (role) => {
@@ -110,7 +110,7 @@ export default class BirthdayHandler extends DrBotEvent {
       const timeInTimezone = moment.tz(birthday.timezone).format("hh:mma");
       let birthdayRole = null;
       if (timeInTimezone == "12:00am") {
-        client.guilds.fetch(global.app.config.mainServer).then(async (guild) => {
+        client.guilds.fetch(global.app.server).then(async (guild) => {
           await guild.roles.fetch().then((roles) => {
             roles.forEach((role) => {
               if (role.name.toLowerCase().includes("birthday")) {
