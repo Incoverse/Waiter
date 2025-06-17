@@ -584,8 +584,8 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
 
         if (!responsibleHandler) return
 
-        const group = (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup() || ""
-        const subcommand = (interaction.options as CommandInteractionOptionResolver).getSubcommand() || ""
+        const group = (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup(false) || ""
+        const subcommand = (interaction.options as CommandInteractionOptionResolver).getSubcommand(false) || ""
 
         const searchString = (`${group} ${subcommand}`).trim()
 
@@ -711,8 +711,8 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
           if (await checkPermissions(interaction, fullCmd)) {
               try {
 
-                const group = (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup() || ""
-                const subcommand = (interaction.options as CommandInteractionOptionResolver).getSubcommand() || ""
+                const group = (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup(false) || ""
+                const subcommand = (interaction.options as CommandInteractionOptionResolver).getSubcommand(false) || ""
 
                 const searchString = (`${group} ${subcommand}`).trim()
 
