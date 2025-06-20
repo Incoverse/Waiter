@@ -720,7 +720,7 @@ global.identifier = md5(os.userInfo().username + "@" + os.hostname()).substring(
 
 
 
-                const handleCommand = (subCommandHandler && subCommandHandler instanceof DrBotSubcommand) ? subCommandHandler.runSubCommand : (responsibleHandler as DrBotCommand).runCommand
+                const handleCommand = (subCommandHandler && subCommandHandler instanceof DrBotSubcommand) ? subCommandHandler.runSubCommand.bind(subCommandHandler) : (responsibleHandler as DrBotCommand).runCommand.bind(responsibleHandler as DrBotCommand)
                 
 
                handleCommand(interaction).then(async (res)=>{
