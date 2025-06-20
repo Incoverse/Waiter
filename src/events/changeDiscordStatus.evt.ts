@@ -77,7 +77,7 @@ export default class ChangeDiscordStatus extends DrBotEvent {
 
 
         // if or less than 7 days
-        if (date.diff(now, "milliseconds") < 7 * 24 * 60 * 60 * 1000) {
+        if (date.diff(now, "milliseconds") < 7 * 24 * 60 * 60 * 1000 && date.diff(now, "milliseconds") > 0) {
             this.docizarization = true;
 
 
