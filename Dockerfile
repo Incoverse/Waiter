@@ -2,7 +2,7 @@ FROM node:latest
 LABEL org.opencontainers.image.authors="Inimi (contact@inimicalpart.com)"
 WORKDIR /app
 
-COPY --exclude=node_modules --exclude=dist --exclude=.env . .
+COPY . .
 
 RUN node -v
 RUN npm -v
