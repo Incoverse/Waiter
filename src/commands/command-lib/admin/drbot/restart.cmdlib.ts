@@ -59,11 +59,6 @@ export default class DrBotRestart extends DrBotSubcommand {
       );
     } else {
   
-      if (global.app.config.development) {
-        return interaction.reply({
-          content: "DrBot cannot be restarted with this command in development mode.",
-        });
-      }
   
       const sudo = global.app.config.lowPrivileged ? "sudo" : ""
   
@@ -74,7 +69,13 @@ export default class DrBotRestart extends DrBotSubcommand {
       await interaction.reply({
         content: "DrBot is now restarting...",
       });
-      execPromise(`${sudo} systemctl restart DrBot`);
+
+
+      if (global.contained) {
+        process.exit(2); 
+      } else {
+        execPromise(`${sudo} systemctl restart DrBot`);
+      }
     }
   
   }

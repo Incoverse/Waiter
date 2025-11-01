@@ -82,6 +82,12 @@ export default class UpdateDrBot extends DrBotSubcommand {
             });
         }
     
+        if (global.contained) {
+            return interaction.reply({
+                content: "DrBot cannot be updated while running in a container. (because Inimi is too lazy to make this work for containers right now, lol)"
+            });
+        }
+
         const sudo = global.app.config.lowPrivileged ? "sudo" : ""
     
         await interaction.deferReply();
