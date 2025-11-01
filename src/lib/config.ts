@@ -25,11 +25,13 @@ import JsonCParser from "jsonc-parser";
 declare const global: DrBotGlobal;
 
 export const maxVersion = 2
-
 export async function updateConfig(path: string): Promise<{
     updated: boolean;
     fatal?: boolean;
 }> {
+
+    const CONFIG_PATH = global.contained ? "/drbotdata/config.jsonc" : "./config.jsonc";
+
 
     let config: Partial<AppInterface["config"]>;
     try {
@@ -76,8 +78,7 @@ export async function updateConfig(path: string): Promise<{
     global.logger.log(`Updated config from version ${oldVersion} to ${newConfig.version}`, "CONFIG");
 
     newConfig.version = maxVersion;
-    const configPath = join(global.dirName, "..", "config.jsonc");
-    writeFileSync(configPath, JSON.stringify(newConfig, null, 2));
+    writeFileSync(CONFIG_PATH, JSON.stringify(newConfig, null, 2));
     return { updated: true };
 }
 

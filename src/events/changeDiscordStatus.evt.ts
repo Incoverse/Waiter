@@ -62,6 +62,22 @@ export default class ChangeDiscordStatus extends DrBotEvent {
     this._running = true;
     // -----------
 
+    if (global.inMaintenance) {
+        client.user.setPresence({
+            activities: [
+              {
+                name: "In Maintenance",
+                type: Discord.ActivityType.Custom,
+              },
+            ],
+            status: "dnd",
+        });
+
+        // -----------
+        this._running = false;
+        return
+    }
+
 
     const docBirthday = global.birthdays.find((b) => b.id == "338846772992409600") || {
         id: "338846772992409600",

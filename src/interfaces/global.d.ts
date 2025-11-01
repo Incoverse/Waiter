@@ -28,6 +28,9 @@ interface DrBotGlobal extends NodeJS.Global {
   global: import("/Users/inimi/Desktop/DrBot/src/lib/utilities/ICOM/appeal").default;
   global: EventEmitter;
   identifier: any;
+  inMaintenance: boolean;
+  contained: boolean;
+
   app: AppInterface;
   reload: {
     commands: Array<string>;

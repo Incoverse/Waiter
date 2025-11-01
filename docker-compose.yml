@@ -1,0 +1,11 @@
+name: DrBot
+services:
+  drbot:
+    image: ghcr.io/incoverse/drbot:latest
+    container_name: DrBot
+    restart: on-failure
+    volumes:
+      - data:/drbotdata:rw
+    env_file: .env
+volumes:
+  data:

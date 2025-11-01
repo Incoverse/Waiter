@@ -19,7 +19,7 @@ import { ActivityType, ChannelType, Events, Message } from "discord.js";
 import * as Discord from "discord.js";
 import { DrBotEvent, DrBotEventTypeSettings, DrBotEventTypes } from "@src/lib/base/DrBotEvent.js";
 import chalk from "chalk";
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import express, { Express, Request, Response } from "express";
 
 import { DrBotGlobal } from "@src/interfaces/global.js";
@@ -42,6 +42,11 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
       global.logger.warn("Client ID or Client Secret is not set in .env. DrBot will not be able to update command permissions until she is restarted.", this.fileName);
       return;
     }
+
+    if (!existsSync(".env")) {
+      writeFileSync(".env", ``);
+    }
+
     return true;
       
   }
