@@ -22,6 +22,7 @@ import { DrBotGlobal } from "@src/interfaces/global.js";
 import { WebSocket } from "ws";
 import EventEmitter from "events";
 import { returnFileName } from "../misc.js";
+import { existsSync, readFileSync } from "fs";
 
 declare const global: DrBotGlobal
 
@@ -41,10 +42,17 @@ export default class ICOMWS {
     public ready = false;
     private logger = (...args)=>(global.logger.debug as any)(...args, returnFileName(import.meta.url)) ?? console.log
 
-    constructor(UUID: string, verificationKey: string, intentions: ("icom.appeal"|"icom.oauth")[] = [], debug = false) {
+    constructor(UUID: string, intentions: ("icom.appeal"|"icom.oauth")[] = [], debug = false) {
         this.UUID = UUID;
         this.debug = debug;
-        this.verificationKey = Buffer.from(verificationKey, "base64").toString("utf-8");
+        const keyLocation = global.contained ? "/drbotdata/icom.key" : "./icom.key";
+
+        if (!existsSync(keyLocation)) {
+            throw new Error(`Verification key file not found at ${keyLocation}`);
+        }
+
+        this.verificationKey = readFileSync(keyLocation, "utf-8")
+
 
         this.intentions = intentions;
 

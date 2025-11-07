@@ -47,12 +47,17 @@ export default class OnReadySetupICOMWS extends DrBotEvent {
     global.logger.debug("Setting up ICOMWS", this.fileName);
 
 
+    try {
 
-    this.ICOMWS = new ICOMWS(process.env.ASID, process.env.vKey, [
-      "icom.appeal",
-      "icom.oauth"
-    ], true);
-
+      this.ICOMWS = new ICOMWS(process.env.ASID, [
+        "icom.appeal",
+        "icom.oauth"
+      ], true);
+    } catch (e) {
+      global.logger.error(`Failed to initialize ICOMWS: ${(e as Error).message}`, this.fileName);
+      return;
+    }
+      
 
     global.ICOMWS = this.ICOMWS;
 

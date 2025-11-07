@@ -125,3 +125,7 @@ config.bkup.jsonc
 launch.json
 
 .DS_Store
+
+
+icom.key
+icom.pub
