@@ -36,6 +36,7 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
   protected _type: DrBotEventTypes = "onStart";
   protected _priority: number = 6;
   protected _typeSettings: DrBotEventTypeSettings = {};
+  private envLocation: string = global.contained ? "/drbotdata/.env" : ".env";
 
   public async setup(client: Discord.Client, reason: "reload" | "startup" | "duringRun"): Promise<boolean> {
     if (!process.env.cID || !process.env.cSecret) {
@@ -43,8 +44,8 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
       return;
     }
 
-    if (!existsSync(".env")) {
-      writeFileSync(".env", ``);
+    if (!existsSync(this.envLocation)) {
+      writeFileSync(this.envLocation, ``);
     }
 
     return true;
@@ -73,7 +74,7 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
     );
     if (tokenResponseData.ok) {
       const oauthData: any = await tokenResponseData.json();
-      const parsedDotEnv = this.envToObject(readFileSync(".env", "utf-8"));
+      const parsedDotEnv = this.envToObject(readFileSync(this.envLocation, "utf-8"));
       parsedDotEnv["ACCESS_TKN"] = '"' + oauthData.access_token + '-' + (new Date().getTime() + (oauthData.expires_in * 1000)) + '"';
       parsedDotEnv["REFRESH_TKN"] = '"' + oauthData.refresh_token + '"';
       process.env.ACCESS_TKN = oauthData.access_token;
@@ -84,16 +85,16 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
       refreshTokenInterval = setInterval(refreshToken.bind(this), (expires_in - 30) * 1000);
 
       const newDotEnv = this.objectToEnv(parsedDotEnv);
-      writeFileSync(".env", newDotEnv);
+      writeFileSync(this.envLocation, newDotEnv);
     } else {
       global.logger.warn("The token used for controlling command permissions is no longer valid. DrBot will not be able to update command permissions until she is restarted.", this.fileName);
-      const parsedDotEnv = this.envToObject(readFileSync(".env", "utf-8"));
+      const parsedDotEnv = this.envToObject(readFileSync(this.envLocation, "utf-8"));
       delete parsedDotEnv["ACCESS_TKN"];
       delete parsedDotEnv["REFRESH_TKN"];
       delete process.env.ACCESS_TKN;
       delete process.env.REFRESH_TKN;
       const newDotEnv = this.objectToEnv(parsedDotEnv);
-      writeFileSync(".env", newDotEnv);
+      writeFileSync(this.envLocation, newDotEnv);
       clearInterval(refreshTokenInterval);
     }
   }
@@ -140,7 +141,7 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
     // create a function that takes in the .env format and returns an object
 
 
-    const parsedDotEnv = this.envToObject(readFileSync(".env", "utf-8"));
+    const parsedDotEnv = this.envToObject(readFileSync(this.envLocation, "utf-8"));
     parsedDotEnv["ACCESS_TKN"] = '"' + oauthData.access_token + '-' + (new Date().getTime() + (oauthData.expires_in * 1000)) + '"';
     parsedDotEnv["REFRESH_TKN"] = '"' + oauthData.refresh_token + '"';
     process.env.ACCESS_TKN = oauthData.access_token;
@@ -151,7 +152,7 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
     refreshTokenInterval = setInterval(refreshToken.bind(this), (expires_in - 30) * 1000);
 
     const newDotEnv = this.objectToEnv(parsedDotEnv);
-    writeFileSync(".env", newDotEnv);
+    writeFileSync(this.envLocation, newDotEnv);
     // if accepts json, send json, else send text
     authenticatedUser = (await fetch(
       "https://discord.com/api/v9/oauth2/@me",
@@ -281,20 +282,20 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
           refreshTokenInterval = setInterval(refreshToken.bind(this), (expires_in - 30) * 1000);
 
           const newDotEnv = this.objectToEnv(parsedDotEnv);
-          writeFileSync(".env", newDotEnv);
+          writeFileSync(this.envLocation, newDotEnv);
 
           completed = true;
 
       } else {
           global.logger.debug("Credentials in .env were invalid. Starting oauth2 process...", this.fileName)
               // clear
-          const parsedDotEnv = this.envToObject(readFileSync(".env", "utf-8"));
+          const parsedDotEnv = this.envToObject(readFileSync(this.envLocation, "utf-8"));
           delete parsedDotEnv["ACCESS_TKN"];
           delete parsedDotEnv["REFRESH_TKN"];
           delete process.env.ACCESS_TKN;
           delete process.env.REFRESH_TKN;
           const newDotEnv = this.objectToEnv(parsedDotEnv);
-          writeFileSync(".env", newDotEnv);
+          writeFileSync(this.envLocation, newDotEnv);
           await this.runEvent(client)
       }
     }

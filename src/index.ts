@@ -64,7 +64,7 @@ import { DrBotSubcommandGroup } from "./lib/base/DrBotSubcommandGroup.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-dotenv.config();
+
 declare const global: DrBotGlobal;
 
 //! -------------------------------------------- !\\
@@ -72,6 +72,10 @@ declare const global: DrBotGlobal;
 //! -------------------------------------------- !\\
 
 global.contained = existsSync("/.dockerenv");
+
+dotenv.config({
+  path: global.contained ? "/drbotdata/.env" : "./.env",
+});
 
 let client: Client = null;
 
