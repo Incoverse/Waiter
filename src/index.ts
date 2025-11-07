@@ -553,31 +553,40 @@ try {
     intents: [
       GatewayIntentBits.AutoModerationConfiguration,
       GatewayIntentBits.AutoModerationExecution,
+      GatewayIntentBits.DirectMessagePolls,
       GatewayIntentBits.DirectMessageReactions,
-      GatewayIntentBits.DirectMessageTyping,
       GatewayIntentBits.DirectMessages,
-      GatewayIntentBits.GuildEmojisAndStickers,
+      GatewayIntentBits.DirectMessageTyping,
+      GatewayIntentBits.GuildExpressions,
       GatewayIntentBits.GuildIntegrations,
       GatewayIntentBits.GuildInvites,
       GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildMessagePolls,
       GatewayIntentBits.GuildMessageReactions,
-      GatewayIntentBits.GuildMessageTyping,
       GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildMessageTyping,
       GatewayIntentBits.GuildModeration,
       GatewayIntentBits.GuildPresences,
+      GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildScheduledEvents,
       GatewayIntentBits.GuildVoiceStates,
       GatewayIntentBits.GuildWebhooks,
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.MessageContent
     ],
     partials: [
-      Partials.Channel,
-      Partials.Message,
-      Partials.Reaction
+      Partial.Channel,
+      Partial.GuildMember,
+      Partial.GuildScheduledEvent,
+      Partial.Message,
+      Partial.Poll,
+      Partial.PollAnswer,
+      Partial.Reaction,
+      Partial.SoundboardSound,
+      Partial.ThreadMember,
+      Partial.User
     ]
   });
-
+  
   global.requiredModules = {};
 
   global.logger.log(`${chalk.white("[I]")} ${chalk.yellow("Logging in...")} ${chalk.white("[I]")}`, returnFileName());
@@ -1409,3 +1418,4 @@ function sleep(ms: number) {
     setTimeout(resolve, ms);
   });
 }
+
