@@ -199,7 +199,7 @@ export default class OnReadySetupPermsToken extends DrBotEvent {
     const guild = await client.guilds.fetch(global.app.server);
     const owner = await guild.fetchOwner();
 
-    const manageGuild = Array.from((await guild.members.fetch()).values()).filter((member) => member.permissions.has("ManageGuild") || member.permissions.has("Administrator"));
+    const manageGuild = Array.from((guild.members.cache).values()).filter((member) => member.permissions.has("ManageGuild") || member.permissions.has("Administrator"));
 
     global.logger.log("--------------------", this.fileName)
     global.logger.log("DrBot requires you to grant him access to change his slash command permissions more accurately.", this.fileName)
