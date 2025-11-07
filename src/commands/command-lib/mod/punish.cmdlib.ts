@@ -227,7 +227,7 @@ export default class ModPunish extends DrBotSubcommand {
 
   }
 
-  public async runSubCommand(interaction: Discord.CommandInteraction): Promise<any> {
+  public async runSubCommand(interaction: Discord.ChatInputCommandInteraction): Promise<any> {
       if (
         (interaction.options as CommandInteractionOptionResolver).getSubcommand(false) !== "punish"
       ) return;
@@ -386,7 +386,7 @@ export default class ModPunish extends DrBotSubcommand {
         });
     }
 
-    private async alertUser(interaction: Discord.CommandInteraction | Discord.ModalSubmitInteraction, user: Discord.User, offense: { id: any; violation: any; rule_index: any; punishment_type: any; status?: string; appeal?: any; evidence?: any[]; can_appeal?: any; violated_at?: string; ends_at: any; served?: boolean; original_duration: any; expires_at?: any; offense_count: any; action_taken_by?: string; }, manual=false) {
+    private async alertUser(interaction: Discord.ChatInputCommandInteraction | Discord.ModalSubmitInteraction, user: Discord.User, offense: { id: any; violation: any; rule_index: any; punishment_type: any; status?: string; appeal?: any; evidence?: any[]; can_appeal?: any; violated_at?: string; ends_at: any; served?: boolean; original_duration: any; expires_at?: any; offense_count: any; action_taken_by?: string; }, manual=false) {
       const appealSystemActive = !!global.app.config.appealSystem.website;
       if (offense.punishment_type == "WARNING") {
         user.send({

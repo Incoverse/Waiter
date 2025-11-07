@@ -43,7 +43,7 @@ export default class DrBotRestart extends DrBotSubcommand {
     return true;
   }
 
-  public async runSubCommand(interaction: Discord.CommandInteraction) {
+  public async runSubCommand(interaction: Discord.ChatInputCommandInteraction) {
 
     if (
       (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup() !== "drbot" ||
@@ -86,7 +86,7 @@ export default class DrBotRestart extends DrBotSubcommand {
 declare const global: DrBotGlobal;
 const __filename = fileURLToPath(import.meta.url);
 
-export async function runSubCommand(interaction: Discord.CommandInteraction) {
+export async function runSubCommand(interaction: Discord.ChatInputCommandInteraction) {
 }
 
 export const returnFileName = () => __filename.split(process.platform == "linux" ? "/" : "\\")[__filename.split(process.platform == "linux" ? "/" : "\\").length - 1];

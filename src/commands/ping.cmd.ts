@@ -27,7 +27,7 @@ export default class Ping extends DrBotCommand {
 
 
 
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
     await interaction.reply({
       embeds: [
         new Discord.EmbedBuilder()

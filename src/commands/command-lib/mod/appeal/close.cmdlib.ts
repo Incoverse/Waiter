@@ -70,7 +70,7 @@ export default class AppealClose extends DrBotSubcommand {
     return true;
   }
 
-  public async runSubCommand(interaction: Discord.CommandInteraction): Promise<any> {
+  public async runSubCommand(interaction: Discord.ChatInputCommandInteraction): Promise<any> {
       if (
         (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup(false) !== "appeal" ||
         (interaction.options as CommandInteractionOptionResolver).getSubcommand(false) !== "close"

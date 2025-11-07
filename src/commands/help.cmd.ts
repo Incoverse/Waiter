@@ -33,7 +33,7 @@ export default class Help extends DrBotCommand {
       .setName("help")
       .setDescription("Shows all commands and their descriptions.")
       
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
       const pages = [];
       let commands = Object.keys(global.requiredModules).filter(a => a.startsWith("cmd") && !a.includes("help")).filter(a=>{
         return global.requiredModules[a].slashCommand.options.filter((b)=>{

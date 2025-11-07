@@ -43,7 +43,7 @@ export default class StageInviteAll extends DrBotSubcommand {
     return true;
   }
 
-  public async runSubCommand(interaction: Discord.CommandInteraction): Promise<any> {
+  public async runSubCommand(interaction: Discord.ChatInputCommandInteraction): Promise<any> {
       if (
         (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup(false) !== "stage" ||
         (interaction.options as CommandInteractionOptionResolver).getSubcommand(false) !== "invite-all"

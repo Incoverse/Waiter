@@ -50,7 +50,7 @@ export default class GetEntry extends DrBotSubcommand {
     return true;
   }
 
-  public async runSubCommand(interaction: Discord.CommandInteraction): Promise<any> {
+  public async runSubCommand(interaction: Discord.ChatInputCommandInteraction): Promise<any> {
       if (
         (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup(false) !== "entry" ||
         (interaction.options as CommandInteractionOptionResolver).getSubcommand(false) !== "get"

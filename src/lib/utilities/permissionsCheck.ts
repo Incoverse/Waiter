@@ -15,9 +15,9 @@
   * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { CommandInteraction, CommandInteractionOptionResolver, GuildMember, GuildMemberRoleManager, Role } from "discord.js";
+import { ChatInputCommandInteraction, CommandInteractionOptionResolver, GuildMember, GuildMemberRoleManager, Role } from "discord.js";
 
-export function getFullCMD(interaction: CommandInteraction, noOptions: boolean = false) {
+export function getFullCMD(interaction: ChatInputCommandInteraction, noOptions: boolean = false) {
     let fullCmd = interaction.commandName;
     // turn all passed in arguments into a single string as well
     if ((
@@ -61,7 +61,7 @@ export function getFullCMD(interaction: CommandInteraction, noOptions: boolean =
     return false
 
   }
-export async function analyzePerms (interaction: CommandInteraction, permissions: any[]) {
+export async function analyzePerms (interaction: ChatInputCommandInteraction, permissions: any[]) {
     if (global.app.owners.includes(interaction.user.id)) return true
     const rolesSorted = Array.from((interaction.member.roles as GuildMemberRoleManager).cache.values()).sort((a:Role,b:Role)=>a.rawPosition-b.rawPosition)
     const roles = rolesSorted.map((r:Role)=>r.id)
@@ -113,7 +113,7 @@ export async function analyzePerms (interaction: CommandInteraction, permissions
     return finalRoleResult
 }
 
-export async function checkPermissions(interaction: CommandInteraction, fullCmd: string) {
+export async function checkPermissions(interaction: ChatInputCommandInteraction, fullCmd: string) {
     const defaultPermission = true
 
     //! Example: "admin drbot logs"

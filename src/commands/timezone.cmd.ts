@@ -29,7 +29,7 @@ export default class Timezone extends DrBotCommand {
     .setName("timezone")
     .setDescription("Check what timezone DrBot has set you in.")
 
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
     await interaction.deferReply({
       ephemeral: true,
     });

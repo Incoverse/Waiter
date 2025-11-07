@@ -35,7 +35,7 @@ import {
   Colors,
   basename,
   AutocompleteInteraction,
-  CommandInteraction,
+  ChatInputCommandInteraction,
 } from "discord.js";
 import { AppInterface } from "@src/interfaces/appInterface.js";
 import { DrBotGlobal, LoggedEventEmitter } from "@src/interfaces/global.js";
@@ -574,16 +574,16 @@ try {
       GatewayIntentBits.MessageContent
     ],
     partials: [
-      Partial.Channel,
-      Partial.GuildMember,
-      Partial.GuildScheduledEvent,
-      Partial.Message,
-      Partial.Poll,
-      Partial.PollAnswer,
-      Partial.Reaction,
-      Partial.SoundboardSound,
-      Partial.ThreadMember,
-      Partial.User
+      Partials.Channel,
+      Partials.GuildMember,
+      Partials.GuildScheduledEvent,
+      Partials.Message,
+      Partials.Poll,
+      Partials.PollAnswer,
+      Partials.Reaction,
+      Partials.SoundboardSound,
+      Partials.ThreadMember,
+      Partials.User
     ]
   });
   
@@ -646,7 +646,7 @@ try {
   })
 
 
-    client.on(Events.InteractionCreate, async (interaction: any) => {
+    client.on(Events.InteractionCreate, async (interaction) => {
     if (global.status.noInteract) return
     if (interaction.isChatInputCommand()) {
     if (global.inMaintenance) {

@@ -86,7 +86,7 @@ export default class Wordle extends DrBotCommand {
       return true;
     }
 
-    public async runCommand(interaction: Discord.CommandInteraction) {
+    public async runCommand(interaction) {
       const wordle = global.games.wordle;
       let endTime;
       

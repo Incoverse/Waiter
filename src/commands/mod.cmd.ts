@@ -35,7 +35,7 @@ export default class Mod extends DrBotCommand {
     .setDescription("Mod Commands")  
 
 
-    public async runCommand(interaction: Discord.CommandInteraction) {
+    public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
       await Promise.all(Array.from(this._subcommands.values()).map((subcommand) => subcommand.runSubCommand(interaction)))
     }
   }

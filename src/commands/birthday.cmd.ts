@@ -33,7 +33,7 @@ export default class Birthday extends DrBotCommand {
         .setDescription("Select the user you want to get the birthday of")
     )
     
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
     let isHidden = false;
     if (
       (interaction.options as Discord.CommandInteractionOptionResolver).getUser("user") == null ||

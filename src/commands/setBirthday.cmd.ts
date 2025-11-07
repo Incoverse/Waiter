@@ -37,7 +37,7 @@ export default class SetBirthday extends DrBotCommand {
     )
     
 
-    public async runCommand(interaction: Discord.CommandInteraction) {
+    public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
       let date: string = interaction.options.get("date").value.toString();
       if (date == "none") {
         if (!global.birthdays.some((el) => el.id === interaction.user.id)) {

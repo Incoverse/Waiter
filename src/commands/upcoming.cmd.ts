@@ -27,7 +27,7 @@ export default class Upcoming extends DrBotCommand {
     .setName("upcoming")
     .setDescription("Get the next 5 upcoming birthdays.")
 
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
     let upcomingBirthdaysArray = getBirthdays(global.birthdays);
     if (upcomingBirthdaysArray.length == 0) {
       await interaction.reply({

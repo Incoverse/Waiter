@@ -37,7 +37,7 @@ export default class SetTimezone extends DrBotCommand {
         )
     )
     
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
     const commandOptions =
     interaction.options as CommandInteractionOptionResolver;
 

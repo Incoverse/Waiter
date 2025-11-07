@@ -15,7 +15,7 @@
   * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { ButtonBuilder, ButtonStyle, CommandInteraction, CommandInteractionOptionResolver, SlashCommandSubcommandBuilder } from "discord.js";
+import { ButtonBuilder, ButtonStyle, ChatInputCommandInteraction, CommandInteractionOptionResolver, SlashCommandSubcommandBuilder } from "discord.js";
 import { DrBotGlobal } from "@src/interfaces/global.js";
 import { fileURLToPath } from "url";
 import { promisify } from "util";
@@ -69,7 +69,7 @@ export default class UpdateDrBot extends DrBotSubcommand {
         return super.setup(addCallback, client);
     }
     
-    public async runSubCommand(interaction: CommandInteraction): Promise<any> {
+    public async runSubCommand(interaction: ChatInputCommandInteraction): Promise<any> {
 
         if (
             (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup() !== "drbot" ||
@@ -275,7 +275,7 @@ export default class UpdateDrBot extends DrBotSubcommand {
 }
 
 export async function runSubCommand(
-  interaction: CommandInteraction
+  interaction: ChatInputCommandInteraction
 ) {
 
 }

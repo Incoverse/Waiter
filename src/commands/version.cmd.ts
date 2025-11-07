@@ -27,7 +27,7 @@ export default class Version extends DrBotCommand {
     .setName("version")
     .setDescription("Check which version DrBot is running.")
 
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
     await interaction.reply({
       content:
         "DrBot is currently running ``v" +

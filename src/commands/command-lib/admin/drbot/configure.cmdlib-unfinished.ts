@@ -185,7 +185,7 @@ export default class DrBotConfigure extends DrBotSubcommand {
       return true;
   }
 
-  public async runSubCommand(interaction: Discord.CommandInteraction) {
+  public async runSubCommand(interaction: Discord.ChatInputCommandInteraction) {
     return interaction.reply({
       content: "This command is not implemented yet.",
       ephemeral: true
@@ -198,7 +198,7 @@ export default class DrBotConfigure extends DrBotSubcommand {
 declare const global: DrBotGlobal;
 const __filename = fileURLToPath(import.meta.url);
 
-export async function runSubCommand(interaction: Discord.CommandInteraction) {
+export async function runSubCommand(interaction: Discord.ChatInputCommandInteraction) {
   console.log(interaction)
 
   return interaction.reply({

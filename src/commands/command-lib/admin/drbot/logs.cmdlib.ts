@@ -39,7 +39,7 @@ export default class DrBotLogs extends DrBotSubcommand {
         return true;
     }
 
-    public async runSubCommand(interaction: Discord.CommandInteraction) {
+    public async runSubCommand(interaction: Discord.ChatInputCommandInteraction) {
             
         if (
             (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup() !== "drbot" ||

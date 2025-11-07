@@ -32,7 +32,7 @@ export default class Admin extends DrBotCommand {
     .setDescription("Admin Commands")
 
 
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
     await Promise.all(Array.from(this._subcommands.values()).map((subcommand) => subcommand.runSubCommand(interaction)))
   }
 }

@@ -30,7 +30,7 @@ export default class Stats extends DrBotCommand {
     .setName("stats")
     .setDescription("Get DrBot's statistics!")
 
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
 
     let totalLines: number = 0;
     let totalCharacters: number = 0;

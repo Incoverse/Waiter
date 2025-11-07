@@ -56,7 +56,7 @@ export abstract class DrBotSubcommand {
 
     }
 
-    public abstract runSubCommand(interaction: Discord.CommandInteraction): Promise<any> 
+    public abstract runSubCommand(interaction: Discord.ChatInputCommandInteraction): Promise<any> 
     public async autocomplete(interaction: Discord.AutocompleteInteraction): Promise<any> {
         return new Promise<void>(async (res) => res(await interaction.respond([])))
     }

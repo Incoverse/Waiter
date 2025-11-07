@@ -17,7 +17,7 @@
 
 import { DrBotSubcommand } from "@src/lib/base/DrBotSubcommand.js";
 import storage from "@src/lib/utilities/storage.js";
-import { Client, CommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, SlashCommandSubcommandBuilder } from "discord.js";
+import { Client, ChatInputCommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, SlashCommandSubcommandBuilder } from "discord.js";
 import AdminRulesGroup from "./_group.cmdlib.js";
 
 export default class RulesAdd extends DrBotSubcommand {
@@ -69,7 +69,7 @@ export default class RulesAdd extends DrBotSubcommand {
       return true;
   }
 
-  public async runSubCommand(interaction: CommandInteraction) {
+  public async runSubCommand(interaction: ChatInputCommandInteraction) {
           
       if (
           (interaction.options as CommandInteractionOptionResolver).getSubcommandGroup() !== "rules" ||

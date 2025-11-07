@@ -38,7 +38,7 @@ export default class CommandName extends DrBotCommand {
     // Command handler
     // ---
     // The runCommand() method is called when the command is executed.
-    public async runCommand(interaction: Discord.CommandInteraction): Promise<any> {
+    public async runCommand(interaction: Discord.ChatInputCommandInteraction): Promise<any> {
         // Command handling
     }
 

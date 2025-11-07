@@ -75,7 +75,7 @@ export default class NextStream extends DrBotCommand {
     return this.streamer;
   }
 
-  public async runCommand(interaction: Discord.CommandInteraction) {
+  public async runCommand(interaction: Discord.ChatInputCommandInteraction) {
 
     if (!this.streamer) {
       return await interaction.reply({

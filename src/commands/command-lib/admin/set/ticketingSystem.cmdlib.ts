@@ -67,7 +67,7 @@ export default class ticketingConfig extends DrBotSubcommand {
       
   }
 
-  public async runSubCommand(interaction: Discord.CommandInteraction): Promise<any> {
+  public async runSubCommand(interaction: Discord.ChatInputCommandInteraction): Promise<any> {
 
     if (
       (interaction.options as any).getSubcommandGroup() !== "set" ||
