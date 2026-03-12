@@ -3,7 +3,7 @@ export default class TableDefinition {
         DEFINE TABLE OVERWRITE linked SCHEMALESS TYPE RELATION FROM discord_users|twitch_users TO discord_users|twitch_users;
 
         DEFINE FIELD OVERWRITE key ON linked VALUE <string>array::sort([in, out]);
-        DEFINE INDEX unique_link ON TABLE linked FIELDS key UNIQUE;
+        DEFINE INDEX OVERWRITE unique_link ON TABLE linked FIELDS key UNIQUE;
     `.trim();
 
     public static readonly TWITCH_USERS = `
