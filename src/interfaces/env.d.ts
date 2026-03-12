@@ -5,8 +5,8 @@ declare namespace NodeJS {
      */
     SURREAL_JWT: string;
     /**
-     * @description Salt used for encrypting notes
+     * @description Active database for SurrealDB
      */
-    NOTE_SALT: string;
+    ACTIVE_DB: string;
   }
 }

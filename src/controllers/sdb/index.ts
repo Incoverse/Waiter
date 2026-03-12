@@ -100,10 +100,10 @@ export default class SurrealDBController extends Controller {
       }
     }, 500);
 
-    await db.query("DEFINE DATABASE IF NOT EXISTS `main`;");
+    await db.query(`DEFINE DATABASE IF NOT EXISTS "${process.env.ACTIVE_DB}";`);
 
     await db.use({
-      database: "main",
+      database: process.env.ACTIVE_DB,
       namespace: "Waiter",
     });
 
@@ -121,7 +121,7 @@ const connectToDB = (db: Surreal) =>
   Promise.race([
     db.connect("wss://inimicalpart.com:13244", {
       namespace: "Waiter",
-      database: "main",
+      database: process.env.ACTIVE_DB,
       authentication: process.env.SURREAL_JWT,
     }),
     new Promise((_, reject) =>
