@@ -1,0 +1,312 @@
+/*
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
+  *
+  * This program is free software: you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation, either version 3 of the License, or
+  * (at your option) any later version.
+  *
+  * This program is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  * GNU General Public License for more details.
+  *
+  * You should have received a copy of the GNU General Public License
+  * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import chalk from "chalk";
+import {
+    createWriteStream,
+    existsSync,
+    mkdirSync,
+    readdirSync,
+    symlinkSync,
+    unlinkSync,
+} from "fs";
+import moment from "moment";
+import { inspect } from "util";
+
+declare global {
+  interface Console extends LoggedConsole {}
+}
+
+type LoggedConsole = {
+  logLevel: LOGLEVEL; // Maximum log level to output
+  colorByLevel: boolean; // If true, colors log output based on log level
+
+  saveToFile: boolean; // If true, saves logs to a file in the logs/ directory
+  saveFormatted: boolean; // If true, saves logs with formatting (colors), otherwise strips formatting
+
+  logName: string; // Name of the log file, if saving to file is enabled
+  saveStream?: NodeJS.WritableStream; // Stream to save logs to file, if enabled
+
+  includeSender: boolean; // If true, includes the sender in the log output
+  rootSender: string; // The root sender name to use if includeSender is true and no sender is provided
+
+  line: (...args: any[]) => void;
+  debug: (...args: any[]) => void;
+  log: (...args: any[]) => void;
+  info: (...args: any[]) => void;
+  success: (...args: any[]) => void; // Alias for great
+  fail: (...args: any[]) => void;
+  great: (...args: any[]) => void;
+  perf: (...args: any[]) => void; // Alias for perfect
+  perfect: (...args: any[]) => void;
+  warn: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+  fatal: (...args: any[]) => void;
+
+  sender: (name: string) => Console; // Returns a new console instance with the sender set to the provided string
+};
+
+export enum LOGLEVEL {
+  DEBUG = 10,
+  LOG = 9,
+  INFO = 8,
+  GREAT = 7,
+  PERFECT = 6,
+  FAIL = 5,
+  WARN = 4,
+  ERROR = 3,
+  FATAL = 2,
+  LINE = 1,
+  NONE = 0,
+}
+
+const LOGTYPE: { [key in LOGLEVEL]?: string } = {
+  [LOGLEVEL.DEBUG]: "debug",
+  [LOGLEVEL.LOG]: "log",
+  [LOGLEVEL.INFO]: "info",
+  [LOGLEVEL.GREAT]: "great",
+  [LOGLEVEL.PERFECT]: "perf",
+  [LOGLEVEL.FAIL]: "fail",
+  [LOGLEVEL.WARN]: "warn",
+  [LOGLEVEL.ERROR]: "error",
+  [LOGLEVEL.FATAL]: "fatal",
+};
+
+export default class WaiterLog {
+  private origLog: (...args: any[]) => void;
+
+  private stringifyArgs(...args: any[]) {
+    return args
+      .map((arg) => {
+        if (typeof arg !== "string") {
+          return inspect(arg, { depth: 1 }).toString();
+        } else {
+          return arg.toString();
+        }
+      })
+      .join(" ");
+  }
+
+  private writeToLogFile(logConsole: Console, ...args: any[]) {
+    if (logConsole.saveToFile && logConsole.saveStream) {
+      logConsole.saveStream.write(
+        args
+          .map((arg) => {
+            if (typeof arg !== "string") {
+              return inspect(arg, { depth: 1 }).toString();
+            } else {
+              return arg.toString();
+            }
+          })
+          .join(" ")
+          .replace(logConsole.saveFormatted ? /^$/ : /\u001b\[.*?m/g, "") +
+          "\n",
+        (err) => {
+          if (err) this.origLog(err);
+        },
+      );
+    }
+  }
+
+  public constructor(config?: {
+    logLevel?: LOGLEVEL;
+    colorByLevel?: boolean;
+    saveToFile?: boolean;
+    makeCurrentLog?: boolean;
+    saveFormatted?: boolean;
+    maxLogs?: number;
+    logPrefix?: string;
+    includeSender?: boolean;
+    rootSender?: string;
+  }) {
+    this.origLog = console.log;
+
+    config = {
+      logLevel: LOGLEVEL.LOG,
+      colorByLevel: true,
+      saveToFile: false,
+      saveFormatted: false,
+      maxLogs: 10,
+      logPrefix: "CONSOLE",
+      includeSender: false,
+      rootSender: "MAIN",
+      makeCurrentLog: true,
+      ...config,
+    };
+
+    console.logLevel = config?.logLevel ?? LOGLEVEL.LOG;
+    console.saveToFile = config?.saveToFile ?? false;
+    console.saveFormatted = config?.saveFormatted ?? false;
+    console.colorByLevel = config?.colorByLevel ?? true;
+    console.includeSender = config?.includeSender ?? false;
+    console.rootSender = config?.rootSender ?? "MAIN";
+
+    if (console.saveToFile) {
+      if (existsSync("./logs/current.log")) unlinkSync(`./logs/current.log`);
+      console.logName = `${config.logPrefix}-${new Date().getTime()}.log`;
+      if (!existsSync("./logs")) {
+        mkdirSync("./logs");
+      } else {
+        const logFiles = readdirSync("./logs");
+        // Delete oldest logs if there are more than maxLogs
+        if (config.maxLogs > 0 && logFiles.length > config.maxLogs - 1) {
+          while (logFiles.length > config.maxLogs - 1) {
+            const oldestLog = logFiles.sort((a, b) => {
+              return (
+                parseInt(a.split("-")[1].split(".")[0]) -
+                parseInt(b.split("-")[1].split(".")[0])
+              );
+            })[0];
+
+            logFiles.splice(logFiles.indexOf(oldestLog), 1);
+
+            unlinkSync(`./logs/${oldestLog}`);
+          }
+        }
+      }
+      console.saveStream = createWriteStream(`./logs/${console.logName}`);
+      if (config.makeCurrentLog) {
+        symlinkSync(`${console.logName}`, `./logs/current.log`, "file");
+      }
+    }
+
+    const logger = this;
+
+    console.sender = function (this: Console, name: string) {
+      const newConsole = Object.create(this) as Console;
+
+      newConsole.includeSender = true;
+      newConsole.rootSender = name;
+
+      return newConsole;
+    };
+
+    console.line = function (this: Console, ...args: any[]) {
+      logger.writeToLogFile(this, ...args);
+      logger.origLog(...args);
+    };
+
+    console.debug = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.DEBUG) {
+        this.line(...logger.fmt(this, LOGLEVEL.DEBUG), ...colorIfStr(chalk.gray, ...args));
+      }
+    };
+    console.log = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.LOG) {
+        this.line(...logger.fmt(this, LOGLEVEL.LOG), ...colorIfStr((s:string)=>s, ...args));
+      }
+    };
+    console.info = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.INFO) {
+        this.line(...logger.fmt(this, LOGLEVEL.INFO), ...colorIfStr(chalk.bold, ...args));
+      }
+    };
+    console.great = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.GREAT) {
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.GREAT),
+          ...(this.colorByLevel ? [...colorIfStr(chalk.green, ...args)] : args),
+        );
+      }
+    };
+
+    console.perfect = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.PERFECT) {
+        this.line(...logger.fmt(this, LOGLEVEL.PERFECT), ...colorIfStr(chalk.green, ...args));
+      }
+    };
+
+    console.perf = console.perfect; // Alias for perfect
+    console.success = console.great; // Alias for great
+
+    console.fail = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.FAIL) {
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.FAIL),
+          ...(this.colorByLevel ? [...colorIfStr(chalk.red, ...args)] : args),
+        );
+      }
+    };
+    console.warn = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.WARN) {
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.WARN),
+          ...(this.colorByLevel ? [...colorIfStr(chalk.yellow, ...args)] : args),
+        );
+      }
+    };
+    console.error = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.ERROR) {
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.ERROR),
+          ...(this.colorByLevel ? [...colorIfStr(chalk.red, ...args)] : args),
+        );
+      }
+    };
+    console.fatal = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.FATAL) {
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.FATAL),
+          ...(this.colorByLevel ? [...colorIfStr(chalk.redBright.bold, ...args)] : args),
+        );
+      }
+    };
+  }
+
+  private fmt(logConsole: Console, lvl: LOGLEVEL, sender?: string): any[] {
+    const clrMap = {
+      [LOGLEVEL.DEBUG]: chalk.cyan,
+      [LOGLEVEL.LOG]: chalk.gray,
+      [LOGLEVEL.INFO]: chalk.white,
+      [LOGLEVEL.GREAT]: chalk.green,
+      [LOGLEVEL.PERFECT]: chalk.bgGreen.black,
+      [LOGLEVEL.FAIL]: chalk.red,
+      [LOGLEVEL.WARN]: chalk.yellow,
+      [LOGLEVEL.ERROR]: chalk.red,
+      [LOGLEVEL.FATAL]: chalk.bgRed.white,
+    };
+
+    let maxTypeLength = 0;
+    // the maxTypeLength should be the length of the longest log type, but only for the levels that are used (are equal or lower than the current log level)
+    for (const key in LOGTYPE) {
+      if (parseInt(key) <= logConsole.logLevel) {
+        maxTypeLength = Math.max(
+          maxTypeLength,
+          LOGTYPE[key as keyof typeof LOGLEVEL]?.length ?? 0,
+        );
+      }
+    }
+
+    return [
+      chalk.gray(`[${getDate()}]`),
+      chalk.gray(
+        `[${(clrMap[lvl] ?? ((inc: any) => inc))(`${(LOGTYPE[lvl] ?? "").padEnd(maxTypeLength)}`)}]`,
+      ),
+      ...(logConsole.includeSender
+        ? [chalk.gray(`[${chalk.white(sender || logConsole.rootSender)}]`)]
+        : []),
+    ];
+  }
+}
+
+function getDate(): string {
+  return moment(new Date()).format("HH:mm:ss.SSS");
+}
+
+function colorIfStr(clr: (str: string) => string, ...args): any {
+  return args.map((arg) => (typeof arg === "string" ? clr(arg) : arg));
+}
