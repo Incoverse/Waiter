@@ -1,10 +1,15 @@
 import { Controller } from "@/lib/base/controller";
-import { getStaticProps } from "@/lib/misc";
+import TableDefinition from "@/lib/base/tableDefinition";
+import {
+  extendsClass,
+  getAllModules,
+  getStaticProps,
+  importLocalModule,
+} from "@/lib/misc";
 import chalk from "chalk";
 import ping from "ping";
 import prettyMs from "pretty-ms";
 import { Surreal } from "surrealdb";
-import TableDefinition from "./tables";
 
 type SessionInfo = {
   ac: string;
@@ -75,7 +80,8 @@ export default class SurrealDBController extends Controller {
       if (!global.db.isConnected && !attemptingToReconnect) {
         attemptingToReconnect = true;
 
-        if (hasInternet) this.logger.warn(`Lost connection to database. Reconnecting...`);
+        if (hasInternet)
+          this.logger.warn(`Lost connection to database. Reconnecting...`);
 
         const pingResult = await ping.promise
           .probe("1.1.1.1", { timeout: 0.1 })
@@ -83,7 +89,10 @@ export default class SurrealDBController extends Controller {
           .catch(() => false);
 
         if (!pingResult) {
-          if (hasInternet) this.logger.warn(`No internet connection. Skipping database reconnect attempt.`);
+          if (hasInternet)
+            this.logger.warn(
+              `No internet connection. Skipping database reconnect attempt.`,
+            );
           hasInternet = false;
           attemptingToReconnect = false;
           return;
@@ -91,6 +100,7 @@ export default class SurrealDBController extends Controller {
 
         await connectToDB(db)
           .then(() => {
+            hasInternet = true;
             this.logger.great("Reconnected to database.");
           })
           .catch((err) => {
@@ -107,12 +117,32 @@ export default class SurrealDBController extends Controller {
       namespace: "Waiter",
     });
 
-    for (const [tableName, tableDef] of getStaticProps(TableDefinition)) {
-      if (typeof tableDef !== "string") continue; //? Skip non-string static props
-      this.logger.debug(`Loading table definition ${chalk.yellow(tableName)}...`);
-      await db.query(tableDef).then(() => {
-        this.logger.debug(`Loaded table definition ${chalk.yellow(tableName)}.`);
-      })
+    const tableDefinitions = (
+      await Promise.all(
+        (await getAllModules(".", /tables\..s$/))
+          .map(importLocalModule)
+          .map((mod) => mod.then((m) => m.default)),
+      )
+    ).filter((def) => extendsClass(def, TableDefinition));
+
+    tableDefinitions.sort((a, b) => {
+      const aPriority = typeof a.priority === "number" ? a.priority : 0;
+      const bPriority = typeof b.priority === "number" ? b.priority : 0;
+      return aPriority - bPriority;
+    });
+
+    for (const TableDef of tableDefinitions) {
+      for (const [tableName, SQL] of getStaticProps(TableDef)) {
+        if (typeof SQL !== "string") continue; //? Skip non-string static props
+        this.logger.debug(
+          `Loading table definition ${chalk.yellow(tableName)}...`,
+        );
+        await db.query(SQL).then(() => {
+          this.logger.debug(
+            `Loaded table definition ${chalk.yellow(tableName)}.`,
+          );
+        });
+      }
     }
   }
 }
@@ -134,7 +164,7 @@ const connectToDB = (db: Surreal) =>
 
 //? Quick Reference Handbook (QRH) for SurrealDB queries. Use this to avoid having to write the same queries multiple times across the codebase. Add any commonly used queries here for easy access.
 export const qrh = {
-  getSessionInfo: async (): Promise<SessionInfo> => 
+  getSessionInfo: async (): Promise<SessionInfo> =>
     ((await global.db.query("$session").collect()) as SessionInfo[])[0],
   getVersion: async (): Promise<string> =>
     await global.db.version().then((res) => res.version),

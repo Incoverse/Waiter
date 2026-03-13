@@ -1,28 +1,28 @@
 /*
-  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
-  *
-  * This program is free software: you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-  * the Free Software Foundation, either version 3 of the License, or
-  * (at your option) any later version.
-  *
-  * This program is distributed in the hope that it will be useful,
-  * but WITHOUT ANY WARRANTY; without even the implied warranty of
-  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-  * GNU General Public License for more details.
-  *
-  * You should have received a copy of the GNU General Public License
-  * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 import chalk from "chalk";
 import {
-    createWriteStream,
-    existsSync,
-    mkdirSync,
-    readdirSync,
-    symlinkSync,
-    unlinkSync,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  symlinkSync,
+  unlinkSync,
 } from "fs";
 import moment from "moment";
 import { inspect } from "util";
@@ -58,6 +58,15 @@ type LoggedConsole = {
   fatal: (...args: any[]) => void;
 
   sender: (name: string) => Console; // Returns a new console instance with the sender set to the provided string
+
+  originalConsole: {
+    line: (...args: any[]) => void;
+    debug: (...args: any[]) => void;
+    log: (...args: any[]) => void;
+    info: (...args: any[]) => void;
+    warn: (...args: any[]) => void;
+    error: (...args: any[]) => void;
+  }; // Reference to the original console object, before any modifications
 };
 
 export enum LOGLEVEL {
@@ -154,6 +163,14 @@ export default class WaiterLog {
     console.colorByLevel = config?.colorByLevel ?? true;
     console.includeSender = config?.includeSender ?? false;
     console.rootSender = config?.rootSender ?? "MAIN";
+    console.originalConsole = {
+      line: console.line,
+      debug: console.debug,
+      log: console.log,
+      info: console.info,
+      warn: console.warn,
+      error: console.error,
+    };
 
     if (console.saveToFile) {
       if (existsSync("./logs/current.log")) unlinkSync(`./logs/current.log`);
@@ -202,17 +219,26 @@ export default class WaiterLog {
 
     console.debug = function (this: Console, ...args: any[]) {
       if (this.logLevel >= LOGLEVEL.DEBUG) {
-        this.line(...logger.fmt(this, LOGLEVEL.DEBUG), ...colorIfStr(chalk.gray, ...args));
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.DEBUG),
+          ...colorIfStr(chalk.gray, ...args),
+        );
       }
     };
     console.log = function (this: Console, ...args: any[]) {
       if (this.logLevel >= LOGLEVEL.LOG) {
-        this.line(...logger.fmt(this, LOGLEVEL.LOG), ...colorIfStr((s:string)=>s, ...args));
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.LOG),
+          ...colorIfStr((s: string) => s, ...args),
+        );
       }
     };
     console.info = function (this: Console, ...args: any[]) {
       if (this.logLevel >= LOGLEVEL.INFO) {
-        this.line(...logger.fmt(this, LOGLEVEL.INFO), ...colorIfStr(chalk.bold, ...args));
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.INFO),
+          ...colorIfStr(chalk.bold, ...args),
+        );
       }
     };
     console.great = function (this: Console, ...args: any[]) {
@@ -226,7 +252,10 @@ export default class WaiterLog {
 
     console.perfect = function (this: Console, ...args: any[]) {
       if (this.logLevel >= LOGLEVEL.PERFECT) {
-        this.line(...logger.fmt(this, LOGLEVEL.PERFECT), ...colorIfStr(chalk.green, ...args));
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.PERFECT),
+          ...colorIfStr(chalk.green, ...args),
+        );
       }
     };
 
@@ -245,7 +274,9 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.WARN) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.WARN),
-          ...(this.colorByLevel ? [...colorIfStr(chalk.yellow, ...args)] : args),
+          ...(this.colorByLevel
+            ? [...colorIfStr(chalk.yellow, ...args)]
+            : args),
         );
       }
     };
@@ -261,7 +292,9 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.FATAL) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.FATAL),
-          ...(this.colorByLevel ? [...colorIfStr(chalk.redBright.bold, ...args)] : args),
+          ...(this.colorByLevel
+            ? [...colorIfStr(chalk.redBright.bold, ...args)]
+            : args),
         );
       }
     };
