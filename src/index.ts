@@ -20,6 +20,7 @@ import { IEM } from "./lib/envmgr";
 
 import { fileURLToPath } from "url";
 import TwitchController from "./controllers/twitch";
+import DiscordController from "./controllers/discord";
 import WebController from "./controllers/web";
 const __filename = fileURLToPath(import.meta.url);
 
@@ -66,3 +67,8 @@ console.debug(`Starting controller: TwitchController`);
 const twitchController = new TwitchController();
 await twitchController.exec();
 console.debug(`Finished executing controller: TwitchController`);
+
+console.debug(`Starting controller: DiscordController`);
+const discordController = new DiscordController();
+await discordController.exec();
+console.debug(`Finished executing controller: DiscordController`);
