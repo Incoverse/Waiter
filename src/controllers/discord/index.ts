@@ -1,5 +1,5 @@
 import { Controller } from "@/lib/base/controller";
-import { getAllModules, importLocalModule } from "@/lib/misc";
+import { extendsClass, getAllModules, importLocalModule } from "@/lib/misc";
 import {
   ChatInputCommandInteraction,
   Client,
@@ -13,6 +13,7 @@ import {
 } from "discord.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import { WaiterCommand } from "./lib/base/WaiterCommand";
 
 type SlashCommandModule = {
   data?: SlashCommandBuilder;
@@ -88,27 +89,18 @@ export default class DiscordController extends Controller {
       commandPaths.map(importLocalModule),
     );
 
-    const commands = importedModules
-      .map((mod) => ({
-        data: mod.data ?? (mod.default as SlashCommandModule | undefined)?.data,
-        execute:
-          mod.execute ??
-          (mod.default as SlashCommandModule | undefined)?.execute,
-      }))
-      .filter((mod): mod is Required<SlashCommandModule> => {
-        if (!mod.data || !mod.execute) {
-          return false;
-        }
-
-        return true;
-      });
+    const commands: WaiterCommand[] = importedModules
+      .map((mod) => mod.default) // <-- default exported class
+      .filter((cls) => !!cls) // <-- remove all modules that dont have a default export
+      .filter((cls) => extendsClass(cls, WaiterCommand)) // <-- Only allow classes that extend WaiterCommand
+      .map((defaultClass) => new defaultClass());
 
     if (!commands.length) {
       this.logger.warn("No slash commands found to register.");
     }
 
     const commandMap = new Map(
-      commands.map((command) => [command.data.name, command]),
+      commands.map((command) => [command.slashCommand.name, command]),
     );
 
     client.on(Events.InteractionCreate, async (interaction) => {
@@ -118,11 +110,11 @@ export default class DiscordController extends Controller {
       if (!command) return;
 
       try {
-        await command.execute(interaction);
+        await command.runCommand(interaction);
       } catch (err) {
         this.logger.error(
           `Error while executing command \"${interaction.commandName}\"`,
-          err,
+         err,
         );
 
         if (interaction.replied || interaction.deferred) {
@@ -141,7 +133,7 @@ export default class DiscordController extends Controller {
     });
 
     const rest = new REST({ version: "10" }).setToken(token);
-    const commandJson = commands.map((command) => command.data.toJSON());
+    const commandJson = commands.map((command) => command.slashCommand.toJSON());
 
     if (guildId) {
       await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
