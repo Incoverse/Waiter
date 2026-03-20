@@ -11,17 +11,27 @@ export default class WebController extends Controller {
     super("HTTP");
   }
 
-  public async exec() {
-    app.listen(3000, () => {
-      this.logger.info("Web server is running on port 3000");
-    });
+  public exec() {
+    return new Promise<void>((resolve, reject) => {
+      app.listen(3000, (err) => {
 
-    this.logger.debug("Registered routes:");
-    for (const route of registeredRoutes) {
-      this.logger.debug(
-        `  - ${route.method} ${route.path} -> ${route.handlerStr}`,
-      );
-    }
+        if (err) {
+          this.logger.error("Error starting web server:", err);
+          reject(err);
+          return;
+        }
+
+        this.logger.info("Web server is running on port 3000");
+        resolve();
+      });
+
+      this.logger.debug("Registered routes:");
+      for (const route of registeredRoutes) {
+        this.logger.debug(
+          `  - ${route.method} ${route.path} -> ${route.handlerStr}`,
+        );
+      }
+    })
   }
 }
 type HTTPMethod =
@@ -49,14 +59,14 @@ export function registerRoute(method: HTTPMethod, path: string) {
     ) {
       try {
         console
-          .sender("HTTP")
+          .withSender("HTTP")
           .debug(
             `Handling ${method.toUpperCase()} ${path} with ${target.constructor.name}.${propertyKey}`,
           );
         await originalMethod.apply(this, [req, res, ...args]);
       } catch (error) {
         console
-          .sender("HTTP")
+          .withSender("HTTP")
           .error(`Error handling ${method.toUpperCase()} ${path}:`, error);
         res.status(500).send("Internal Server Error");
       }

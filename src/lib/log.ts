@@ -31,7 +31,7 @@ declare global {
   interface Console extends LoggedConsole {}
 }
 
-type LoggedConsole = {
+export type LoggedConsole = {
   logLevel: LOGLEVEL; // Maximum log level to output
   colorByLevel: boolean; // If true, colors log output based on log level
 
@@ -43,6 +43,8 @@ type LoggedConsole = {
 
   includeSender: boolean; // If true, includes the sender in the log output
   rootSender: string; // The root sender name to use if includeSender is true and no sender is provided
+
+  prefix: string; // Prefix to include in log messages (e.g. [MyApp])
 
   line: (...args: any[]) => void;
   debug: (...args: any[]) => void;
@@ -57,7 +59,8 @@ type LoggedConsole = {
   error: (...args: any[]) => void;
   fatal: (...args: any[]) => void;
 
-  sender: (name: string) => Console; // Returns a new console instance with the sender set to the provided string
+  withSender: (name: string) => Console; // Returns a new console instance with the sender set to the provided string
+  withPrefix: (prefix: string) => Console; // Returns a new console instance with the prefix set to the provided string
 
   originalConsole: {
     line: (...args: any[]) => void;
@@ -139,6 +142,7 @@ export default class WaiterLog {
     saveFormatted?: boolean;
     maxLogs?: number;
     logPrefix?: string;
+    prefix?: string;
     includeSender?: boolean;
     rootSender?: string;
   }) {
@@ -151,11 +155,13 @@ export default class WaiterLog {
       saveFormatted: false,
       maxLogs: 10,
       logPrefix: "CONSOLE",
+      prefix: null,
       includeSender: false,
       rootSender: "MAIN",
       makeCurrentLog: true,
       ...config,
     };
+
 
     console.logLevel = config?.logLevel ?? LOGLEVEL.LOG;
     console.saveToFile = config?.saveToFile ?? false;
@@ -163,6 +169,7 @@ export default class WaiterLog {
     console.colorByLevel = config?.colorByLevel ?? true;
     console.includeSender = config?.includeSender ?? false;
     console.rootSender = config?.rootSender ?? "MAIN";
+    console.prefix = config?.prefix ?? null;
     console.originalConsole = {
       line: console.line,
       debug: console.debug,
@@ -203,11 +210,19 @@ export default class WaiterLog {
 
     const logger = this;
 
-    console.sender = function (this: Console, name: string) {
+    console.withSender = function (this: Console, name: string) {
       const newConsole = Object.create(this) as Console;
 
       newConsole.includeSender = true;
       newConsole.rootSender = name;
+
+      return newConsole;
+    };
+
+    console.withPrefix = function (this: Console, prefix: string) {
+      const newConsole = Object.create(this) as Console;
+
+      newConsole.prefix = prefix;
 
       return newConsole;
     };
@@ -221,7 +236,7 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.DEBUG) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.DEBUG),
-          ...colorIfStr(chalk.gray, ...args),
+          ...colorIfStr(chalk.gray, ...[...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };
@@ -229,7 +244,7 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.LOG) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.LOG),
-          ...colorIfStr((s: string) => s, ...args),
+          ...colorIfStr((s: string) => s, ...[...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };
@@ -237,7 +252,7 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.INFO) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.INFO),
-          ...colorIfStr(chalk.bold, ...args),
+          ...colorIfStr(chalk.bold, ...[...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };
@@ -245,7 +260,7 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.GREAT) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.GREAT),
-          ...(this.colorByLevel ? [...colorIfStr(chalk.green, ...args)] : args),
+          ...(this.colorByLevel ? [...colorIfStr(chalk.green, ...[...(!!this.prefix ? [this.prefix] : []), ...args])] : [...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };
@@ -254,7 +269,7 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.PERFECT) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.PERFECT),
-          ...colorIfStr(chalk.green, ...args),
+          ...colorIfStr(chalk.green, ...[...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };
@@ -266,7 +281,7 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.FAIL) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.FAIL),
-          ...(this.colorByLevel ? [...colorIfStr(chalk.red, ...args)] : args),
+          ...(this.colorByLevel ? [...colorIfStr(chalk.red, ...[...(!!this.prefix ? [this.prefix] : []), ...args])] : [...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };
@@ -275,8 +290,8 @@ export default class WaiterLog {
         this.line(
           ...logger.fmt(this, LOGLEVEL.WARN),
           ...(this.colorByLevel
-            ? [...colorIfStr(chalk.yellow, ...args)]
-            : args),
+            ? [...colorIfStr(chalk.yellow, ...[...(!!this.prefix ? [this.prefix] : []), ...args])]
+            : [...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };
@@ -284,7 +299,7 @@ export default class WaiterLog {
       if (this.logLevel >= LOGLEVEL.ERROR) {
         this.line(
           ...logger.fmt(this, LOGLEVEL.ERROR),
-          ...(this.colorByLevel ? [...colorIfStr(chalk.red, ...args)] : args),
+          ...(this.colorByLevel ? [...colorIfStr(chalk.red, ...[...(!!this.prefix ? [this.prefix] : []), ...args])] : [...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };
@@ -293,8 +308,8 @@ export default class WaiterLog {
         this.line(
           ...logger.fmt(this, LOGLEVEL.FATAL),
           ...(this.colorByLevel
-            ? [...colorIfStr(chalk.redBright.bold, ...args)]
-            : args),
+            ? [...colorIfStr(chalk.redBright.bold, ...[...(!!this.prefix ? [this.prefix] : []), ...args])]
+            : [...(!!this.prefix ? [this.prefix] : []), ...args]),
         );
       }
     };

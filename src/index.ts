@@ -16,13 +16,14 @@ import { config } from "dotenv";
 import fs from "fs/promises";
 import path from "path";
 import SurrealDBController from "./controllers/sdb";
-import { IEM } from "./lib/envmgr";
+import { IEM } from "./lib/iem";
 
 import { fileURLToPath } from "url";
 import TwitchController from "./controllers/twitch";
 import WebController from "./controllers/web";
 const __filename = fileURLToPath(import.meta.url);
 
+global.controllers = new Map();
 global.isCompiled = path.extname(__filename) === ".js";
 
 const waiterInfo = JSON.parse(
@@ -52,17 +53,22 @@ if (!storedKey) {
   console.info("Encryption key loaded from internal environment.");
 }
 
-console.debug(`Starting controller: SurrealDBController`);
 const dbController = new SurrealDBController();
+const webController = new WebController();
+const twitchController = new TwitchController();
+
+global.controllers.set(dbController.abbr,     dbController);
+global.controllers.set(webController.abbr,    webController);
+global.controllers.set(twitchController.abbr, twitchController);
+
+console.debug(`Starting controller: SurrealDBController`);
 await dbController.exec();
 console.debug(`Finished executing controller: SurrealDBController`);
 
 console.debug(`Starting controller: WebController`);
-const webController = new WebController();
 await webController.exec();
 console.debug(`Finished executing controller: WebController`);
 
 console.debug(`Starting controller: TwitchController`);
-const twitchController = new TwitchController();
 await twitchController.exec();
 console.debug(`Finished executing controller: TwitchController`);

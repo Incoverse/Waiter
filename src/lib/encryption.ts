@@ -1,5 +1,6 @@
 import crypto from "crypto";
-import { IEM } from "./envmgr";
+import { fileURLToPath } from "url";
+import { IEM } from "./iem";
 
 const algorithm = "aes-256-gcm";
 let key: string;
@@ -38,4 +39,35 @@ export function decrypt(data: string): string {
   ]);
 
   return decrypted.toString("utf8");
+}
+
+const directRun = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (directRun) {
+  // get first argument after the script name
+  const action = process.argv[2] as "encrypt" | "decrypt" | "vk";
+  const input = process.argv[3];
+
+  if (!action || (action != "vk" && !input)) {
+    console.error("Usage: node encryption.js <encrypt|decrypt|vk> [input]");
+    process.exit(1);
+  }
+
+  try {
+    if (action === "encrypt") {
+      const encrypted = encrypt(input);
+      console.log(encrypted);
+    } else if (action === "decrypt") {
+      const decrypted = decrypt(input);
+      console.log(decrypted);
+    } else if (action === "vk") {
+      console.log(global.encryptionKey ?? IEM.get("ENCRYPTION_KEY")!);
+    } else {
+      console.error("Invalid action. Use 'encrypt', 'decrypt', or 'vk'.");
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error("Error:", error.message);
+    process.exit(1);
+  }
 }

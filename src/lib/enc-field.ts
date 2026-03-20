@@ -22,17 +22,35 @@ export class EncryptedField<T = string> {
 
   get(): T | undefined {
     if (!this.encrypted) return null;
-
+      
     const decrypted = decrypt(this.encrypted);
     return JSON.parse(decrypted);
+  }
+
+  validate() {
+    if (!this.encrypted) return true;
+    try {
+      const decrypted = decrypt(this.encrypted);
+      JSON.parse(decrypted);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  isSet() {
+    return !!this.encrypted;
+  }
+
+  isEmpty() {
+    return !this.encrypted;
   }
 
   toDB() {
     return this.encrypted;
   }
 
-  static fromDB(value: string) {
-    const field = new EncryptedField();
+  static fromDB<T>(value: string) {
+    const field = new EncryptedField<T>();
     field.encrypted = value;
     return field;
   }
