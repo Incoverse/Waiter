@@ -136,7 +136,7 @@ export function parseDuration(durationStr: string): number {
   return total;
 }
 
-export function formatDuration(durationMs, full=false) {
+export function formatDuration(durationMs: any, full=false, noMS=false): string {
   const units = [
     { label: (full ? " year(s)" : 'y'), ms: 1000 * 60 * 60 * 24 * 365 },
     { label: (full ? " month)s)" : 'mo'), ms: 1000 * 60 * 60 * 24 * 31},
@@ -145,7 +145,7 @@ export function formatDuration(durationMs, full=false) {
     { label: (full ? " hour(s)" : 'h'), ms: 1000 * 60 * 60 },
     { label: (full ? " minute(s)" : 'm'), ms: 1000 * 60 },
     { label: (full ? " second(s)" : 's'), ms: 1000 },
-    { label: (full ? " millisecond(s)" : 'ms'), ms: 1 }
+    ...(noMS ? [] : [{ label: (full ? " millisecond(s)" : 'ms'), ms: 1 }])
   ];
 
   let duration = durationMs;
@@ -154,10 +154,26 @@ export function formatDuration(durationMs, full=false) {
   for (const unit of units) {
     const count = Math.floor(duration / unit.ms);
     if (count > 0) {
-      durationStr += `${count}${unit.label} `;
+      durationStr += `${count}${full ? (count == 1 ? unit.label.replace("(s)","") : unit.label.replace(/\((.*?)\)/, "$1")) : unit.label} `;
       duration -= count * unit.ms;
     }
   }
 
   return durationStr.trim();
+}
+
+
+export function deepAssign(target: { [x: string]: any; }, source: { [x: string]: any; }) {
+  for (const key in source) {
+      if (source[key] instanceof Object) {
+          if (!target[key]) {
+              target[key] = {};
+          }
+          deepAssign(target[key], source[key]);
+      } else {
+          target[key] = source[key];
+      }
+  }
+
+  return target;
 }

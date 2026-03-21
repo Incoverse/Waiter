@@ -605,3 +605,96 @@ export type UserWhisperMessage = TwitchReturn<"user.whisper.message", {
 }>
 
 
+export type ChannelChatMessage = TwitchReturn<"channel.chat.message", {
+  broadcaster_user_id: string;
+  broadcaster_user_login: string;
+  broadcaster_user_name: string;
+  chatter_user_id: string;
+  chatter_user_login: string;
+  chatter_user_name: string;
+  message_id: string;
+  message: {
+    text: string;
+    fragments:
+      {
+        type: "text";
+        text: string;
+        cheermote: null;
+        emote: null;
+        mention: null
+      }[]
+  };
+  color: string;
+  badges: (
+    {
+      set_id: string
+      id: string;
+      info: string
+    }
+  )[];
+  message_type: "text";
+  cheer: null;
+  reply: null | {
+    parent_message_id: string;
+    parent_message_body: string;
+    parent_user_id: string;
+    parent_user_name: string;
+    parent_user_login: string;
+    thread_message_id: string;
+    thread_user_id: string;
+    thread_user_name: string;
+    thread_user_login: string
+  };
+  channel_points_custom_reward_id: null;
+  source_broadcaster_user_id: null;
+  source_broadcaster_user_login: null;
+  source_broadcaster_user_name: null;
+  source_message_id: null;
+  source_badges: null
+}>
+
+export type StreamOnline = TwitchReturn<"stream.online", {
+  id: string;
+  broadcaster_user_id: string;
+  broadcaster_user_login: string;
+  broadcaster_user_name: string;
+  type: "live" | "playlist" | "watch_party" | "premiere" | "rerun";
+  started_at: string;
+}>
+
+export type StreamOffline = TwitchReturn<"stream.offline", {
+  broadcaster_user_id: string;
+  broadcaster_user_login: string;
+  broadcaster_user_name: string;
+}>
+
+export type AdBreakBegin = TwitchReturn<"channel.ad_break.begin", {
+  duration_seconds: number;
+  started_at: string;
+  is_automatic: boolean;
+  broadcaster_user_id: string;
+  broadcaster_user_login: string;
+  broadcaster_user_name: string;
+  requester_user_id: string;
+  requester_user_login: string;
+  requester_user_name: string;
+}>
+
+export type CustomRewardRedemptionAdd = TwitchReturn<"channel.channel_points_custom_reward_redemption.add", {
+  id: string,
+  broadcaster_user_id: string,
+  broadcaster_user_login: string,
+  broadcaster_user_name: string,
+  user_id: string,
+  user_login: string,
+  user_name: string,
+  user_input: string,
+  status: string,
+  reward: {
+    id: string,
+    title: string,
+    cost: number,
+    prompt: string
+  },
+  redeemed_at: string
+}>

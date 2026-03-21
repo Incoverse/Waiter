@@ -7,7 +7,7 @@ import { CronJob, CronTime } from "cron";
 import prettyMilliseconds from "pretty-ms";
 import { WebSocket } from "ws";
 import { registerRoute } from "../web";
-import { generateAuthURL } from "./authentication";
+import { generateAuthURL } from "./lib/authentication";
 import { TwitchAuthDBSchema, type TwitchAuthDB, type TwitchUser } from "./typecheck";
 
 
@@ -21,6 +21,7 @@ import * as Chat from "./funcs/channel/chat";
 import * as Moderator from "./funcs/channel/mod";
 import * as VIP from "./funcs/channel/vip";
 
+import * as Rewards from "./funcs/rewards";
 import * as User from "./funcs/user";
 
 import type { CoercedNumber, EventCondition, EventVersion, UserResolvable, ValidTopics } from "./types";
@@ -132,6 +133,46 @@ export default class TwitchClient {
     return code;
   }
 
+
+  public async enableEventSub() {
+    if (this.connectEventSub) {
+      this.logger.warn("Tried to enable EventSub when it's already enabled.");
+      return;
+    }
+
+    if (this.eventsubWS && this.eventsubConnected) {
+      this.logger.warn("Tried to enable EventSub when it's already enabled.");
+      this.connectEventSub = true;
+      return;
+    }
+
+    this.connectEventSub = true;
+    this.logger.info("Enabling Twitch EventSub...");
+    return await this.connect();
+  }
+
+  public get wantsToConnectToEventSub() {
+    return this.connectEventSub;
+  }
+
+  public async disableEventSub() {
+    if (!this.connectEventSub) {
+      this.logger.warn("Tried to disable EventSub when it's already disabled.");
+      return;
+    }
+
+    this.logger.info("Disabling Twitch EventSub...");
+    this.connectEventSub = false;
+    if (this.eventsubWS && this.eventsubConnected) {
+      this.eventsubWS.removeAllListeners();
+      clearInterval(this.ESKATimer);
+      this.eventsubWS.close(1000);
+    }
+
+    return;
+
+  }
+
   private constructor(auth: TwitchAuthDB, connectToEventSub = true, bot = false) {
     this.isBot = bot
     this.logger = console.withSender("TWCL").withPrefix(
@@ -178,6 +219,14 @@ export default class TwitchClient {
         return Promise.reject(error);
       }
     ); 
+
+
+    // const oldOn = this.events.on;
+    // this.events.on = (event, listener) => {
+    //   this.logger.debug(`Registered listener for event: ${String(event)}`);
+    //   return oldOn.call(this.events, event, listener);
+    // };
+
   }
 
   private async initialize() {
@@ -348,7 +397,7 @@ export default class TwitchClient {
     }
 
     if (!noSave)
-    this.logger.warn(`Registering '${topic}' EventSub subscription...`);
+    this.logger.log(`Registering '${topic}' EventSub subscription...`);
 
     return await this.api.post(`/eventsub/subscriptions`, {
       type: topic,
@@ -618,6 +667,10 @@ export default class TwitchClient {
   }
 
   public sendWhisper = this.bindChannelFn(User.sendWhisper)
+  public isStreaming = this.bindChannelFn(User.isStreaming)
+
+  public cancelRedemption = this.bindChannelFn(Rewards.cancelRedemption)
+  public completeRedemption = this.bindChannelFn(Rewards.completeRedemption)
 
 
   public fetchUser = (idLogin?: string): Promise<TwitchUser> => this.api.get(`/users${idLogin ? `?${/^\d+$/.test(idLogin) ? "id":"login"}=${idLogin}` : ""}`).then(ResDataData0).catch(()=>null)

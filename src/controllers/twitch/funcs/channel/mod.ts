@@ -1,4 +1,4 @@
-import { DataFilter, type ChannelSpecificWrapper } from "../../client";
+import { DataFilter, type ChannelSpecificWrapper } from "@twitch/client";
 
 const MOD_RIGHTS_CACHE_TTL_MS = 30 * 1000;
 

@@ -1,4 +1,4 @@
-import type { ChannelSpecificWrapper } from "../../client";
+import type { ChannelSpecificWrapper } from "@twitch/client";
 
 export async function getSchedule(this: ChannelSpecificWrapper) {
   return await this.twcl.api

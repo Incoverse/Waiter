@@ -29,7 +29,11 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@twitch/*": ["./src/controllers/twitch/*"],
+      "@discord/*": ["./src/controllers/discord/*"],
+      "@sdb/*": ["./src/controllers/sdb/*"],
+      "@web/*": ["./src/controllers/web/*"],
     }
   }
 }

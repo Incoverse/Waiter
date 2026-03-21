@@ -1,5 +1,5 @@
 import { formatDuration, parseDuration } from "@/lib/misc";
-import { paginateData, ResDataData0, type ChannelSpecificWrapper } from "../../client";
+import { paginateData, ResDataData0, type ChannelSpecificWrapper } from "@twitch/client";
 import type { UserResolvable } from "../../types";
 
 export async function send(this: ChannelSpecificWrapper, message: string, {replyTo}: {replyTo?: string} = {}) {

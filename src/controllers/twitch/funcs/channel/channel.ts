@@ -1,6 +1,6 @@
 
-import type { ChannelSpecificWrapper } from "../../client";
-import { paginateData, ResDataData0 } from "../../client";
+import type { ChannelSpecificWrapper } from "@twitch/client";
+import { paginateData, ResDataData0 } from "@twitch/client";
 
 export async function getStreamInfo(this: ChannelSpecificWrapper, id: string | string[], settings: { all?: boolean } = { all: false }) {
   const userIds = Array.isArray(id) ? id : [id];
@@ -23,11 +23,6 @@ export async function getStreamMarkers(this: ChannelSpecificWrapper, vid: string
   return await paginateData(this.twcl.api, `/streams/markers`, params, { all: settings.all })(res);
 }
 
-
-export async function isStreaming(this: ChannelSpecificWrapper, id: string) {
-  return await this.twcl.api.get(`/streams`, { params: { user_id: id } })
-    .then((res) => res.data.data.length > 0);
-}
 
 export async function getGame(this: ChannelSpecificWrapper, idOrName: string) {
   const isId = !isNaN(parseInt(idOrName));

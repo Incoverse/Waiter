@@ -1,6 +1,6 @@
 
-import type { ChannelSpecificWrapper } from "../../client";
-import { paginateData } from "../../client";
+import type { ChannelSpecificWrapper } from "@twitch/client";
+import { paginateData } from "@twitch/client";
 
 export async function getBannedUsers(this: ChannelSpecificWrapper, all = false) {
   const params: any = { broadcaster_id: this.channelId, first: 100 };

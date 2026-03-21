@@ -1,5 +1,4 @@
-import type TwitchController from "..";
-import type TwitchClient from "../client";
+import type TwitchClient from "@twitch/client";
 import WaiterEvent, { type BroadcasterSender, type EventInfo } from "../lib/base/WaiterEvent";
 import type { UserWhisperMessage } from "../types";
 
@@ -31,7 +30,7 @@ export default class OWTBR extends WaiterEvent {
   public override async exec(source: TwitchClient, data: UserWhisperMessage): Promise<void> {
     this.logger.info(`${source.IAM.display_name} (${source.isBot ? "BOT" : "STREAMER"}) received a whisper:`, data.event.whisper.text);
 
-    const fromUserIsStreamer = (global.controllers.get("TWCH") as TwitchController).streamers.has(data.event.from_user_id);
+    const fromUserIsStreamer = global.twitch.streamers.has(data.event.from_user_id);
 
     if (fromUserIsStreamer) {
       await source.sendWhisper(data.event.from_user_id, `Hello ${data.event.from_user_name}. Waiter recognizes you as a streamer added to Waiter.`).catch((err) => {
