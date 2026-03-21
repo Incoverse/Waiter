@@ -4,7 +4,7 @@ export abstract class Controller {
 
   constructor(abbr: string) {
     this.abbr = abbr;
-    this.logger = console.sender(this.abbr);
+    this.logger = console.withSender(this.abbr);
   }
 
   public abstract exec(): Promise<void>;

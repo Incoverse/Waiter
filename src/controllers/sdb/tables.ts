@@ -28,9 +28,7 @@ export default class SDBDefinitions extends TableDefinition {
         DEFINE TABLE OVERWRITE streamer_tokens SCHEMALESS;
 
         DEFINE FIELD OVERWRITE streamer ON streamer_tokens TYPE record<twitch_users>;
-        DEFINE FIELD OVERWRITE access_token ON streamer_tokens TYPE string;
-        DEFINE FIELD OVERWRITE refresh_token ON streamer_tokens TYPE string;
-        DEFINE FIELD OVERWRITE expires_at ON streamer_tokens TYPE datetime;
+        DEFINE FIELD OVERWRITE auth ON streamer_tokens TYPE string; -- Encrypted
         DEFINE FIELD OVERWRITE type ON streamer_tokens TYPE "twitch" | "spotify";
     `.trim();
 

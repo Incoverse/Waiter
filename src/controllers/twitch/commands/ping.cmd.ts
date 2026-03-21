@@ -1,0 +1,37 @@
+/*
+  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  *
+  * This program is free software: you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation, either version 3 of the License, or
+  * (at your option) any later version.
+  *
+  * This program is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  * GNU General Public License for more details.
+  *
+  * You should have received a copy of the GNU General Public License
+  * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import type TwitchClient from "@twitch/client";
+import WaiterCommand, { type Message } from "@twitch/lib/base/WaiterCommand";
+import CooldownSystem, { CooldownWrapper } from "../lib/cooldown";
+
+
+export default class PingCMD extends WaiterCommand {
+  public messageTrigger: RegExp = /^!ping$/;
+
+  public override cooldown: CooldownSystem = new CooldownSystem({
+    type: "user",
+    cooldownTime: "30s",
+  });
+
+  @CooldownWrapper()
+  public async exec(source: TwitchClient, message: Message): Promise<any> {
+    await this.bot.withChannel(source).sendMessage(`Pong! I'm alive and well!`, { replyTo: message.message_id }).catch((err) => {
+      this.logger.warn("Error sending ping response:", err);
+    });
+  }
+}
