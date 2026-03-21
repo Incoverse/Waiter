@@ -17,6 +17,7 @@
 
 import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type Message } from "@twitch/lib/base/WaiterCommand";
+import { StreamerIsLive } from "../../lib/conditions";
 
 export default class UnlurkCMD extends WaiterCommand {
   public messageTrigger: RegExp = /^!unlurk/;
@@ -32,16 +33,16 @@ export default class UnlurkCMD extends WaiterCommand {
     return super.setup(clients);
   }
 
-  // @StreamerIsLive()
-  public override async exec(source: TwitchClient, message: Message): Promise<any> {
+  @StreamerIsLive()
+  public override async exec(channel: TwitchClient, message: Message): Promise<any> {
     const user = await this.bot.fetchUser(message.chatter_user_id);
 
     if (!user) {
-      return await this.bot.withChannel(source).sendMessage("I couldn't find your user information. Please try again.", { replyTo: message.message_id});
+      return await this.bot.withChannel(channel).sendMessage("I couldn't find your user information. Please try again.", { replyTo: message.message_id});
     }
 
-    if (!global.twitch.streamerData[source.IAM.id].lurkedUsers?.some((u) => u.id === user.id)) {
-      return await this.bot.withChannel(source).sendMessage("You are not lurking!", { replyTo: message.message_id });
+    if (!global.twitch.streamerData[channel.IAM.id].lurkedUsers?.some((u) => u.id === user.id)) {
+      return await this.bot.withChannel(channel).sendMessage("You are not lurking!", { replyTo: message.message_id });
     }
 
     let messages = [
@@ -150,9 +151,9 @@ export default class UnlurkCMD extends WaiterCommand {
 
     let msg = messages[Math.floor(Math.random() * messages.length)].replace(/\[Username\]/g, "@" + user.display_name);
     
-    global.twitch.streamerData[source.IAM.id].lurkedUsers = global.twitch.streamerData[source.IAM.id].lurkedUsers?.filter(u => u.id !== user.id);
+    global.twitch.streamerData[channel.IAM.id].lurkedUsers = global.twitch.streamerData[channel.IAM.id].lurkedUsers?.filter(u => u.id !== user.id);
     
-    await this.bot.withChannel(source).sendMessage(msg);
+    await this.bot.withChannel(channel).sendMessage(msg);
 
   }
 

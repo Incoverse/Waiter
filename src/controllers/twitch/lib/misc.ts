@@ -1,0 +1,218 @@
+import { deepAssign } from "@/lib/misc"
+import type TwitchClient from "@twitch/client"
+import type WaiterCommand from "./base/WaiterCommand"
+import type { Message } from "./base/WaiterCommand"
+
+export function orHigher(permission: TwitchPermissions) {
+    let bitmask = 0
+    for (const perm of Object.values(TwitchPermissions).filter(value => typeof value === 'number')) {
+        if (permission > perm) continue
+        bitmask |= perm
+    }
+    return bitmask
+
+}
+
+export function RequiresPermission(permission: TwitchPermissions | TwitchPermissions[], configuration: {
+    type?: "or-above" | "exact",
+    settings?: {
+      subscriptions?: {
+        minMonths?: number
+      }
+    },
+    silent?: boolean // If true, the command will not execute and no message will be sent to the user. If false, the command will not execute and a message will be sent to the user informing them of insufficient permissions.
+} = {}) {
+
+    const config = {
+      type: "or-above",
+      settings: {},
+      silent: true,
+    }
+
+    deepAssign(config, configuration);
+
+
+    return function (
+        target: any,
+        propertyKey: string,
+        descriptor: PropertyDescriptor,
+    ): PropertyDescriptor {
+        const originalMethod = descriptor.value;
+
+        descriptor.value = function (this: WaiterCommand, source: TwitchClient, message: Message, ...args: any[]) {
+            let requiredPermissions: TwitchPermissions | TwitchPermissions[] = permission;
+
+            if (config.type === "or-above") {
+                if (Array.isArray(permission)) {
+                    const lowestPermission = Math.min(...permission);
+                    requiredPermissions = orHigher(lowestPermission);
+                } else {
+                    requiredPermissions = orHigher(permission);
+                }
+            }
+
+            if (!conditionUtils.meetsPermission(message, requiredPermissions, config.settings)) {
+
+                const requiredPermsText = Array.isArray(permission) ? permission.map(p => TwitchPermissions[p]).join(" or ")
+                : TwitchPermissions[permission];
+                const userPerm = conditionUtils.getHighestPermission(message, true);
+
+                console.withSender("PERM").withPrefix(`[${source.IAM.login}]`).warn(`Permission check failed for ${message.chatter_user_name} (ID: ${message.chatter_user_id}) in ${target.constructor.name}.${propertyKey}. Required: ${requiredPermsText}, User's highest: ${userPerm}`);
+
+                if (!config.silent) {
+                    this.bot.withChannel(source).sendMessage(`@${message.chatter_user_name}, you do not have permission to use this command.`, {
+                        replyTo: message.message_id,
+                    });
+                }
+                return;
+            }
+
+            return originalMethod.apply(this, [source, message, ...args]);
+        };
+
+        return descriptor;
+    }
+}
+
+export enum TwitchPermissions {
+    Everyone = 1 << 0,
+    Subscriber = 1 << 1,
+    SubscriberT2 = 1 << 2,
+    SubscriberT3 = 1 << 3,
+    VIP = 1 << 4,
+    Helper = 1 << 5,
+    Moderator = 1 << 6,
+    Broadcaster = 1 << 7,
+    Developer = 1 << 8,
+}
+
+export const conditionUtils = {
+    isModerator: (message: Message): boolean => {
+      return message.badges.some(badge => badge.set_id === "moderator");
+    },
+    isHelper: (message: Message, modCheck = false): boolean => {
+      return (modCheck && message.badges.some(badge => badge.set_id === "moderator"));
+    },
+    isDeveloper: (message: Message): boolean => {
+      return message.chatter_user_id === "230887728"; // Inimi's Twitch user ID
+    },
+    isBroadcaster: (message: Message): boolean => {
+      return message.chatter_user_id === message.broadcaster_user_id;
+    },
+    isVIP: (message: Message): boolean => {
+      return message.badges.some(badge => badge.set_id === "vip");
+    },
+    isSubscriber: (message: Message, {minTier, minMonths}: {minTier?: number, minMonths?:number}): boolean => {
+      if (!message.badges.some(badge => badge.set_id === "subscriber" || badge.set_id == "founder")) return false;
+
+      let userTier = 0;
+      let userMonths = 0;
+
+      if (message.badges) {
+        for (const badge of message.badges) {
+          if (badge.set_id === "subscriber") {
+
+            if (parseInt(badge.info) < 1000) {
+              userTier = 1;
+            } else if (parseInt(badge.info) >= 2000 && parseInt(badge.info) < 3000) {
+              userTier = 2;
+            } else if (parseInt(badge.info) >= 3000) {
+              userTier = 3;
+            }
+
+            userMonths = parseInt(badge.info) - (userTier === 1 ? 0 : userTier === 2 ? 2000 : 3000);
+            break;
+          } else if (badge.set_id === "founder") {
+            userTier = 3;
+            userMonths = parseInt(badge.info);
+            break;
+          }
+        }
+      }
+
+      if (minTier && minMonths) {
+        return userTier >= minTier && userMonths >= minMonths;
+      } else if (minTier) {
+        return userTier >= minTier;
+      } else if (minMonths) {
+        return userMonths >= minMonths;
+      }
+
+      return true;
+    },
+    isSubscriberT1: (message: Message): boolean => {
+      return message.badges.some(badge => badge.set_id === "subscriber" && badge.info.length !== 4);
+    },
+    isSubscriberT2: (message: Message): boolean => {
+      return message.badges.some(badge => badge.set_id === "subscriber" && badge.info.length === 4 && badge.info.startsWith("2"));
+    },
+    isSubscriberT3: (message: Message): boolean => {
+      return message.badges.some(badge => badge.set_id === "subscriber" && badge.info.length === 4 && badge.info.startsWith("3"));
+    },
+
+    meetsPermission: (message: Message, permissions: number[] | number, settings?:{
+      subscriptions?: {
+      minMonths?: number
+      }
+    }): boolean => {
+
+      if (!Array.isArray(permissions)) permissions = [permissions];
+
+      for (const permission of permissions) {
+        if (permission & TwitchPermissions.Everyone) return true;
+        if (permission & TwitchPermissions.Subscriber && conditionUtils.isSubscriber(message, {...(settings?.subscriptions || {}), minTier: 1})) return true;
+        if (permission & TwitchPermissions.SubscriberT2 && conditionUtils.isSubscriber(message, {...(settings?.subscriptions || {}), minTier: 2})) return true;
+        if (permission & TwitchPermissions.SubscriberT3 && conditionUtils.isSubscriber(message, {...(settings?.subscriptions || {}), minTier: 3})) return true;
+        if (permission & TwitchPermissions.VIP && conditionUtils.isVIP(message)) return true;
+        if (permission & TwitchPermissions.Helper && conditionUtils.isHelper(message)) return true;
+        if (permission & TwitchPermissions.Moderator && conditionUtils.isModerator(message)) return true;
+        if (permission & TwitchPermissions.Broadcaster && conditionUtils.isBroadcaster(message)) return true;
+        if (permission & TwitchPermissions.Developer && conditionUtils.isDeveloper(message)) return true;
+      }
+
+      return false;
+    },
+    getHighestPermission: (message: Message, asText: boolean): any => {
+      if (conditionUtils.isDeveloper(message)) return asText ? "Developer" : TwitchPermissions.Developer;
+      if (conditionUtils.isBroadcaster(message)) return asText ? "Broadcaster" : TwitchPermissions.Broadcaster;
+      if (conditionUtils.isModerator(message)) return asText ? "Moderator" : TwitchPermissions.Moderator;
+      if (conditionUtils.isHelper(message)) return asText ? "Helper" : TwitchPermissions.Helper;
+      if (conditionUtils.isVIP(message)) return asText ? "VIP" : TwitchPermissions.VIP;
+      if (conditionUtils.isSubscriber(message, {minTier: 3})) return asText ? "Subscriber (Tier 3)" : TwitchPermissions.SubscriberT3;
+      if (conditionUtils.isSubscriber(message, {minTier: 2})) return asText ? "Subscriber (Tier 2)" : TwitchPermissions.SubscriberT2;
+      if (conditionUtils.isSubscriber(message, {minTier: 1})) return asText ? "Subscriber (Tier 1)" : TwitchPermissions.Subscriber;
+      return asText ? "Everyone" : TwitchPermissions.Everyone;
+    }
+  }
+
+
+export function parameterize(CMD: string) {
+    // Updated regex to also match key=value (with or without quotes)
+    const parts = CMD.match(/(?:[^\s"=]+="[^"]*"|[^\s"=]+=[^\s"]+|[^\s"]+|"[^"]*")+/g) || [];
+    const obj: { [key: string]: any } = {};
+    for (let i = 0; i < parts.length; i++) {
+        // Handle key=value pattern
+        if (parts[i].includes("=")) {
+            const [key, ...rest] = parts[i].split("=");
+            let value: any = rest.join("=");
+            if (value.startsWith('"') && value.endsWith('"')) {
+                value = value.slice(1, -1);
+            } else if (value === "true") {
+                value = true;
+            } else if (value === "false") {
+                value = false;
+            }
+            obj[key] = value;
+        } else if (parts[i].startsWith('"') && parts[i].endsWith('"')) {
+            obj[parts[i - 1]] = parts[i].slice(1, -1);
+        } else if (parts[i] === "true") {
+            obj[parts[i - 1]] = true;
+        } else if (parts[i] === "false") {
+            obj[parts[i - 1]] = false;
+        } else if (!parts[i].startsWith('"')) {
+            obj[parts[i]] = parts[i + 1] && parts[i + 1].startsWith('"') ? parts[i + 1].slice(1, -1) : parts[i + 1];
+            i++;
+        }
+    }
+    return obj;
+}

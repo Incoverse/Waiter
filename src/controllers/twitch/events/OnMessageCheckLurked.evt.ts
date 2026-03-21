@@ -15,7 +15,7 @@
   * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type TwitchClient from "../client";
+import type TwitchClient from "@twitch/client";
 import WaiterEvent, { type BroadcasterSender, type EventInfo, type TwitchEventInfo } from "../lib/base/WaiterEvent";
 import type { ChannelChatMessage, StreamOffline } from "../types";
 

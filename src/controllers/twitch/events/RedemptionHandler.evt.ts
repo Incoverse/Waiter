@@ -16,7 +16,7 @@
  */
 
 import { extendsClass, getAllModules, importLocalModule } from "@/lib/misc";
-import type TwitchClient from "../client";
+import type TwitchClient from "@twitch/client";
 import WaiterEvent, { type BroadcasterSender, type EventInfo } from "../lib/base/WaiterEvent";
 import type { RedemptionInfo } from "../lib/base/WaiterRedemptionTrigger";
 import WaiterRedemptionTrigger from "../lib/base/WaiterRedemptionTrigger";
