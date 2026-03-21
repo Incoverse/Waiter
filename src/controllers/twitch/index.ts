@@ -195,7 +195,7 @@ export default class TwitchController extends Controller {
           for (const info of (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[]).filter((info) => info.event.as === "sender")) {
             await this.client.listen(info.event.name, info.event.version, info.event.condition);
             registeredTwitchEvents.push(info.event as any);
-            this.logger.debug(`Registered Twitch event: ${info.event.name} (version ${info.event.version}) for sender client with condition:`, JSON.stringify(info.event.condition));
+            this.logger.withPrefix(`[${this.client.IAM.login}]`).debug(`Registered Twitch event: ${info.event.name} (version ${info.event.version}) for sender client with condition:`, JSON.stringify(info.event.condition));
           }
 
 
@@ -210,7 +210,7 @@ export default class TwitchController extends Controller {
               for (const info of (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[]).filter((info) => info.event.as === "broadcaster")) {
                 await streamer.listen(info.event.name, info.event.version, info.event.condition);
                 registeredTwitchEvents.push(info.event as any);
-                this.logger.debug(`Registered Twitch event: ${info.event.name} (version ${info.event.version}) for broadcaster client with condition:`, JSON.stringify(info.event.condition));
+                this.logger.withPrefix(`[${streamer.IAM.login}]`).debug(`Registered Twitch event: ${info.event.name} (version ${info.event.version}) for broadcaster client with condition:`, JSON.stringify(info.event.condition));
               }
             }
           }

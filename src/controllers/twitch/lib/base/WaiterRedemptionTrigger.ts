@@ -17,20 +17,19 @@
 
 import CacheManager from "@/lib/cache.js";
 import type TwitchClient from "../../client.js";
+import type WaiterReward from "./WaiterReward.js";
 
 export default abstract class WaiterRedemptionTrigger {
     protected bot: TwitchClient;
 
     protected cache: CacheManager = new CacheManager();
+    public abstract settings: RedemptionSettings;
 
     public loaded: boolean = false;
 
     public constructor(bot: TwitchClient) {
       this.bot = bot;
     }
-
-    public abstract redemptionTrigger: RegExp | ((event: RedeemableInfo) => Promise<boolean>); //! Trigger on redemption title that matches this regex
-
 
 
     public async cancelRedemption(streamer: TwitchClient, redemption: RedemptionInfo): Promise<boolean> {
@@ -63,6 +62,14 @@ export default abstract class WaiterRedemptionTrigger {
      * - `null` if the redemption trigger failed to unload, but to fail silently
      */
     public async unload(clients: TwitchClient[]): Promise<boolean | null> {
+        if (this.settings.type == "internal" && this.settings.reward) {
+          const streamers = clients.filter(client => !client.isBot);
+
+          for (const streamer of streamers) {
+            await this.settings.reward.disable(streamer);
+          }
+        }
+
         this.loaded = false;
         return this.loaded;
     }
@@ -95,3 +102,26 @@ export type RedemptionInfo = {
   },
   redeemed_at: string,
 }
+
+
+export type RedemptionSettings = 
+| {
+  /**
+   * This redemption trigger is not defined by Waiter, but by an external source or by the broadcaster themselves
+   */
+  type: "external";
+  /**
+   * Trigger on redemption title that matches this regex
+   */
+  trigger: RegExp | ((event: RedeemableInfo) => Promise<boolean>);
+}
+| {
+  /**
+   * This redemption trigger is defined by Waiter
+   */
+  type: "internal";
+  /**
+   * The reward that this redemption trigger is associated with
+   */
+  reward: WaiterReward
+};

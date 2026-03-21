@@ -221,11 +221,11 @@ export default class TwitchClient {
     ); 
 
 
-    // const oldOn = this.events.on;
-    // this.events.on = (event, listener) => {
-    //   this.logger.debug(`Registered listener for event: ${String(event)}`);
-    //   return oldOn.call(this.events, event, listener);
-    // };
+    const oldOn = this.events.on;
+    this.events.on = (event, listener) => {
+      this.logger.debug(`Registered listener for event: ${String(event)}`);
+      return oldOn.call(this.events, event, listener);
+    };
 
   }
 
@@ -671,12 +671,16 @@ export default class TwitchClient {
 
   public cancelRedemption = this.bindChannelFn(Rewards.cancelRedemption)
   public completeRedemption = this.bindChannelFn(Rewards.completeRedemption)
+  public getRewards = this.bindChannelFn(Rewards.getRewards)
+  public updateReward = this.bindChannelFn(Rewards.updateReward)
+  public createReward = this.bindChannelFn(Rewards.createReward)
+  public deleteReward = this.bindChannelFn(Rewards.deleteReward)
 
 
   public fetchUser = (idLogin?: string): Promise<TwitchUser> => this.api.get(`/users${idLogin ? `?${/^\d+$/.test(idLogin) ? "id":"login"}=${idLogin}` : ""}`).then(ResDataData0).catch(()=>null)
   public getSubscriptions = () => this.api.get(`/eventsub/subscriptions`).then(ResData).catch(()=>null)
 
-  public withChannel = (channelId: string | TwitchClient) => new ChannelSpecificWrapper(this, channelId);
+  public withChannel = (channelId: string | TwitchClient = this) => new ChannelSpecificWrapper(this, channelId);
   public resolveUserId = async (user: UserResolvable): Promise<string | null> => {
     if (typeof user === "string") {
       if (/^\d+$/.test(user)) {

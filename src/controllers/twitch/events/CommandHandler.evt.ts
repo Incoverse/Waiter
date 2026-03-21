@@ -60,7 +60,7 @@ export default class TCMD extends WaiterEvent {
         if (data.event.chatter_user_id === source.IAM.id && !command.settings.allowSelf) {
           return;
         }
-        this.logger.debug(`Command triggered: ${command.constructor.name} - ${data.event.message.text}`);
+        this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
         command.exec(streamer, data.event);
       } else if (typeof command.messageTrigger === "function") {
         command.messageTrigger(data.event).then((result) => {
@@ -69,7 +69,7 @@ export default class TCMD extends WaiterEvent {
           }
 
           if (result) {
-            this.logger.debug(`Command triggered: ${command.constructor.name} - ${data.event.message.text}`);
+            this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
             command.exec(streamer, data.event);
           }
         })

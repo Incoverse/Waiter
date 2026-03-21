@@ -9,6 +9,7 @@ export async function getStreamInfo(this: ChannelSpecificWrapper, id: string | s
   return await paginateData(this.twcl.api, `/streams`, params, { all: settings.all })(res);
 }
 
+
 export async function getStreams(this: ChannelSpecificWrapper, deeperSearch: { game_id?: string|string[]; type?: "live" | "all", language?: string|string[] } = {}, settings:{all?:boolean, limit:number}={all: false, limit:100}) {
   const params: any = { first: settings.limit, ...deeperSearch };
   const res = await this.twcl.api.get(`/streams`, { params });
@@ -93,9 +94,7 @@ export async function get(this: ChannelSpecificWrapper, broadcaster_id: string =
     params: {
       broadcaster_id: this.channelId,
     },
-  }).then((res) => {
-    return res.data.data;
-  })
+  }).then(ResDataData0)
 }
 
 export async function modify(this: ChannelSpecificWrapper, settings: {

@@ -17,10 +17,10 @@
 
 import type TwitchClient from "@twitch/client";
 import WaiterEvent, { type BroadcasterSender, type EventInfo, type TwitchEventInfo } from "../lib/base/WaiterEvent";
-import type { StreamOffline, StreamOnline } from "../types";
+import type { ChannelUpdate, StreamOffline, StreamOnline } from "../types";
 
 
-export default class OnStreamStatusChange extends WaiterEvent {
+export default class OSSC extends WaiterEvent {
     public eventTrigger: (params: BroadcasterSender) => EventInfo = ({broadcaster, sender}) => ({
       type: "Waiter:start",
       priority: 500
@@ -44,18 +44,30 @@ export default class OnStreamStatusChange extends WaiterEvent {
               "broadcaster_user_id": broadcaster?.IAM?.id,
           }
         },
+        {
+          as: "broadcaster",
+          name: "channel.update",
+          version: 2,
+          condition: {
+              "broadcaster_user_id": broadcaster?.IAM?.id,
+          }
+        }
       ]
     }
 
+    private channelInformation: Map<string, ChannelInformation> = new Map();
+
     public override exec(clients: TwitchClient[]): Promise<void>;
-    public override exec(source: TwitchClient, data: StreamOnline | StreamOffline): Promise<void>;
-    public override async exec(source: TwitchClient | TwitchClient[], data?: StreamOnline | StreamOffline): Promise<void> {
+    public override exec(source: TwitchClient, data: StreamOnline | StreamOffline | ChannelUpdate): Promise<void>;
+    public override async exec(source: TwitchClient | TwitchClient[], data?: StreamOnline | StreamOffline | ChannelUpdate): Promise<void> {
 
       if (Array.isArray(source)) {
         const streamers = source.filter((client) => !client.isBot);
 
         for (const streamer of streamers) {
           const isStreaming = await streamer.isStreaming();
+          const channelInfo = await this.bot.withChannel(streamer.IAM.id).getChannelInfo();
+          this.channelInformation.set(streamer.IAM.id, channelInfo);
 
           this.logger.log(`[${streamer.IAM.login}] Stream is currently ${isStreaming ? "online" : "offline"}`);
           global.twitch.streamerData[streamer.IAM.id].isStreaming = isStreaming;
@@ -87,7 +99,61 @@ export default class OnStreamStatusChange extends WaiterEvent {
           global.twitch.streamerData[streamer.IAM.id].isStreaming = false;
           this.logger.log(`[${streamer.IAM.login}] Stream is now offline`);
           global.twitch.communication.emit("stream.offline", streamer, data.event);
+        } else if (data.subscription.type === "channel.update") {
+            const prevInfo = this.channelInformation.get(source.IAM.id) || null;
+            data = data as ChannelUpdate;
+            const newInfo = {
+                ...prevInfo,
+                broadcaster_id: data.event.broadcaster_user_id,
+                broadcaster_login: data.event.broadcaster_user_login,
+                broadcaster_name: data.event.broadcaster_user_name,
+                broadcaster_language: data.event.language,
+                title: data.event.title,
+                game_id: data.event.category_id,
+                game_name: data.event.category_name,
+                content_classification_labels: data.event.content_classification_labels,
+            }
+
+            const changed: { [key: string]: { old: any, new: any } } = {};
+            for (const key of Object.keys(newInfo)) {
+                if (prevInfo) {
+                    const prevVal = prevInfo[key];
+                    const newVal = newInfo[key];
+                    if (Array.isArray(prevVal) && Array.isArray(newVal)) {
+                        // Compare arrays shallowly
+                        const arraysEqual = prevVal.length === newVal.length &&
+                            prevVal.every((v, i) => v === newVal[i]);
+                        if (!arraysEqual) {
+                            changed[key] = { old: prevVal, new: newVal };
+                        }
+                    } else if (prevVal !== newVal) {
+                        changed[key] = { old: prevVal, new: newVal };
+                    }
+                }
+            }
+
+            // Update cached info
+            this.channelInformation.set(source.IAM.id, newInfo);
+
+            // Send event if there are changes
+            if (Object.keys(changed).length > 0) {
+                global.commChannel.emit("stream.change", source, {
+                    changes: changed
+                });
+            }
         }
       }
     }
 }
+
+export type ChannelInformation = {
+  broadcaster_id: string;
+  broadcaster_login: string;
+  broadcaster_name: string;
+  broadcaster_language: string;
+  game_id: string;
+  game_name: string;
+  title: string;
+  tags: string[];
+  content_classification_labels: string[];
+};
