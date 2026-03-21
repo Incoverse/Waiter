@@ -27,6 +27,14 @@ export default class DiscordController extends Controller {
 
   public async exec() {
     this.logger.info("Initializing Discord client...");
+
+    if (!global.discord) {
+      global.discord = {
+        controller: this,
+        client: null,
+      };
+    }
+
     const client = new Client({
       intents: [
         GatewayIntentBits.AutoModerationConfiguration,
@@ -65,8 +73,10 @@ export default class DiscordController extends Controller {
       ],
     });
 
+    global.discord.client = client;
+
     client.on(Events.ClientReady, () => {
-      this.logger.info(`Logged in as ${client.user?.tag}!`);
+      this.logger.great(`Successfully logged in to Discord as ${client.user?.tag}!`);
     });
 
     const token = process.env.DISCORD_TOKEN;
@@ -76,7 +86,7 @@ export default class DiscordController extends Controller {
     const guildId = process.env.DISCORD_GUILD_ID;
 
     if (!token || !clientId) {
-      this.logger.error(
+      this.logger.fatal(
         "Missing DISCORD_TOKEN or DISCORD_CLIENT_ID in environment.",
       );
       return;
@@ -152,7 +162,7 @@ export default class DiscordController extends Controller {
     }
 
     client.login(token).catch((err) => {
-      this.logger.error("Failed to login to Discord", err);
+      this.logger.fatal("Failed to login to Discord. Please check your token and internet connection.", err);
     });
   }
 }

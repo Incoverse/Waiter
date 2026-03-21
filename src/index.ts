@@ -19,8 +19,8 @@ import SurrealDBController from "./controllers/sdb";
 import { IEM } from "./lib/iem";
 
 import { fileURLToPath } from "url";
-import TwitchController from "./controllers/twitch";
 import DiscordController from "./controllers/discord";
+import TwitchController from "./controllers/twitch";
 import WebController from "./controllers/web";
 const __filename = fileURLToPath(import.meta.url);
 
