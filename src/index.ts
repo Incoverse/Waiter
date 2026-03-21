@@ -57,10 +57,12 @@ if (!storedKey) {
 const dbController = new SurrealDBController();
 const webController = new WebController();
 const twitchController = new TwitchController();
+const discordController = new DiscordController();
 
-global.controllers.set(dbController.abbr,     dbController);
-global.controllers.set(webController.abbr,    webController);
-global.controllers.set(twitchController.abbr, twitchController);
+global.controllers.set(dbController.abbr,       dbController);
+global.controllers.set(webController.abbr,      webController);
+global.controllers.set(twitchController.abbr,   twitchController);
+global.controllers.set(discordController.abbr,  discordController);
 
 console.debug(`Starting controller: SurrealDBController`);
 await dbController.exec();
@@ -75,6 +77,5 @@ await twitchController.exec();
 console.debug(`Finished executing controller: TwitchController`);
 
 console.debug(`Starting controller: DiscordController`);
-const discordController = new DiscordController();
 await discordController.exec();
 console.debug(`Finished executing controller: DiscordController`);
