@@ -1,4 +1,4 @@
-import { extendsClass, getAllModules, importLocalModule } from "@/lib/misc";
+import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
 import WaiterCommand from "@twitch/lib/base/WaiterCommand";
 import WaiterEvent, { type BroadcasterSender, type EventInfo } from "../lib/base/WaiterEvent";
@@ -19,7 +19,7 @@ export default class TCMD extends WaiterEvent {
 
   public override async setup(clients: TwitchClient[]): Promise<boolean | null> {
     const commands = (await Promise.all(
-      (await getAllModules(".", /controllers\/twitch\/.*\.cmd\..s$/)).map(importLocalModule)        
+      (await findFiles(".", /controllers\/twitch\/.*\.cmd\..s$/)).map(importLocalModule)        
     ))
       .map((mod) => mod.default)
       .filter((mod) => extendsClass(mod, WaiterCommand)) as (new (bot: TwitchClient) => WaiterCommand)[];

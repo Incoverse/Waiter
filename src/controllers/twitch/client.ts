@@ -11,7 +11,7 @@ import { generateAuthURL } from "./lib/authentication";
 import { TwitchAuthDBSchema, type TwitchAuthDB, type TwitchUser } from "./typecheck";
 
 
-import { schedule } from "@/lib/misc";
+import { findFiles, schedule } from "@/lib/misc";
 import EventEmitter from "events";
 import { RecordId } from "surrealdb";
 
@@ -24,7 +24,9 @@ import * as VIP from "./funcs/channel/vip";
 import * as Rewards from "./funcs/rewards";
 import * as User from "./funcs/user";
 
+import type { Request, Response } from "express";
 import type { CoercedNumber, EventCondition, EventVersion, UserResolvable, ValidTopics } from "./types";
+import { title } from "process";
 
 let eventSubConnURL = "wss://eventsub.wss.twitch.tv/ws";
 export const comm: Communication = new Communication();
@@ -229,38 +231,41 @@ export default class TwitchClient {
 
   }
 
-  private async initialize() {
-    this.logger.debug("Validating Access Token...");
-    let expiresIn = await this.validateToken();
-    if (!expiresIn) {
-      this.logger.debug("Access Token is invalid. Refreshing...");
-      expiresIn = await this.refreshToken();
-    } else {
-      this.logger.debug("Access Token is valid. Expires in: " + expiresIn + ` seconds (${prettyMilliseconds(expiresIn*1000)})`);
-    }
+  private initialize() {
+    return new Promise<void>(async (resolve, reject) => {
+      this.logger.debug("Validating Access Token...");
+      let expiresIn = await this.validateToken();
+      if (!expiresIn) {
+        this.logger.debug("Access Token is invalid. Refreshing...");
+        expiresIn = await this.refreshToken();
+      } else {
+        this.logger.debug("Access Token is valid. Expires in: " + expiresIn + ` seconds (${prettyMilliseconds(expiresIn*1000)})`);
+      }
 
-    if (expiresIn < 60) {
-      this.logger.debug("Access Token is expiring soon. Refreshing...");
-      expiresIn = await this.refreshToken();
-      this.logger.debug("Access Token refreshed. Expires in: " + expiresIn + ` seconds (${prettyMilliseconds(expiresIn*1000)})`);
-    }
+      if (expiresIn < 60) {
+        this.logger.debug("Access Token is expiring soon. Refreshing...");
+        expiresIn = await this.refreshToken();
+        this.logger.debug("Access Token refreshed. Expires in: " + expiresIn + ` seconds (${prettyMilliseconds(expiresIn*1000)})`);
+      }
 
-    await this.setupRefresher((!expiresIn || expiresIn < 60) ? 0 : expiresIn);
-    this.logger.info("Token Refresher initialized");
-
-
-    this.logger.log("Fetching information about the authenticated user...");
-    this.IAM = await this.fetchUser();
-
-    this.logger = this.logger.withPrefix(`[${this.IAM.login}]`);
+      await this.setupRefresher((!expiresIn || expiresIn < 60) ? 0 : expiresIn);
+      this.logger.info("Token Refresher initialized");
 
 
-    if (this.connectEventSub) {
-      this.logger.warn("Connecting to Twitch...");
-      this.connect()
-    }
-    
-    this.logger.success(`Twitch Client initialized as ${this.IAM.display_name} (${this.IAM.login})`);
+      this.logger.log("Fetching information about the authenticated user...");
+      this.IAM = await this.fetchUser();
+
+      this.logger = this.logger.withPrefix(`[${this.IAM.login}]`);
+
+
+      if (this.connectEventSub) {
+        this.logger.warn("Connecting to Twitch...");
+        this.connect()
+      }
+      
+      this.logger.success(`Twitch Client initialized as ${this.IAM.display_name} (${this.IAM.login})`);
+      resolve();
+    })
   }
   
   
@@ -432,9 +437,9 @@ export default class TwitchClient {
   public async cleanup() {
     if (this.eventsubWS && this.eventsubConnected) {
       if (this.eventSubData.length > 0) {
-        this.eventSubData.forEach((data) => {
-          this.unlisten(data.id);
-        })
+        for (const data of this.eventSubData) {
+          await this.unlisten(data.id);
+        }
       }
 
       this.eventsubWS.removeAllListeners();
@@ -442,6 +447,7 @@ export default class TwitchClient {
       this.connectEventSub = false;
       this.eventsubWS.close();
     }
+    this.events.removeAllListeners();
   }
 
 
@@ -605,17 +611,18 @@ export default class TwitchClient {
 
 
   @registerRoute("GET", "/twitch/auth")
-  private static async handleAuthRoute(req, res) {
-    let state = req.query.state;
+  private static async handleAuthRoute(req: Request, res: Response) {
+    const errorTemplate = await findFiles(".", /\/twitch\/templates\/error\.html$/).then(files => files[0]);
+    let state = req.query.state?.toString();
 
     if (state) {
-      state = Buffer.from(decodeURIComponent(state), "base64").toString("utf-8");
+      state = Buffer.from(decodeURIComponent(state), "base64url").toString("utf-8");
     }
     const code = req.query.code;
 
 
     if (!code || !state) {
-      res.status(400).json({ error: "Missing code or state in query parameters." });
+      res.status(400).template(errorTemplate, { title: "Authentication Error", message: "Missing required query parameters. Please ensure you are authenticating through the correct process." });
       return;
     }
 
@@ -629,15 +636,12 @@ export default class TwitchClient {
         expires: new Date(Date.now() + resp.data.expires_in * 1000),
       });
     } else {
-      // TODO: Handle streamer authentication through web interface
-
       const authCode = state;
 
       const storedCode = await global.db.query("SELECT * FROM twitch_auth_codes WHERE code = $code", { code: authCode }).collect().then(res => (res[0] as any[])[0]);
     
       if (!storedCode) {
-        res.status(400).json({ error: "Invalid or expired Waiter Twitch authentication code." });
-        return;
+        return res.status(400).template(errorTemplate, { title: "Authentication Error", message: "Invalid or expired Waiter Twitch authentication code." });
       }
 
       // Delete the code from the database to prevent reuse
@@ -650,15 +654,54 @@ export default class TwitchClient {
         accessToken: resp.data.access_token,
         refreshToken: resp.data.refresh_token,
         expires: new Date(Date.now() + resp.data.expires_in * 1000),
+        clientId: EnvironmentManager.get("TWITCH_CLIENT_ID"),
+        clientSecret: EnvironmentManager.get("TWITCH_CLIENT_SECRET")
       };
 
-      comm.emit("new-streamer-auth", data);
-      comm.emit(`auth-${authCode}`, data);
 
+      const userInfo = await TwitchClient.getUserInfo(data.accessToken);
 
-      return res.send("Authentication successful. You can close this page.");
+      if (!userInfo) {
+        console.withSender("TWCL").error("Failed to fetch user info for new streamer auth. Aborting streamer creation.");
+        return res.status(500).template(errorTemplate, { title: "Authentication Error", message: "Failed to fetch user info from Twitch API. Please try again." });
+      }
 
+      await global.db.query(
+        `UPSERT twitch_users:\`${userInfo.id}\` SET login = $login, display_name = $display_name`,
+        { login: userInfo.login, display_name: userInfo.display_name }
+      );
 
+      const encryptedAuth = new EncryptedField({
+        ...data,
+        clientId: EnvironmentManager.get("TWITCH_CLIENT_ID"),
+        clientSecret: EnvironmentManager.get("TWITCH_CLIENT_SECRET")
+      });
+
+      try {
+        await global.db.query(
+          `INSERT INTO streamer_tokens (streamer, type, auth) VALUES ($streamer, 'twitch', $encryptedAuth)`,
+          {
+            streamer: new RecordId("twitch_users", userInfo.id),
+            encryptedAuth: encryptedAuth.toDB()
+          }
+        );
+      } catch (err) {
+        if (err instanceof Error && /Database index.*already contains/.test(err.message)) {
+          return res.template(errorTemplate, { 
+            title: "Authentication Error",
+            message: "This Twitch account has already been authenticated with Waiter. If you believe this is an error, please contact support."
+          });
+        } else {
+          console.withSender("TWCL").error("Error inserting new streamer auth into database:", err);
+          return res.template(errorTemplate, { 
+            title: "Authentication Error",
+            message: "An unexpected error occurred while saving your authentication. Please try again and contact support if the issue persists."
+          });
+        }
+      }
+
+      const successfulAuthTemplate = await findFiles(".", /\/twitch\/templates\/successful_auth\.html$/).then(files => files[0]);
+      return res.template(successfulAuthTemplate)
     }
   }
 
