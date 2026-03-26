@@ -2,7 +2,7 @@ import { Controller } from "@/lib/base/controller";
 import TableDefinition from "@/lib/base/tableDefinition";
 import {
   extendsClass,
-  getAllModules,
+  findFiles,
   getStaticProps,
   importLocalModule,
 } from "@/lib/misc";
@@ -30,7 +30,7 @@ export default class SurrealDBController extends Controller {
     global.db = db;
 
     let hasInternet = await ping.promise
-      .probe("1.1.1.1", { timeout: 0.1 })
+      .probe("1.1.1.1", { timeout: 0.2 })
       .then((res) => res.alive)
       .catch(() => false);
 
@@ -43,7 +43,7 @@ export default class SurrealDBController extends Controller {
       while (!hasInternet) {
         await new Promise((res) => setTimeout(res, 5000));
         hasInternet = await ping.promise
-          .probe("1.1.1.1", { timeout: 0.1 })
+          .probe("1.1.1.1", { timeout: 0.2 })
           .then((res) => res.alive)
           .catch(() => false);
       }
@@ -84,7 +84,7 @@ export default class SurrealDBController extends Controller {
           this.logger.warn(`Lost connection to database. Reconnecting...`);
 
         const pingResult = await ping.promise
-          .probe("1.1.1.1", { timeout: 0.1 })
+          .probe("1.1.1.1", { timeout: 0.2 })
           .then((res) => res.alive)
           .catch(() => false);
 
@@ -119,7 +119,7 @@ export default class SurrealDBController extends Controller {
 
     const tableDefinitions = (
       await Promise.all(
-        (await getAllModules(".", /tables\..s$/))
+        (await findFiles(".", /tables\..s$/))
           .map(importLocalModule)
           .map((mod) => mod.then((m) => m.default)),
       )

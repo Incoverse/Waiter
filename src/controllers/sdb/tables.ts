@@ -30,6 +30,9 @@ export default class SDBDefinitions extends TableDefinition {
         DEFINE FIELD OVERWRITE streamer ON streamer_tokens TYPE record<twitch_users>;
         DEFINE FIELD OVERWRITE auth ON streamer_tokens TYPE string; -- Encrypted
         DEFINE FIELD OVERWRITE type ON streamer_tokens TYPE "twitch" | "spotify";
+
+        -- Only one token per streamer per type
+        DEFINE INDEX OVERWRITE unique_streamer_token ON TABLE streamer_tokens FIELDS streamer, type UNIQUE;
     `.trim();
 
   public static readonly WAITER_DATA = `

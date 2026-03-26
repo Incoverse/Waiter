@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Waiter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+        .bg-visuals {
+          position: fixed;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        .bg-gradient {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px) saturate(1.2);
+          opacity: 0.22;
+          pointer-events: none;
+          animation: float 12s ease-in-out infinite alternate;
+        }
+        .bg-gradient1 {
+          width: 520px; height: 520px;
+          left: -180px; top: -120px;
+          background: radial-gradient(circle at 30% 30%, #9147ff 0%, #23262f 100%);
+          animation-delay: 0s;
+        }
+        .bg-gradient2 {
+          width: 400px; height: 400px;
+          right: -120px; bottom: -100px;
+          background: radial-gradient(circle at 70% 70%, #3fffa8 0%, #101116 100%);
+          animation-delay: 2s;
+        }
+        .bg-gradient3 {
+          width: 320px; height: 320px;
+          left: 60vw; top: 60vh;
+          background: radial-gradient(circle at 60% 60%, #fff 0%, #9147ff 100%);
+          opacity: 0.10;
+          animation-delay: 4s;
+        }
+        @keyframes float {
+          0% { transform: translateY(0) scale(1); }
+          100% { transform: translateY(-30px) scale(1.08); }
+        }
+        .particles {
+          position: absolute;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 1;
+          pointer-events: none;
+        }
+        .particle {
+          position: absolute;
+          border-radius: 50%;
+          opacity: 0.13;
+          background: #fff;
+          animation: particleMove 16s linear infinite;
+        }
+        .particle1 { width: 8px; height: 8px; left: 12vw; top: 80vh; animation-delay: 0s; }
+        .particle2 { width: 6px; height: 6px; left: 80vw; top: 20vh; animation-delay: 3s; }
+        .particle3 { width: 10px; height: 10px; left: 60vw; top: 60vh; animation-delay: 7s; }
+        .particle4 { width: 7px; height: 7px; left: 30vw; top: 30vh; animation-delay: 10s; }
+        .particle5 { width: 5px; height: 5px; left: 50vw; top: 10vh; animation-delay: 13s; }
+        @keyframes particleMove {
+          0% { transform: translateY(0) scale(1); }
+          100% { transform: translateY(-60px) scale(1.2); }
+        }
+    :root {
+      --bg: #101116;
+      --card-bg: rgba(18, 19, 22, 0.82);
+      --card-border: rgba(255,255,255,0.10);
+      --card-border-bright: #3a3a4d;
+      --accent: #9147ff;
+      --text: #e6e6ea;
+      --muted: #b0b0c0;
+      --shadow: 0 8px 32px 0 rgba(0,0,0,0.32);
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      font-weight: 400;
+      letter-spacing: 0.01em;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 2.5rem 2.5rem 2rem 2.5rem;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      animation: fadeIn 0.8s cubic-bezier(.4,0,.2,1);
+      border: 1.5px solid var(--card-border);
+      border-top: 1.5px solid var(--card-border-bright);
+      backdrop-filter: blur(8px) saturate(1.2);
+      -webkit-backdrop-filter: blur(8px) saturate(1.2);
+      transition: box-shadow 0.2s, border 0.2s;
+    }
+    .card:hover {
+      box-shadow: 0 12px 40px 0 rgba(0,0,0,0.38);
+    }
+    .icon {
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: center;
+    }
+    .icon svg {
+      width: 56px;
+      height: 56px;
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 3.5;
+      filter: drop-shadow(0 0 8px #9147ff22);
+      opacity: 0.92;
+    }
+    h1 {
+      font-size: 1.45rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+      color: var(--text);
+      letter-spacing: -0.5px;
+      opacity: 0.96;
+    }
+    p {
+      color: var(--muted);
+      font-size: 1.08rem;
+      margin-bottom: 1.5rem;
+      font-weight: 400;
+      line-height: 1.6;
+      opacity: 0.92;
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    a:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(32px); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (max-width: 500px) {
+      .card { padding: 1.2rem 0.2rem 1.2rem 0.2rem; }
+      h1 { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-visuals">
+    <div class="bg-gradient bg-gradient1"></div>
+    <div class="bg-gradient bg-gradient2"></div>
+    <div class="bg-gradient bg-gradient3"></div>
+    <div class="particles">
+      <div class="particle particle1"></div>
+      <div class="particle particle2"></div>
+      <div class="particle particle3"></div>
+      <div class="particle particle4"></div>
+      <div class="particle particle5"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="40" height="40">
+        <path fill="var(--accent)" d="M259.1 73.5C262.1 58.7 275.2 48 290.4 48L350.2 48C365.4 48 378.5 58.7 381.5 73.5L396 143.5C410.1 149.5 423.3 157.2 435.3 166.3L503.1 143.8C517.5 139 533.3 145 540.9 158.2L570.8 210C578.4 223.2 575.7 239.8 564.3 249.9L511 297.3C511.9 304.7 512.3 312.3 512.3 320C512.3 327.7 511.8 335.3 511 342.7L564.4 390.2C575.8 400.3 578.4 417 570.9 430.1L541 481.9C533.4 495 517.6 501.1 503.2 496.3L435.4 473.8C423.3 482.9 410.1 490.5 396.1 496.6L381.7 566.5C378.6 581.4 365.5 592 350.4 592L290.6 592C275.4 592 262.3 581.3 259.3 566.5L244.9 496.6C230.8 490.6 217.7 482.9 205.6 473.8L137.5 496.3C123.1 501.1 107.3 495.1 99.7 481.9L69.8 430.1C62.2 416.9 64.9 400.3 76.3 390.2L129.7 342.7C128.8 335.3 128.4 327.7 128.4 320C128.4 312.3 128.9 304.7 129.7 297.3L76.3 249.8C64.9 239.7 62.3 223 69.8 209.9L99.7 158.1C107.3 144.9 123.1 138.9 137.5 143.7L205.3 166.2C217.4 157.1 230.6 149.5 244.6 143.4L259.1 73.5zM320.3 400C364.5 399.8 400.2 363.9 400 319.7C399.8 275.5 363.9 239.8 319.7 240C275.5 240.2 239.8 276.1 240 320.3C240.2 364.5 276.1 400.2 320.3 400z"/>
+      </svg>
+    </div>
+    <h1>Welcome to Waiter</h1>
+    <p><strong>Waiter</strong> is a Discord and Twitch bot for moderation, automation, and fun.<br>
+    It helps manage your community, automate tasks, and add interactive features.<br><br>
+    Source code and more info can be found at:<br>
+    <a href="https://github.com/Incoverse/Waiter" target="_blank">github.com/Incoverse/Waiter</a>
+    </p>
+  </div>
+</body>
+</html>

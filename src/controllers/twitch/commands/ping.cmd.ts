@@ -29,8 +29,8 @@ export default class PingCMD extends WaiterCommand {
   });
 
   @CooldownWrapper()
-  public async exec(source: TwitchClient, message: Message): Promise<any> {
-    await this.bot.withChannel(source).sendMessage(`Pong! I'm alive and well!`, { replyTo: message.message_id }).catch((err) => {
+  public async exec(channel: TwitchClient, message: Message): Promise<any> {
+    await this.bot.withChannel(channel).sendMessage(`Pong! I'm alive and well!`, { replyTo: message.message_id }).catch((err) => {
       this.logger.warn("Error sending ping response:", err);
     });
   }

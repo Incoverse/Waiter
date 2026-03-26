@@ -2,11 +2,12 @@ import { Controller } from "@/lib/base/controller";
 import Communication from "@/lib/communication";
 import { EncryptedField } from "@/lib/enc-field";
 import { EnvironmentManager } from "@/lib/envmgr";
-import { extendsClass, getAllModules, importLocalModule } from "@/lib/misc";
+import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
 import crypto from "crypto";
 import _ from "lodash";
-import { RecordId } from "surrealdb";
-import TwitchClient, { comm as TwitchClientCommunication } from "./client";
+import { eq, RecordId, Table } from "surrealdb";
+import TwitchClient, { redirectURI } from "./client";
+import { generateAuthURL } from "./lib/authentication";
 import WaiterEvent, { type EventInfo, type TwitchEventInfo } from "./lib/base/WaiterEvent";
 import { TwitchAuthDBSchema, type TwitchAuthDB } from "./typecheck";
 
@@ -45,7 +46,7 @@ export default class TwitchController extends Controller {
     };
 
     const events = (await Promise.all(
-      (await getAllModules(".", /controllers\/twitch\/.*\.evt\..s$/)).map(importLocalModule)        
+      (await findFiles(".", /controllers\/twitch\/.*\.evt\..s$/)).map(importLocalModule)        
     ))
       .map((mod) => mod.default)
       .filter((mod) => extendsClass(mod, WaiterEvent)) as (new (bot: TwitchClient) => WaiterEvent)[];
@@ -73,48 +74,82 @@ export default class TwitchController extends Controller {
     await this.registerTwitchEvents(instantiatedEvents);
 
 
+    const streamerTokensLive = await global.db.live(new Table("streamer_tokens")).where(eq("type", "twitch")).fetch("streamer");
 
-    TwitchClientCommunication.on("new-streamer-auth", async (data) => {
-      this.logger.debug("Received new streamer auth through TwitchClient communication channel");
-      const userInfo = await TwitchClient.getUserInfo(data.accessToken);
+    streamerTokensLive.subscribe(async (event) => {
+      if (event.action === "CREATE") {
+        const encryptedAuth = EncryptedField.fromDB((event.value as any).auth);
 
-      if (!userInfo) {
-        this.logger.error("Failed to fetch user info for new streamer auth. Aborting streamer creation.");
-        return;
-      }
-
-      await global.db.query(
-        `UPSERT twitch_users:\`${userInfo.id}\` SET login = $login, display_name = $display_name`,
-        { login: userInfo.login, display_name: userInfo.display_name }
-      );
-
-      const encryptedAuth = new EncryptedField({
-        ...data,
-        clientId: EnvironmentManager.get("TWITCH_CLIENT_ID"),
-        clientSecret: EnvironmentManager.get("TWITCH_CLIENT_SECRET")
-      });
-
-      await global.db.query(
-        `INSERT INTO streamer_tokens (streamer, type, auth) VALUES ($streamer, 'twitch', $encryptedAuth)`,
-        {
-          streamer: new RecordId("twitch_users", userInfo.id),
-          encryptedAuth: encryptedAuth.toDB()
+        if (!encryptedAuth.isSet()) {
+          return;
         }
-      );
 
-      await this.createStreamers(async (client) => {
-        if (client.IAM.id === userInfo.id) {
-          this.streamerInit.bind(this)(client);
-          return true;
+        let auth: TwitchAuthDB;
+        
+        try {
+          if (!encryptedAuth.validate()) {
+            throw new Error("Encrypted auth field is not valid. Decryption failed.");
+          }
+          const unvalidatedAuth = encryptedAuth.get();
+          const parsedAuth = TwitchAuthDBSchema.safeParse(unvalidatedAuth);
+          if (!parsedAuth.success)
+            throw new Error(parsedAuth.error.message);
+          auth = parsedAuth.data;
+        } catch (error) {
+          this.logger.error("Error parsing stored Twitch auth for new streamer token:", error?.message || error);
+          this.logger.debug("Clearing invalid Twitch auth from database for streamer token with ID " + (event.value as any).id);
+          await global.db.query('DELETE streamer_tokens WHERE id = $tokenId', {
+            tokenId: (event.value as any).id
+          });
+          return; // Abort processing this event
         }
-        return false;
-      });
-      await this.registerTwitchEvents(instantiatedEvents);
+        
+        const newClient = await TwitchClient.createStreamer(auth, false);
 
-      for (const event of instantiatedEvents) {
-        event.setup([global.twitch.streamers.get(userInfo.id)]);
+        await this.createStreamers(async (client) => {
+          if (client.IAM.id === newClient.IAM.id) {
+            this.streamerInit.bind(this)(client);
+            return true;
+          }
+          return false;
+        });
+
+        await this.registerTwitchEvents(instantiatedEvents);
+
+        for (const event of instantiatedEvents) {
+          event.setup([global.twitch.streamers.get(newClient.IAM.id)]);
+        }
+      } else if (event.action === "DELETE") {
+        const deletedStreamerId = (event.value as any).streamer?.id.id
+
+        if (!deletedStreamerId) {
+          this.logger.warn("Received DELETE event for streamer token without streamer ID. Cannot determine which streamer was deleted. Ignoring.");
+          return;
+        }
+
+        const deletedStreamer = global.twitch.streamers.get(deletedStreamerId);
+
+        if (deletedStreamer) {
+          await deletedStreamer.cleanup();
+
+          for (let registration of registeredTwitchEvents) {
+            if (registration.as === "broadcaster" && registration.condition?.broadcaster_user_id === deletedStreamerId) {
+              registeredTwitchEvents = registeredTwitchEvents.filter(e => e !== registration);
+            }
+          }
+        }
+
+        global.twitch.streamers.delete(deletedStreamerId);
+        delete global.twitch.streamerData[deletedStreamerId];
+
+        this.logger.info(`Streamer ${!!deletedStreamer ? deletedStreamer.IAM.display_name : `with ID ${deletedStreamerId}`} was deleted from database. Unregistered Twitch client for this streamer.`);
       }
-    })    
+    })
+
+
+    const code = await TwitchClient.generateCode("15m");
+    const authURL = generateAuthURL(EnvironmentManager.get("TWITCH_CLIENT_ID"), redirectURI, Buffer.from(code).toString("base64url"));
+    console.log(`To authenticate a Twitch account, visit the following URL: ${authURL}`);
   }
 
   public registerOnStartEvents(events: WaiterEvent[]) {
@@ -237,8 +272,6 @@ export default class TwitchController extends Controller {
         }
 
       }
-
-
     }
 
 

@@ -1,4 +1,4 @@
-import type TwitchClient from "../client";
+import type TwitchClient from "@twitch/client";
 import WaiterRedemptionTrigger, { type RedemptionInfo, type RedemptionSettings } from "../lib/base/WaiterRedemptionTrigger";
 import WaiterReward from "../lib/base/WaiterReward";
 

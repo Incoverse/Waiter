@@ -17,6 +17,7 @@
 
 import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type Message } from "@twitch/lib/base/WaiterCommand";
+import { StreamerIsLive } from "../../lib/conditions";
 
 
 export default class LurkCMD extends WaiterCommand {
@@ -33,16 +34,16 @@ export default class LurkCMD extends WaiterCommand {
     return super.setup(clients);
   }
 
-  // @StreamerIsLive()
-  public async exec(source: TwitchClient, message: Message): Promise<any> {
+  @StreamerIsLive()
+  public async exec(channel: TwitchClient, message: Message): Promise<any> {
     const user = await this.bot.fetchUser(message.chatter_user_id);
 
     if (!user) {
-      return await this.bot.withChannel(source).sendMessage("I couldn't find your user information. Please try again.", { replyTo: message.message_id});
+      return await this.bot.withChannel(channel).sendMessage("I couldn't find your user information. Please try again.", { replyTo: message.message_id});
     }
 
-    if (global.twitch.streamerData[source.IAM.id].lurkedUsers?.some((u) => u.id === user.id)) {
-      return await this.bot.withChannel(source).sendMessage("You are already lurking!", { replyTo: message.message_id });
+    if (global.twitch.streamerData[channel.IAM.id].lurkedUsers?.some((u) => u.id === user.id)) {
+      return await this.bot.withChannel(channel).sendMessage("You are already lurking!", { replyTo: message.message_id });
     }
 
 
@@ -151,9 +152,9 @@ export default class LurkCMD extends WaiterCommand {
 
     const msg = messages[Math.floor(Math.random() * messages.length)].replace("[Username]", "@" + user.display_name);
 
-    await this.bot.withChannel(source).sendMessage(msg);
+    await this.bot.withChannel(channel).sendMessage(msg);
 
-    global.twitch.streamerData[source.IAM.id].lurkedUsers.push({
+    global.twitch.streamerData[channel.IAM.id].lurkedUsers.push({
       id: user.id,
       display_name: user.display_name,
       login: user.login

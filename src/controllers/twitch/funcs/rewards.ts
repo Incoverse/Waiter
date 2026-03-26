@@ -1,4 +1,4 @@
-import TwitchClient from "../client";
+import TwitchClient from "@twitch/client";
 import type { TwitchRedemption } from "../types";
 
 export async function completeRedemption(this: TwitchClient, redemption_id: string, reward_id: string) {

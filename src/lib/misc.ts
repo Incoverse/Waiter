@@ -15,29 +15,28 @@ export async function importLocalModule(modulePath: string) {
   );
 }
 
-export async function getAllModules(
+export async function findFiles(
   dir: string,
   filter?: RegExp | ((path: string) => boolean),
 ) {
-  const modules: any[] = [];
+  const files: any[] = [];
   const entries = await fs.readdir(dir, { withFileTypes: true });
 
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      const subModules = await getAllModules(fullPath, filter);
-      modules.push(...subModules);
+      const subFiles = await findFiles(fullPath, filter);
+      files.push(...subFiles);
     } else if (
       entry.isFile() &&
-      entry.name.endsWith(`.${global.isCompiled ? "js" : "ts"}`) &&
       (!filter ||
         (filter instanceof RegExp ? filter.test(fullPath) : filter(fullPath)))
     ) {
-      modules.push(path.resolve(fullPath));
+      files.push(path.resolve(fullPath));
     }
   }
 
-  return modules;
+  return files;
 }
 
 export function extendsClass(child: Function, parent: Function) {
