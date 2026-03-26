@@ -19,6 +19,7 @@ import SurrealDBController from "./controllers/sdb";
 import { IEM } from "./lib/iem";
 
 import { fileURLToPath } from "url";
+import DiscordController from "./controllers/discord";
 import TwitchController from "./controllers/twitch";
 import WebController from "./controllers/web";
 const __filename = fileURLToPath(import.meta.url);
@@ -56,10 +57,12 @@ if (!storedKey) {
 const dbController = new SurrealDBController();
 const webController = new WebController();
 const twitchController = new TwitchController();
+const discordController = new DiscordController();
 
-global.controllers.set(dbController.abbr,     dbController);
-global.controllers.set(webController.abbr,    webController);
-global.controllers.set(twitchController.abbr, twitchController);
+global.controllers.set(dbController.abbr,       dbController);
+global.controllers.set(webController.abbr,      webController);
+global.controllers.set(twitchController.abbr,   twitchController);
+global.controllers.set(discordController.abbr,  discordController);
 
 console.debug(`Starting controller: SurrealDBController`);
 await dbController.exec();
@@ -72,3 +75,7 @@ console.debug(`Finished executing controller: WebController`);
 console.debug(`Starting controller: TwitchController`);
 await twitchController.exec();
 console.debug(`Finished executing controller: TwitchController`);
+
+console.debug(`Starting controller: DiscordController`);
+await discordController.exec();
+console.debug(`Finished executing controller: DiscordController`);
