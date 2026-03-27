@@ -115,18 +115,20 @@ export default class WaiterLog {
 
   private writeToLogFile(logConsole: Console, ...args: any[]) {
     if (logConsole.saveToFile && logConsole.saveStream) {
+      const joined = args
+        .map((arg) => {
+          if (typeof arg !== "string") {
+            return inspect(arg, { depth: 1 }).toString();
+          } else {
+            return arg.toString();
+          }
+        })
+        .join(" ");
+      const toWrite = logConsole.saveFormatted
+        ? joined
+        : joined.replace(/\u001b\[.*?m/g, "");
       logConsole.saveStream.write(
-        args
-          .map((arg) => {
-            if (typeof arg !== "string") {
-              return inspect(arg, { depth: 1 }).toString();
-            } else {
-              return arg.toString();
-            }
-          })
-          .join(" ")
-          .replace(logConsole.saveFormatted ? /^$/ : /\u001b\[.*?m/g, "") +
-          "\n",
+        toWrite + "\n",
         (err) => {
           if (err) this.origLog(err);
         },
