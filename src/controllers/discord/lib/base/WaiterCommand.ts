@@ -1,6 +1,4 @@
-import crypto from "crypto";
 import * as Discord from "discord.js";
-import { readFileSync } from "fs";
 import path from "path";
 export type WaiterSlashCommand =
   | Discord.SlashCommandBuilder
@@ -58,12 +56,6 @@ export abstract class WaiterCommand {
       //! Find the class caller, get their filename, and set it as the filename
       this._filename = path.basename(this._fullPath);
     }
-
-    this._hash = crypto
-      .createHash("md5")
-      .update(readFileSync(this._fullPath, "utf-8"))
-      .digest("hex");
-    this._fileHash = this._hash;
   }
 
     public abstract runCommand(interaction: Discord.ChatInputCommandInteraction): Promise<any>;

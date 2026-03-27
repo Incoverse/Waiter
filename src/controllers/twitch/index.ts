@@ -1,13 +1,12 @@
 import { Controller } from "@/lib/base/controller";
 import Communication from "@/lib/communication";
 import { EncryptedField } from "@/lib/enc-field";
-import { EnvironmentManager } from "@/lib/envmgr";
 import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
+import chalk from "chalk";
 import crypto from "crypto";
-import _ from "lodash";
+import lodash from "lodash";
 import { eq, RecordId, Table } from "surrealdb";
-import TwitchClient, { redirectURI } from "./client";
-import { generateAuthURL } from "./lib/authentication";
+import TwitchClient from "./client";
 import WaiterEvent, { type EventInfo, type TwitchEventInfo } from "./lib/base/WaiterEvent";
 import { TwitchAuthDBSchema, type TwitchAuthDB } from "./typecheck";
 
@@ -25,7 +24,7 @@ let registeredTwitchEvents: { name: string; as: string; version: number; conditi
 
 export default class TwitchController extends Controller {
   constructor() {
-    super("TWCH");
+    super("TWCH", "#8956FB");
   }
 
   private client: TwitchClient;
@@ -33,6 +32,14 @@ export default class TwitchController extends Controller {
   private streamerInit = async (client: TwitchClient) => {
     if (!Object.keys(global.twitch.streamerData).includes(client.IAM.id)) {
       global.twitch.streamerData[client.IAM.id] = {};
+    }
+  }
+
+  public override async statuses(): Promise<void> {
+    this.logger.log(`Connected to Twitch as ${chalk.yellow(this.client.IAM.display_name)} (ID: ${chalk.yellow(this.client.IAM.id)})`);
+    this.logger.log(`Currently watching ${chalk.yellow(global.twitch.streamers.size)} streamer${global.twitch.streamers.size !== 1 ? "s" : ""}:`);
+    for (const streamer of global.twitch.streamers.values()) {
+      this.logger.log(` - ${chalk.yellow(streamer.IAM.display_name)} (ID: ${chalk.yellow(streamer.IAM.id)})`);
     }
   }
 
@@ -46,7 +53,7 @@ export default class TwitchController extends Controller {
     };
 
     const events = (await Promise.all(
-      (await findFiles(".", /controllers\/twitch\/.*\.evt\..s$/)).map(importLocalModule)        
+      (await findFiles(".", /\/twitch\/.*\.evt\..s$/)).map(importLocalModule)        
     ))
       .map((mod) => mod.default)
       .filter((mod) => extendsClass(mod, WaiterEvent)) as (new (bot: TwitchClient) => WaiterEvent)[];
@@ -120,7 +127,7 @@ export default class TwitchController extends Controller {
           event.setup([global.twitch.streamers.get(newClient.IAM.id)]);
         }
       } else if (event.action === "DELETE") {
-        const deletedStreamerId = (event.value as any).streamer?.id.id
+        const deletedStreamerId = (event.value as any).streamer?.twitch?.id.id.toString();
 
         if (!deletedStreamerId) {
           this.logger.warn("Received DELETE event for streamer token without streamer ID. Cannot determine which streamer was deleted. Ignoring.");
@@ -147,9 +154,9 @@ export default class TwitchController extends Controller {
     })
 
 
-    const code = await TwitchClient.generateCode("15m");
-    const authURL = generateAuthURL(EnvironmentManager.get("TWITCH_CLIENT_ID"), redirectURI, Buffer.from(code).toString("base64url"));
-    console.log(`To authenticate a Twitch account, visit the following URL: ${authURL}`);
+    // const code = await TwitchClient.generateCode("15m");
+    // const authURL = generateAuthURL(redirectURI, Buffer.from(code).toString("base64url"));
+    // console.log(`To authenticate a Twitch account, visit the following URL: ${authURL}`);
   }
 
   public registerOnStartEvents(events: WaiterEvent[]) {
@@ -214,10 +221,10 @@ export default class TwitchController extends Controller {
       for (const eventInfo of (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[])) {
 
         const alreadyRegistered = registeredTwitchEvents.some(e =>
-            _.isEqual(e.name, eventInfo.event.name) &&
-            _.isEqual(e.as, eventInfo.event.as) &&
-            _.isEqual(e.version, eventInfo.event.version) &&
-            _.isEqual(e.condition, eventInfo.event.condition)
+            lodash.isEqual(e.name, eventInfo.event.name) &&
+            lodash.isEqual(e.as, eventInfo.event.as) &&
+            lodash.isEqual(e.version, eventInfo.event.version) &&
+            lodash.isEqual(e.condition, eventInfo.event.condition)
         );
 
 
@@ -273,8 +280,6 @@ export default class TwitchController extends Controller {
 
       }
     }
-
-
   }
 
 

@@ -1,7 +1,6 @@
 import CacheManager from "@/lib/cache";
 import Communication from "@/lib/communication";
 import { EncryptedField } from "@/lib/enc-field";
-import { EnvironmentManager } from "@/lib/envmgr";
 import axios, { type AxiosInstance } from "axios";
 import { CronJob, CronTime } from "cron";
 import prettyMilliseconds from "pretty-ms";
@@ -24,14 +23,14 @@ import * as VIP from "./funcs/channel/vip";
 import * as Rewards from "./funcs/rewards";
 import * as User from "./funcs/user";
 
+import chalk from "chalk";
 import type { Request, Response } from "express";
 import type { CoercedNumber, EventCondition, EventVersion, UserResolvable, ValidTopics } from "./types";
-import { title } from "process";
 
 let eventSubConnURL = "wss://eventsub.wss.twitch.tv/ws";
 export const comm: Communication = new Communication();
 
-export const redirectURI = `${EnvironmentManager.get("PUBLIC_URL")}/twitch/auth`;
+export const redirectURI = `${process.env.PUBLIC_URL}/twitch/auth`;
 
 type TopicWithBroadcasterCondition = {
   [T in ValidTopics]: EventCondition<T> extends { broadcaster_user_id: string } ? T : never
@@ -73,6 +72,8 @@ export function paginateData<T>(
   };
 }
 
+
+const TWCLSender = chalk.hex("#6441A4")("TWCL");
 export default class TwitchClient {
   public api: AxiosInstance;
   public isBot: boolean = false;
@@ -106,6 +107,7 @@ export default class TwitchClient {
     display_name: string;
   }
 
+
   @schedule("*/5 * * * *")
   public static cleanOldCodes() {
     return global.db.query("DELETE twitch_auth_codes WHERE expires_at < time::now();");
@@ -115,7 +117,7 @@ export default class TwitchClient {
     return await axios.get(`https://api.twitch.tv/helix/users`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Client-Id': EnvironmentManager.get("TWITCH_CLIENT_ID")
+        'Client-Id': process.env.TWITCH_CLIENT_ID
       }
     }).then(ResDataData0);
   }
@@ -177,7 +179,7 @@ export default class TwitchClient {
 
   private constructor(auth: TwitchAuthDB, connectToEventSub = true, bot = false) {
     this.isBot = bot
-    this.logger = console.withSender("TWCL").withPrefix(
+    this.logger = console.withSender(TWCLSender).withPrefix(
       bot ? "[BOT]" : "[CLIENT]",
     );
     this.auth = auth;
@@ -359,12 +361,12 @@ export default class TwitchClient {
       }
 
       this.eventsubWS.onclose = (c) => {
-        this.logger.error(`Disconnected from Twitch EventSub - (${c.code}) ${c.reason}`);
+        this.logger.warn(`Disconnected from Twitch EventSub - (${c.code}) ${c.reason}`);
         this.eventsubConnected = false;
         this.eventsubWS.removeAllListeners();
         
         if (this.connectEventSub) {
-          this.logger.warn("Attempting to reconnect to Twitch EventSub...");
+          this.logger.log("Attempting to reconnect to Twitch EventSub...");
           this.connect();
         }
       }
@@ -494,11 +496,17 @@ export default class TwitchClient {
           if (!this.IAM?.id) {
             this.IAM = await this.fetchUser();
           }
+
+          const user = (await global.db.query(
+            `SELECT id FROM users WHERE twitch = $twitchId`,
+            { twitchId: new RecordId("twitch_users", this.IAM.id) },
+          ).collect().then(res => (res[0] as any[])[0]) as {id: RecordId}).id;
+
           await global.db.query(
             "UPDATE streamer_tokens SET auth = $encryptedAuth WHERE streamer.id = $streamerId",
             {
               encryptedAuth: encryptedAuth.toDB(),
-              streamerId: new RecordId("twitch_users", this?.IAM?.id),
+              streamerId: user,
             },
           );
         }
@@ -543,23 +551,23 @@ export default class TwitchClient {
     if (encryptedAuth.isSet()) {
       try {
         const unvalidatedAuth = encryptedAuth.get();
-        console.withSender("TWCL").log("Twitch auth found in database. Validating...");
+        console.withSender(TWCLSender).log("Twitch auth found in database. Validating...");
         const parsedAuth = TwitchAuthDBSchema.safeParse(unvalidatedAuth);
         if (!parsedAuth.success)
           throw new Error(parsedAuth.error.message);
         auth = parsedAuth.data;
       } catch (error) {
-        console.withSender("TWCL").error("Error parsing stored Twitch auth:", error);
-        console.withSender("TWCL").debug("Clearing invalid Twitch auth from database.");
+        console.withSender(TWCLSender).error("Error parsing stored Twitch auth:", error);
+        console.withSender(TWCLSender).debug("Clearing invalid Twitch auth from database.");
         await global.db.query('UPSERT waiter_data:root PATCH { "op": "remove", "path": "twitch_auth" }');
       }
 
-      console.withSender("TWCL").great("Twitch auth loaded from database.");
+      console.withSender(TWCLSender).great("Twitch auth loaded from database.");
     }
 
     if (!auth) {
-      const CID = EnvironmentManager.get("TWITCH_CLIENT_ID");
-      const CS = EnvironmentManager.get("TWITCH_CLIENT_SECRET");
+      const CID = process.env.TWITCH_CLIENT_ID;
+      const CS = process.env.TWITCH_CLIENT_SECRET;
       if (!CID || !CS) {
         throw new Error(
           "Missing Twitch Client ID or Client Secret in environment variables. Please set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET.",
@@ -574,12 +582,12 @@ export default class TwitchClient {
         expires: null,
       };
 
-      const authURL = generateAuthURL(CID, redirectURI, Buffer.from("HEAD_WAITER_BOT").toString("base64"));
+      const authURL = generateAuthURL(redirectURI, Buffer.from("HEAD_WAITER_BOT").toString("base64"));
 
-      console.withSender("TWCL").info("Please authenticate as the Waiter Twitch bot at this url:")
-      console.withSender("TWCL").info(authURL);
+      console.withSender(TWCLSender).info("Please authenticate as the Waiter Twitch bot at this url:")
+      console.withSender(TWCLSender).info(authURL);
 
-      console.withSender("TWCL").log("Waiting for authentication... (This will time out after 5 minutes)")
+      console.withSender(TWCLSender).log("Waiting for authentication... (This will time out after 5 minutes)")
       const creds = await comm.waitFor(`auth-HEAD_WAITER_BOT`, 300000); // Wait for 5 minutes
 
       if (!creds) {
@@ -588,7 +596,7 @@ export default class TwitchClient {
         );
       }
 
-      console.withSender("TWCL").great(
+      console.withSender(TWCLSender).great(
         "Received Twitch auth credentials from web interface."
       );
 
@@ -602,7 +610,7 @@ export default class TwitchClient {
           encryptedAuth: encryptedAuth.toDB(),
         },
       );
-      console.withSender("TWCL").great("Twitch auth credentials saved to database.");
+      console.withSender(TWCLSender).great("Twitch auth credentials saved to database.");
     }
 
     return auth;
@@ -612,7 +620,7 @@ export default class TwitchClient {
 
   @registerRoute("GET", "/twitch/auth")
   private static async handleAuthRoute(req: Request, res: Response) {
-    const errorTemplate = await findFiles(".", /\/twitch\/templates\/error\.html$/).then(files => files[0]);
+    const errorTemplate = findFiles(".", /\/twitch\/templates\/error\.html$/)?.shift();
     let state = req.query.state?.toString();
 
     if (state) {
@@ -627,7 +635,7 @@ export default class TwitchClient {
     }
 
     if (state == "HEAD_WAITER_BOT") {
-      const resp = await axios.post(`https://id.twitch.tv/oauth2/token?client_id=${EnvironmentManager.get("TWITCH_CLIENT_ID")}&client_secret=${EnvironmentManager.get("TWITCH_CLIENT_SECRET")}&code=${code}&grant_type=authorization_code&redirect_uri=${redirectURI}`)
+      const resp = await axios.post(`https://id.twitch.tv/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&code=${code}&grant_type=authorization_code&redirect_uri=${redirectURI}`)
 
       res.send("Authentication successful. You can close this page.");
       comm.emit(`auth-HEAD_WAITER_BOT`, {
@@ -647,22 +655,22 @@ export default class TwitchClient {
       // Delete the code from the database to prevent reuse
       await global.db.query("DELETE FROM twitch_auth_codes WHERE code = $code", { code: authCode });
       // await TwitchClient.generateCode("15m"); // Generate a new code immediately to replace the one that was just used, ensuring there's always a valid code available for the web interface to display.
-      const resp = await axios.post(`https://id.twitch.tv/oauth2/token?client_id=${EnvironmentManager.get("TWITCH_CLIENT_ID")}&client_secret=${EnvironmentManager.get("TWITCH_CLIENT_SECRET")}&code=${code}&grant_type=authorization_code&redirect_uri=${redirectURI}`)
+      const resp = await axios.post(`https://id.twitch.tv/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&code=${code}&grant_type=authorization_code&redirect_uri=${redirectURI}`)
 
 
       const data = {
         accessToken: resp.data.access_token,
         refreshToken: resp.data.refresh_token,
         expires: new Date(Date.now() + resp.data.expires_in * 1000),
-        clientId: EnvironmentManager.get("TWITCH_CLIENT_ID"),
-        clientSecret: EnvironmentManager.get("TWITCH_CLIENT_SECRET")
+        clientId: process.env.TWITCH_CLIENT_ID,
+        clientSecret: process.env.TWITCH_CLIENT_SECRET
       };
 
 
       const userInfo = await TwitchClient.getUserInfo(data.accessToken);
 
       if (!userInfo) {
-        console.withSender("TWCL").error("Failed to fetch user info for new streamer auth. Aborting streamer creation.");
+        console.withSender(TWCLSender).error("Failed to fetch user info for new streamer auth. Aborting streamer creation.");
         return res.status(500).template(errorTemplate, { title: "Authentication Error", message: "Failed to fetch user info from Twitch API. Please try again." });
       }
 
@@ -671,17 +679,23 @@ export default class TwitchClient {
         { login: userInfo.login, display_name: userInfo.display_name }
       );
 
+
+      const user = await global.db.query(
+        `UPSERT ONLY users SET twitch = $twitchId WHERE twitch = $twitchId RETURN id`,
+        { twitchId: new RecordId("twitch_users", userInfo.id) }
+      ).collect().then(res => (res[0] as {id: RecordId}).id);      
+
       const encryptedAuth = new EncryptedField({
         ...data,
-        clientId: EnvironmentManager.get("TWITCH_CLIENT_ID"),
-        clientSecret: EnvironmentManager.get("TWITCH_CLIENT_SECRET")
+        clientId: process.env.TWITCH_CLIENT_ID,
+        clientSecret: process.env.TWITCH_CLIENT_SECRET
       });
 
       try {
         await global.db.query(
           `INSERT INTO streamer_tokens (streamer, type, auth) VALUES ($streamer, 'twitch', $encryptedAuth)`,
           {
-            streamer: new RecordId("twitch_users", userInfo.id),
+            streamer: user,
             encryptedAuth: encryptedAuth.toDB()
           }
         );
@@ -692,7 +706,7 @@ export default class TwitchClient {
             message: "This Twitch account has already been authenticated with Waiter. If you believe this is an error, please contact support."
           });
         } else {
-          console.withSender("TWCL").error("Error inserting new streamer auth into database:", err);
+          console.withSender(TWCLSender).error("Error inserting new streamer auth into database:", err);
           return res.template(errorTemplate, { 
             title: "Authentication Error",
             message: "An unexpected error occurred while saving your authentication. Please try again and contact support if the issue persists."
@@ -700,7 +714,7 @@ export default class TwitchClient {
         }
       }
 
-      const successfulAuthTemplate = await findFiles(".", /\/twitch\/templates\/successful_auth\.html$/).then(files => files[0]);
+      const successfulAuthTemplate = findFiles(".", /\/twitch\/templates\/successful_auth\.html$/)?.shift();
       return res.template(successfulAuthTemplate)
     }
   }

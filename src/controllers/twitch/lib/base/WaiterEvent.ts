@@ -18,6 +18,7 @@
 import CacheManager from "@/lib/cache";
 import type TwitchClient from "@twitch/client";
 import type { CoercedNumber, EventCondition, EventVersion, ValidTopics } from "../../types";
+import chalk from "chalk";
 
 
 export default abstract class WaiterEvent {
@@ -30,7 +31,7 @@ export default abstract class WaiterEvent {
 
     public constructor(bot: TwitchClient) {
       this.bot = bot;
-      this.logger = console.withSender(this.constructor.name); 
+      this.logger = console.withSender(chalk.hex("#8956FB")(this.constructor.name)); 
     }
 
 

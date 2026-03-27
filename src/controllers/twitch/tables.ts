@@ -4,7 +4,7 @@ export default class TwitchDefinitions extends TableDefinition {
   public static override priority = 1; // Always load first
 
   public static readonly WAITER_DATA_EXTENSION = `
-    DEFINE FIELD OVERWRITE twitch_auth ON waiter_data TYPE string; -- Encrypted
+    DEFINE FIELD OVERWRITE twitch_auth ON waiter_data TYPE string | NONE DEFAULT NONE; -- Encrypted
   `.trim();
 
   public static readonly TWITCH_AUTH_CODES = `

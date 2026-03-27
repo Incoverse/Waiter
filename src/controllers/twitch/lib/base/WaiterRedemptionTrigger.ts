@@ -16,6 +16,7 @@
  */
 
 import CacheManager from "@/lib/cache.js";
+import chalk from "chalk";
 import type TwitchClient from "../../client.js";
 import type WaiterReward from "./WaiterReward.js";
 
@@ -26,9 +27,12 @@ export default abstract class WaiterRedemptionTrigger {
     public abstract settings: RedemptionSettings;
 
     public loaded: boolean = false;
+    public logger: Console;
 
     public constructor(bot: TwitchClient) {
       this.bot = bot;
+
+      this.logger = console.withSender(chalk.hex("#8956FB")(this.constructor.name)); 
     }
 
 

@@ -1,7 +1,7 @@
 import { CronJob } from "cron";
-import fs from "fs/promises";
+import fs from "fs";
 import path from "path";
-import type { ZodJSONSchema } from "zod";
+import { z, ZodObject, type ZodJSONSchema } from "zod";
 
 export function getStaticProps(cls: any) {
   return Object.getOwnPropertyNames(cls)
@@ -15,24 +15,29 @@ export async function importLocalModule(modulePath: string) {
   );
 }
 
-export async function findFiles(
+export function findFiles(
   dir: string,
   filter?: RegExp | ((path: string) => boolean),
+  options: { ignoreNodeModules?: boolean, absolute?: boolean } = {},
 ) {
+
+  const settings = { ignoreNodeModules: true, absolute: false, ...options };
+
   const files: any[] = [];
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
 
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      const subFiles = await findFiles(fullPath, filter);
+      if (settings.ignoreNodeModules && entry.name === "node_modules") continue;
+      const subFiles = findFiles(fullPath, filter, settings);
       files.push(...subFiles);
     } else if (
       entry.isFile() &&
       (!filter ||
         (filter instanceof RegExp ? filter.test(fullPath) : filter(fullPath)))
     ) {
-      files.push(path.resolve(fullPath));
+      files.push(settings.absolute ? path.relative(".", fullPath) : path.resolve(fullPath));
     }
   }
 
@@ -67,14 +72,14 @@ export function schedule(cron: string, runImmediately = false, announce=true) {
         console
           .withSender("CRON")
           .debug(
-            `Running scheduled task ${target.constructor.name}.${propertyKey} with cron "${cron}"`,
+            `Running scheduled task ${target.name ?? target.constructor.name}#${propertyKey}() with cron "${cron}"`,
           );
         }
         await originalMethod.apply(this, args);
       } catch (error) {
         console
           .withSender("CRON")
-          .error(`Error running scheduled task ${target.constructor.name}.${propertyKey}:`, error);
+          .error(`Error running scheduled task ${target.name ?? target.constructor.name}#${propertyKey}():`, error);
       }
     };
 
@@ -176,3 +181,38 @@ export function deepAssign(target: { [x: string]: any; }, source: { [x: string]:
 
   return target;
 }
+
+
+export function deepMergeSchemas<
+  A extends ZodObject<any>,
+  B extends ZodObject<any>
+>(a: A, b: B): ZodObject<any> {
+  const shapeA = a.shape;
+  const shapeB = b.shape;
+
+  const mergedShape = { ...shapeA };
+
+  for (const key in shapeB) {
+    const aField = shapeA[key];
+    const bField = shapeB[key];
+
+    if (
+      aField instanceof z.ZodObject &&
+      bField instanceof z.ZodObject
+    ) {
+      mergedShape[key] = deepMergeSchemas(aField, bField);
+    } else {
+      mergedShape[key] = bField;
+    }
+  }
+
+  return z.object(mergedShape);
+}
+
+type Exact<A, B> =
+  A extends B ? (B extends A ? A : never) : never;
+
+type Infer<T extends z.ZodType<any>> = z.infer<T>;
+
+export type EnsureExactSchema<TSchema extends z.ZodType<any>, TExpected> =
+  Exact<Infer<TSchema>, TExpected>;

@@ -228,8 +228,10 @@ export default class WaiterLog {
     };
 
     console.line = function (this: Console, ...args: any[]) {
-      logger.writeToLogFile(this, ...args);
-      logger.origLog(...args);
+      if (this.logLevel >= LOGLEVEL.LINE) {
+        logger.writeToLogFile(this, ...args);
+        logger.origLog(...args);
+      }
     };
 
     console.debug = function (this: Console, ...args: any[]) {

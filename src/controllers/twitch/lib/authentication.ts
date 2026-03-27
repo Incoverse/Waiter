@@ -83,9 +83,8 @@ const TWITCH_SCOPES = [
 ];
 
 export function generateAuthURL(
-  CID: string,
   redirectURI: string,
   state: string,
 ) {
-  return `https://id.twitch.tv/oauth2/authorize?client_id=${CID}&redirect_uri=${redirectURI}&response_type=code&scope=${TWITCH_SCOPES.join("+")}&state=${state}`;
+  return `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${redirectURI}&response_type=code&scope=${TWITCH_SCOPES.join("+")}&state=${state}`;
 }

@@ -1,5 +1,6 @@
 import { Controller } from "@/lib/base/controller";
-import { extendsClass, getAllModules, importLocalModule } from "@/lib/misc";
+import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
+import chalk from "chalk";
 import {
   ChatInputCommandInteraction,
   Client,
@@ -11,8 +12,7 @@ import {
   Routes,
   SlashCommandBuilder,
 } from "discord.js";
-import path from "path";
-import { fileURLToPath } from "url";
+import { z, type ZodType } from "zod";
 import { WaiterCommand } from "./lib/base/WaiterCommand";
 
 type SlashCommandModule = {
@@ -22,12 +22,20 @@ type SlashCommandModule = {
 
 export default class DiscordController extends Controller {
   constructor() {
-    super("DISC");
+    super("DISC", "#7289da");
+  }
+
+  public override registerConfig(): ZodType | void {
+    return z.object({
+      discord: z.object({
+        serverId: z.string().describe("The bot will only register slash commands to this guild.")
+          .refine((id) => /^\d+$/.test(id), "Server ID must be a string of digits.")
+          .refine((id) => id !== "1234567891234567890", "Please set a valid Discord server ID in the configuration."),
+      })
+    }) satisfies z.ZodType<Pick<WaiterConfig, "discord">>
   }
 
   public async exec() {
-    this.logger.info("Initializing Discord client...");
-
     if (!global.discord) {
       global.discord = {
         controller: this,
@@ -81,29 +89,25 @@ export default class DiscordController extends Controller {
 
     const token = process.env.DISCORD_TOKEN;
     const clientId = process.env.DISCORD_CLIENT_ID;
+    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
 
-    // If configured register to specific guild for faster registration
-    const guildId = process.env.DISCORD_GUILD_ID;
-
-    if (!token || !clientId) {
+    if (!token || !clientId || !clientSecret) {
       this.logger.fatal(
-        "Missing DISCORD_TOKEN or DISCORD_CLIENT_ID in environment.",
+        "Missing DISCORD_TOKEN, DISCORD_CLIENT_ID, or DISCORD_CLIENT_SECRET in environment.",
       );
       return;
     }
 
-    const discordControllerDir = path.dirname(fileURLToPath(import.meta.url));
-    const commandDir = path.resolve(discordControllerDir, "commands");
-    const commandPaths = await getAllModules(commandDir, /\.cmd\.[tj]s$/);
+    const commandPaths = await findFiles(".", /\/discord\/.*\.cmd\..s$/);
     const importedModules = await Promise.all(
       commandPaths.map(importLocalModule),
     );
 
     const commands: WaiterCommand[] = importedModules
-      .map((mod) => mod.default) // <-- default exported class
-      .filter((cls) => !!cls) // <-- remove all modules that dont have a default export
-      .filter((cls) => extendsClass(cls, WaiterCommand)) // <-- Only allow classes that extend WaiterCommand
-      .map((defaultClass) => new defaultClass());
+      .map((mod) => mod.default) //? <-- default exported class
+      .filter((cls) => !!cls) //? <-- remove all modules that dont have a default export
+      .filter((cls) => extendsClass(cls, WaiterCommand)) //? <-- Only allow classes that extend WaiterCommand
+      .map((defaultClass) => new defaultClass()); //? <-- instantiate the command classes
 
     if (!commands.length) {
       this.logger.warn("No slash commands found to register.");
@@ -145,24 +149,23 @@ export default class DiscordController extends Controller {
     const rest = new REST({ version: "10" }).setToken(token);
     const commandJson = commands.map((command) => command.slashCommand.toJSON());
 
-    if (guildId) {
-      await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-        body: commandJson,
-      });
-      this.logger.info(
-        `Registered ${commandJson.length} guild slash command(s).`,
-      );
-    } else {
-      await rest.put(Routes.applicationCommands(clientId), {
-        body: commandJson,
-      });
-      this.logger.info(
-        `Registered ${commandJson.length} global slash command(s).`,
-      );
-    }
+    await rest.put(Routes.applicationCommands(clientId), { body: [] });
+    await rest.put(Routes.applicationGuildCommands(clientId, global.config.discord.serverId), {
+      body: commandJson,
+    });
+    this.logger.info(
+      `Registered ${commandJson.length} guild slash command(s).`,
+    );
+    
 
     client.login(token).catch((err) => {
-      this.logger.fatal("Failed to login to Discord. Please check your token and internet connection.", err);
+      this.logger.error("Failed to login to Discord. Please check your token and internet connection.", err);
     });
+  }
+
+  public override async statuses(): Promise<void> {
+    if (global.discord.client?.user) {
+      this.logger.log(`Logged in to Discord as ${chalk.yellow(global.discord.client.user.tag)}`);
+    }
   }
 }

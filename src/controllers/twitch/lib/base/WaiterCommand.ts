@@ -19,6 +19,7 @@ import CacheManager from "@/lib/cache.js";
 import type TwitchClient from "@twitch/client.js";
 import type { ChannelChatMessage } from "../../types.js";
 import CooldownSystem from "../cooldown.js";
+import chalk from "chalk";
 
 
 const defaultSettings: {
@@ -48,7 +49,7 @@ export default abstract class WaiterCommand {
         ...this.settings,
       }
 
-      this.logger = console.withSender(this.constructor.name); 
+      this.logger = console.withSender(chalk.hex("#8956FB")(this.constructor.name)); 
     }
 
     public abstract messageTrigger: RegExp | ((event: Message) => Promise<boolean>); //! Trigger on message that matches this regex

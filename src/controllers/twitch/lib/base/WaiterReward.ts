@@ -2,6 +2,7 @@ import CacheManager from "@/lib/cache";
 import { parseDuration } from "@/lib/misc";
 import type TwitchClient from "../../client";
 import type { CustomRewardRedemptionAdd, TwitchRedemption } from "../../types";
+import chalk from "chalk";
 
 const defaultSettings: Omit<RewardSettings, 'name' | 'price'> = {
     enabledByDefault: true,
@@ -55,7 +56,7 @@ export default class WaiterReward {
             ...settings,
         };
 
-        this.logger = console.withSender(this.constructor.name);
+        this.logger = console.withSender(chalk.hex("#8956FB")(this.constructor.name)); 
 
         this.currentPrice = this.settings.price;
     }

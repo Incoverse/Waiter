@@ -1,8 +1,10 @@
-import type { TemplateResponse } from "@/controllers/web/interfaces/express-template";
 import { Controller } from "@/lib/base/controller";
 import { findFiles } from "@/lib/misc";
+import type { TemplateResponse } from "@web/interfaces/express-template";
+import chalk from "chalk";
 import express from "express";
 import { existsSync, readFileSync } from "fs";
+import { z, type ZodType } from "zod";
 
 const app = express();
 
@@ -17,7 +19,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/", async (req, res) => {
-  const HomeTemplate = await findFiles(".", /web\/templates\/home\.html$/).then((files) => files[0]);
+  const HomeTemplate = findFiles(".", /web\/templates\/home\.html$/)?.shift();
   res.template(HomeTemplate);
 });
 
@@ -25,13 +27,26 @@ const registeredRoutes: { method: string; path: string; handlerStr: string }[] =
   [];
 
 export default class WebController extends Controller {
+  public override priority: number = Number.MIN_SAFE_INTEGER + 1; //? Ensure this controller loads after the database controller, but before all other controllers that might want to register routes.
   constructor() {
-    super("HTTP");
+    super("HTTP", "#009f9f");
+
+  }
+
+  public override registerConfig(): ZodType | void {
+    return z.object({
+      web: z.object({
+        port: z.number()
+          .describe("The port on which the web server will run")
+          .default(3000)
+          .refine((port: number) => port > 0 && port < 65536, "Port must be between 1 and 65535"),
+      }).default({ port: 3000 }),
+    }) satisfies z.ZodType<Pick<WaiterConfig, "web">>;
   }
 
   public exec() {
     return new Promise<void>((resolve, reject) => {
-      app.listen(3000, (err) => {
+      app.listen(global.config.web.port, (err) => {
 
         if (err) {
           this.logger.error("Error starting web server:", err);
@@ -39,7 +54,7 @@ export default class WebController extends Controller {
           return;
         }
 
-        this.logger.info("Web server is running on port 3000");
+        this.logger.info(`Web server is running on port ${global.config.web.port}`);
         resolve();
       });
 
@@ -54,10 +69,31 @@ export default class WebController extends Controller {
         this.logger.warn(`No route found for ${req.method} ${req.path}`);
 
 
-        const NotFoundTemplate = await findFiles(".", /web\/templates\/404\.html$/).then((files) => files[0]);
+        const NotFoundTemplate = findFiles(".", /web\/templates\/404\.html$/)?.shift();
         res.status(404).template(NotFoundTemplate);
       })
     })
+  }
+
+  public override async statuses(): Promise<void> {
+    this.logger.log(`Web server listening on: ${chalk.yellow(`*:${global.config.web.port}`)}`);
+    const methodColors = {
+      GET: chalk.green,
+      POST: chalk.blue,
+      PUT: chalk.yellow,
+      DELETE: chalk.red,
+      PATCH: chalk.cyan,
+      OPTIONS: chalk.magenta,
+      HEAD: chalk.gray,
+    }
+    this.logger.log(`Registered routes:`);
+    for (const route of registeredRoutes) {
+
+
+      this.logger.log(
+        `  - ${methodColors[route.method](route.method)} ${route.path} ${chalk.dim(`-> ${route.handlerStr}`)}`,
+      );
+    }
   }
 }
 type HTTPMethod =
@@ -86,14 +122,14 @@ export function registerRoute(method: HTTPMethod, path: string) {
     ) {
       try {
         console
-          .withSender("HTTP")
+          .withSender(chalk.hex("009f9f")("HTTP"))
           .debug(
-            `Handling ${method.toUpperCase()} ${path} with ${target.constructor.name}.${propertyKey}`,
+            `Handling ${method.toUpperCase()} ${path} with ${target.name ?? target.constructor.name}#${propertyKey}()`,
           );
         await originalMethod.apply(this, [req, res, ...args]);
       } catch (error) {
         console
-          .withSender("HTTP")
+          .withSender(chalk.hex("009f9f")("HTTP"))
           .error(`Error handling ${method.toUpperCase()} ${path}:`, error);
         res.status(500).send("Internal Server Error");
       }
@@ -103,7 +139,7 @@ export function registerRoute(method: HTTPMethod, path: string) {
     registeredRoutes.push({
       method: method.toUpperCase(),
       path,
-      handlerStr: `${target.constructor.name}.${propertyKey}`,
+      handlerStr: `${target.name ?? target.constructor.name}#${propertyKey}()`,
     });
 
     return descriptor;
@@ -165,21 +201,21 @@ const NO_TEMPLATE_HTML = `<!DOCTYPE html>
 export function renderTemplate(templatePath: string, variables: Record<string, string> = {}) {
 
   if (!templatePath || !templatePath.trim()) {
-    console.withSender("WEB").warn("No template path provided, returning default error page.");
+    console.withSender(chalk.hex("009f9f")("HTTP")).warn("No template path provided, returning default error page.");
     return NO_TEMPLATE_HTML
       .replaceAll("{{ title }}", "No Template Provided")
       .replaceAll("{{ message }}", "No template was provided to the renderer.");
   }
 
   if (!existsSync(templatePath)) {
-    console.withSender("WEB").warn(`Template not found: ${templatePath}`);
+    console.withSender(chalk.hex("009f9f")("HTTP")).warn(`Template not found: ${templatePath}`);
     return NO_TEMPLATE_HTML
       .replaceAll("{{ title }}", "Template Not Found")
       .replaceAll("{{ message }}", "The requested template could not be found on the server.");
   }
 
   
-  console.withSender("WEB").debug(`Rendering template: ${templatePath}`);
+  console.withSender(chalk.hex("009f9f")("HTTP")).debug(`Rendering template: ${templatePath}`);
   let contents = readFileSync(templatePath, "utf-8");
 
   for (const [key, value] of Object.entries(variables)) {

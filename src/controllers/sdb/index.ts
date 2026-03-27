@@ -4,12 +4,13 @@ import {
   extendsClass,
   findFiles,
   getStaticProps,
-  importLocalModule,
+  importLocalModule
 } from "@/lib/misc";
 import chalk from "chalk";
 import ping from "ping";
 import prettyMs from "pretty-ms";
 import { Surreal } from "surrealdb";
+import z, { ZodType } from "zod";
 
 type SessionInfo = {
   ac: string;
@@ -20,13 +21,36 @@ type SessionInfo = {
 };
 
 export default class SurrealDBController extends Controller {
+
+  public override priority: number = Number.MIN_SAFE_INTEGER; //? Ensure this controller always loads first, so that the database connection is established before any other controllers try to use it.
+  public override stage: "pre" | "normal" = "pre";
+
   constructor() {
-    super("SUDB");
+    super("SUDB", "#ac036e");
+  }
+
+  public override registerConfig(): ZodType | void {
+    return z.object({
+      database: z.object({
+        uri: z.url().describe("The URI of the SurrealDB server").default("wss://inimicalpart.com:13244"),
+      }).default({ uri: "wss://inimicalpart.com:13244" }),
+    }) satisfies z.ZodType<Pick<WaiterConfig, "database">>;
+  }
+
+  public override async statuses(): Promise<void> {
+    if (global.db) {
+      const URI = global.config.database.uri;
+      const as = await qrh.getSessionInfo().then((info) => info.tk.AC);
+      const exp = await qrh.getSessionInfo().then((info) => info.tk.exp);
+      const expTime = prettyMs(exp * 1000 - Date.now(), { compact: true, verbose: true });
+      this.logger.log(`Connected to SurrealDB at ${chalk.yellow(URI)} as ${chalk.yellow(as)}. Token expires in ${chalk.red(expTime)}.`);
+      this.logger.log(`Using DB: ${chalk.yellow(process.env.ACTIVE_DB)}`);
+
+    }
   }
 
   public async exec() {
     const db = new Surreal();
-
     global.db = db;
 
     let hasInternet = await ping.promise

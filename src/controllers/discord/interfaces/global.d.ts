@@ -1,5 +1,5 @@
 import type { Client } from "discord.js";
-import type DiscordController from "@discord";
+import type DiscordController from "..";
 declare global {
   var discord: {
     controller: DiscordController,

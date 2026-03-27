@@ -1,6 +1,6 @@
 import type Communication from "@/lib/communication";
 import type TwitchClient from "@twitch/client";
-import type TwitchController from "@twitch";
+import type TwitchController from "..";
 
 declare global {
   var twitch: {
