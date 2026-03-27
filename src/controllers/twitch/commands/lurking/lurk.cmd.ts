@@ -16,7 +16,7 @@
  */
 
 import type TwitchClient from "@twitch/client";
-import WaiterCommand, { type Message } from "@twitch/lib/base/WaiterCommand";
+import WaiterCommand, { type ChannelMessage, type Message } from "@twitch/lib/base/WaiterCommand";
 import { StreamerIsLive } from "../../lib/conditions";
 
 
@@ -35,7 +35,7 @@ export default class LurkCMD extends WaiterCommand {
   }
 
   @StreamerIsLive()
-  public async exec(channel: TwitchClient, message: Message): Promise<any> {
+  public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
     const user = await this.bot.fetchUser(message.chatter_user_id);
 
     if (!user) {

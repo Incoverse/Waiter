@@ -561,6 +561,35 @@ type EventConditionMap = {
 }
 
 
+import { z } from "zod";
+
+export const TwitchAuthDBSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  expires: z.coerce.date(), // Store as timestamp
+
+  clientId: z.string(),
+  clientSecret: z.string(),
+});
+
+export type TwitchAuthDB = z.infer<typeof TwitchAuthDBSchema>;
+
+export const TwitchUserSchema = z.object({
+  id: z.string(),
+  login: z.string(),
+  display_name: z.string(),
+  type: z.string(),
+  broadcaster_type: z.string(),
+  description: z.string(),
+  profile_image_url: z.string(),
+  offline_image_url: z.string(),
+  view_count: z.number(),
+  email: z.string().optional(),
+  created_at: z.coerce.date(),
+});
+
+export type TwitchUser = z.infer<typeof TwitchUserSchema>;
+
 export type UserResolvable = string | { id: string } | { login: string } | { name: string };
 
 export type CoercedNumber<T extends string> = T extends `${infer N extends number}` ? N : never;
@@ -603,7 +632,9 @@ export type UserWhisperMessage = TwitchReturn<"user.whisper.message", {
     text: string;
   }
 }>
-
+export function isUserWhisperMessage(data: TwitchReturn<ValidTopics, any>): data is UserWhisperMessage {
+  return data?.subscription?.type === "user.whisper.message";
+}
 
 export type ChannelChatMessage = TwitchReturn<"channel.chat.message", {
   broadcaster_user_id: string;
@@ -653,6 +684,10 @@ export type ChannelChatMessage = TwitchReturn<"channel.chat.message", {
   source_badges: null
 }>
 
+export function isChannelChatMessage(data: TwitchReturn<ValidTopics, any>): data is ChannelChatMessage {
+  return data?.subscription?.type === "channel.chat.message";
+}
+
 export type StreamOnline = TwitchReturn<"stream.online", {
   id: string;
   broadcaster_user_id: string;
@@ -661,12 +696,18 @@ export type StreamOnline = TwitchReturn<"stream.online", {
   type: "live" | "playlist" | "watch_party" | "premiere" | "rerun";
   started_at: string;
 }>
+export function isStreamOnline(data: TwitchReturn<ValidTopics, any>): data is StreamOnline {
+  return data?.subscription?.type === "stream.online";
+}
 
 export type StreamOffline = TwitchReturn<"stream.offline", {
   broadcaster_user_id: string;
   broadcaster_user_login: string;
   broadcaster_user_name: string;
 }>
+export function isStreamOffline(data: TwitchReturn<ValidTopics, any>): data is StreamOffline {
+  return data?.subscription?.type === "stream.offline";
+}
 
 export type AdBreakBegin = TwitchReturn<"channel.ad_break.begin", {
   duration_seconds: number;
@@ -679,6 +720,9 @@ export type AdBreakBegin = TwitchReturn<"channel.ad_break.begin", {
   requester_user_login: string;
   requester_user_name: string;
 }>
+export function isAdBreakBegin(data: TwitchReturn<ValidTopics, any>): data is AdBreakBegin {
+  return data?.subscription?.type === "channel.ad_break.begin";
+}
 
 export type CustomRewardRedemptionAdd = TwitchReturn<"channel.channel_points_custom_reward_redemption.add", {
   id: string,
@@ -698,6 +742,9 @@ export type CustomRewardRedemptionAdd = TwitchReturn<"channel.channel_points_cus
   },
   redeemed_at: string
 }>
+export function isCustomRewardRedemptionAdd(data: TwitchReturn<ValidTopics, any>): data is CustomRewardRedemptionAdd {
+  return data?.subscription?.type === "channel.channel_points_custom_reward_redemption.add";
+}
 
 export type ChannelUpdate = TwitchReturn<"channel.update", {
   broadcaster_user_id: string;
@@ -709,6 +756,9 @@ export type ChannelUpdate = TwitchReturn<"channel.update", {
   category_name: string;
   content_classification_labels: string[];
 }>
+export function isChannelUpdate(data: TwitchReturn<ValidTopics, any>): data is ChannelUpdate {
+  return data?.subscription?.type === "channel.update";
+}
 
 
 export type TwitchRedemption = {

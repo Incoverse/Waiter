@@ -16,7 +16,7 @@
  */
 
 import type TwitchClient from "@twitch/client";
-import WaiterCommand, { type Message } from "@twitch/lib/base/WaiterCommand";
+import WaiterCommand, { type ChannelMessage, type Message } from "@twitch/lib/base/WaiterCommand";
 import { StreamerIsLive } from "../../lib/conditions";
 
 export default class UnlurkCMD extends WaiterCommand {
@@ -34,7 +34,7 @@ export default class UnlurkCMD extends WaiterCommand {
   }
 
   @StreamerIsLive()
-  public override async exec(channel: TwitchClient, message: Message): Promise<any> {
+  public override async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
     const user = await this.bot.fetchUser(message.chatter_user_id);
 
     if (!user) {

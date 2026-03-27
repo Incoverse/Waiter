@@ -17,7 +17,7 @@
 
 import type TwitchClient from "@twitch/client";
 import WaiterEvent, { type BroadcasterSender, type EventInfo, type TwitchEventInfo } from "../lib/base/WaiterEvent";
-import type { ChannelUpdate, StreamOffline, StreamOnline } from "../types";
+import { isChannelUpdate, isStreamOffline, isStreamOnline, type ChannelUpdate, type StreamOffline, type StreamOnline } from "../types";
 
 
 export default class OSSC extends WaiterEvent {
@@ -79,7 +79,7 @@ export default class OSSC extends WaiterEvent {
           }
         }
       } else {
-        if (data.subscription.type === "stream.online") {
+        if (isStreamOnline(data)) {
           const streamer = global.twitch.streamers.get(data.event.broadcaster_user_id);
           if (!streamer) {
             this.logger.warn(`Received stream.online event for unregistered streamer with ID ${data.event.broadcaster_user_id}. Ignoring.`);
@@ -89,7 +89,7 @@ export default class OSSC extends WaiterEvent {
           global.twitch.streamerData[streamer.IAM.id].isStreaming = true;
           this.logger.log(`[${streamer.IAM.login}] Stream is now online`);
           global.twitch.communication.emit("stream.online", streamer, data.event);
-        } else if (data.subscription.type === "stream.offline") {
+        } else if (isStreamOffline(data)) {
           const streamer = global.twitch.streamers.get(data.event.broadcaster_user_id);
 
           if (!streamer) {
@@ -99,9 +99,8 @@ export default class OSSC extends WaiterEvent {
           global.twitch.streamerData[streamer.IAM.id].isStreaming = false;
           this.logger.log(`[${streamer.IAM.login}] Stream is now offline`);
           global.twitch.communication.emit("stream.offline", streamer, data.event);
-        } else if (data.subscription.type === "channel.update") {
+        } else if (isChannelUpdate(data)) {
             const prevInfo = this.channelInformation.get(source.IAM.id) || null;
-            data = data as ChannelUpdate;
             const newInfo = {
                 ...prevInfo,
                 broadcaster_id: data.event.broadcaster_user_id,

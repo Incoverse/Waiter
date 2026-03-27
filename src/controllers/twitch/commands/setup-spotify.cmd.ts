@@ -16,22 +16,29 @@
  */
 
 import type TwitchClient from "@twitch/client";
-import WaiterCommand, { type ChannelMessage, type Message } from "@twitch/lib/base/WaiterCommand";
+import WaiterCommand, { type CommandSettings, type WhisperMessage } from "@twitch/lib/base/WaiterCommand";
+import { UserIsRegisteredStreamer } from "../lib/conditions";
 import CooldownSystem, { CooldownWrapper } from "../lib/cooldown";
 
 
-export default class PingCMD extends WaiterCommand {
-  public messageTrigger: RegExp = /^!ping$/;
+export default class SetupSpotifyCMD extends WaiterCommand {
+  public messageTrigger: RegExp = /^!setup\s+spotify$/;
 
   public override cooldown: CooldownSystem = new CooldownSystem({
     type: "user",
     cooldownTime: "30s",
+    cooldownActiveMessage: "Please wait {{time}} before using this command again."
   });
 
+  public override settings: CommandSettings = {
+    scope: "dm"
+  }
+
   @CooldownWrapper()
-  public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
-    await this.bot.withChannel(channel).sendMessage(`Pong! I'm alive and well!`, { replyTo: message.message_id }).catch((err) => {
-      this.logger.warn("Error sending ping response:", err);
+  @UserIsRegisteredStreamer()
+  public async exec(recipient: TwitchClient, message: WhisperMessage): Promise<any> {
+    return recipient.sendWhisper(message.from_user_id, "Spotify integration setup is currently in development. Stay tuned for updates!").catch((err) => {
+      this.logger.warn("Error sending Spotify setup response:", err);
     });
   }
 }

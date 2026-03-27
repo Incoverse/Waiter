@@ -1,7 +1,9 @@
 import { Controller } from "@/lib/base/controller";
+import CacheManager from "@/lib/cache";
 import { findFiles } from "@/lib/misc";
 import type { TemplateResponse } from "@web/interfaces/express-template";
 import chalk from "chalk";
+import crypto from "crypto";
 import express from "express";
 import { existsSync, readFileSync } from "fs";
 import { z, type ZodType } from "zod";
@@ -18,19 +20,31 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/", async (req, res) => {
-  const HomeTemplate = findFiles(".", /web\/templates\/home\.html$/)?.shift();
-  res.template(HomeTemplate);
-});
-
-const registeredRoutes: { method: string; path: string; handlerStr: string }[] =
-  [];
+const registeredRoutes: { method: string; path: string; handlerStr: string }[] = [];
+const shortenCache = new CacheManager();
 
 export default class WebController extends Controller {
   public override priority: number = Number.MIN_SAFE_INTEGER + 1; //? Ensure this controller loads after the database controller, but before all other controllers that might want to register routes.
   constructor() {
     super("HTTP", "#009f9f");
+  }
 
+  @registerRoute("GET", "/")
+  protected HomeRouteHandler(req: express.Request, res: express.Response) {
+    const HomeTemplate = findFiles(global.isCompiled ? "dist" : "src", /web\/templates\/home\.html$/)?.shift();
+    res.template(HomeTemplate);
+  }
+
+  @registerRoute("GET", "/s/:id")
+  protected ShortenerRouteHandler(req: express.Request, res: express.Response) {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const url = shortenCache.get(id);
+    if (url) {
+      res.redirect(url);
+    }
+    else {
+      res.status(404).send("Shortened URL not found or expired.");
+    }
   }
 
   public override registerConfig(): ZodType | void {
@@ -38,9 +52,9 @@ export default class WebController extends Controller {
       web: z.object({
         port: z.number()
           .describe("The port on which the web server will run")
-          .default(3000)
+          .default(9999)
           .refine((port: number) => port > 0 && port < 65536, "Port must be between 1 and 65535"),
-      }).default({ port: 3000 }),
+      }).default({ port: 9999 }),
     }) satisfies z.ZodType<Pick<WaiterConfig, "web">>;
   }
 
@@ -69,7 +83,7 @@ export default class WebController extends Controller {
         this.logger.warn(`No route found for ${req.method} ${req.path}`);
 
 
-        const NotFoundTemplate = findFiles(".", /web\/templates\/404\.html$/)?.shift();
+        const NotFoundTemplate = findFiles(global.isCompiled ? "dist" : "src", /web\/templates\/404\.html$/)?.shift();
         res.status(404).template(NotFoundTemplate);
       })
     })
@@ -96,6 +110,18 @@ export default class WebController extends Controller {
     }
   }
 }
+
+
+
+export function shorten(url: string): string {
+  let id = crypto.randomBytes(6).toString("hex");
+  while (shortenCache.has(id)) {
+    id = crypto.randomBytes(6).toString("hex");
+  }
+  shortenCache.set(id, url, Date.now() + 1000 * 60 * 60 * 24); // Cache for 24 hours
+  return process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL}/s/${id}` : `/s/${id}`;
+}
+
 type HTTPMethod =
   | "GET"
   | "POST"
@@ -106,7 +132,6 @@ type HTTPMethod =
   | "HEAD";
 
 
-  
 export function registerRoute(method: HTTPMethod, path: string) {
   return function (
     target: any,
@@ -118,6 +143,7 @@ export function registerRoute(method: HTTPMethod, path: string) {
     descriptor.value = async function (
       req: express.Request,
       res: express.Response,
+      next: express.NextFunction,
       ...args: any[]
     ) {
       try {
@@ -126,7 +152,7 @@ export function registerRoute(method: HTTPMethod, path: string) {
           .debug(
             `Handling ${method.toUpperCase()} ${path} with ${target.name ?? target.constructor.name}#${propertyKey}()`,
           );
-        await originalMethod.apply(this, [req, res, ...args]);
+        await originalMethod.apply(this, [req, res, next, ...args]);
       } catch (error) {
         console
           .withSender(chalk.hex("009f9f")("HTTP"))

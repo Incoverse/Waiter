@@ -1,8 +1,8 @@
 import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
 import WaiterCommand from "@twitch/lib/base/WaiterCommand";
-import WaiterEvent, { type BroadcasterSender, type EventInfo } from "../lib/base/WaiterEvent";
-import type { ChannelChatMessage } from "../types";
+import WaiterEvent, { type BroadcasterSender, type EventInfo, type TwitchEventInfo } from "../lib/base/WaiterEvent";
+import { isChannelChatMessage, type ChannelChatMessage, type UserWhisperMessage } from "../types";
 
 export default class TCMD extends WaiterEvent {
   public override eventTrigger: (params: BroadcasterSender) => EventInfo = ({ sender, broadcaster }) => ({
@@ -15,11 +15,23 @@ export default class TCMD extends WaiterEvent {
     },
   });
 
+  public override registerTwitchEvents({ sender }: BroadcasterSender): TwitchEventInfo[] {
+    return [
+      {
+        as: "sender",
+        name: "user.whisper.message",
+        version: 1,
+        condition: { "user_id": sender?.IAM?.id },
+      }
+    ]
+  }
+
   private commands: WaiterCommand[] = [];
 
   public override async setup(clients: TwitchClient[]): Promise<boolean | null> {
     const commands = (await Promise.all(
-      (await findFiles(".", /\/twitch\/.*\.cmd\..s$/)).map(importLocalModule)        
+      findFiles(global.isCompiled ? "dist" : "src", /\/twitch\/.*\.cmd\..s$/)
+        .map(importLocalModule)        
     ))
       .map((mod) => mod.default)
       .filter((mod) => extendsClass(mod, WaiterCommand)) as (new (bot: TwitchClient) => WaiterCommand)[];
@@ -45,34 +57,56 @@ export default class TCMD extends WaiterEvent {
   }
 
   // @ts-expect-error (TS2416) - Method overloads with different parameters (Twitch:event has source and data, onStart has clients array)
-  public override async exec(source: TwitchClient, data: ChannelChatMessage): Promise<void> {
+  public override async exec(source: TwitchClient, data: ChannelChatMessage | UserWhisperMessage): Promise<void> {
 
+    if (isChannelChatMessage(data)) {
+      const streamer = global.twitch.streamers.get(data.event.broadcaster_user_id);
 
-    const streamer = global.twitch.streamers.get(data.event.broadcaster_user_id);
+      if (!streamer) {
+        this.logger.warn(`Received event for unregistered streamer with ID ${source.IAM.id}. Ignoring.`);
+        return;
+      }
 
-    if (!streamer) {
-      this.logger.warn(`Received event for unregistered streamer with ID ${source.IAM.id}. Ignoring.`);
-      return;
-    }
-
-    for (const command of this.commands) {
-      if (command.messageTrigger instanceof RegExp && command.messageTrigger.test(data.event.message.text)) {
-        if (data.event.chatter_user_id === source.IAM.id && !command.settings.allowSelf) {
-          return;
-        }
-        this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
-        command.exec(streamer, data.event);
-      } else if (typeof command.messageTrigger === "function") {
-        command.messageTrigger(data.event).then((result) => {
+      for (const command of this.commands.filter(cmd => cmd.settings.scope === "channel" || cmd.settings.scope === "both")) {
+        if (command.messageTrigger instanceof RegExp && command.messageTrigger.test(data.event.message.text)) {
           if (data.event.chatter_user_id === source.IAM.id && !command.settings.allowSelf) {
             return;
           }
+          this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
+          command.exec(streamer, data.event);
+        } else if (typeof command.messageTrigger === "function") {
+          command.messageTrigger(data.event).then((result) => {
+            if (data.event.chatter_user_id === source.IAM.id && !command.settings.allowSelf) {
+              return;
+            }
 
-          if (result) {
-            this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
-            command.exec(streamer, data.event);
+            if (result) {
+              this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
+              command.exec(streamer, data.event);
+            }
+          })
+        }
+      }
+    } else {
+      for (const command of this.commands.filter(cmd => cmd.settings.scope === "dm" || cmd.settings.scope === "both")) {
+        if (command.messageTrigger instanceof RegExp && command.messageTrigger.test(data.event.whisper.text)) {
+          if (data.event.from_user_id === source.IAM.id && !command.settings.allowSelf) {
+            return;
           }
-        })
+          this.logger.withPrefix(`[WHISPER - ${source.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.from_user_name} with message: "${data.event.whisper.text}"`);
+          command.exec(source, data.event);
+        } else if (typeof command.messageTrigger === "function") {
+          command.messageTrigger(data.event).then((result) => {
+            if (data.event.from_user_id === source.IAM.id && !command.settings.allowSelf) {
+              return;
+            }
+
+            if (result) {
+              this.logger.withPrefix(`[WHISPER - ${source.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.from_user_name} with message: "${data.event.whisper.text}"`);
+              command.exec(source, data.event);
+            }
+          })
+        }
       }
     }
   }

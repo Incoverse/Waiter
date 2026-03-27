@@ -143,7 +143,7 @@ export default class SurrealDBController extends Controller {
 
     const tableDefinitions = (
       await Promise.all(
-        (await findFiles(".", /tables\..s$/))
+        (await findFiles(global.isCompiled ? "dist" : "src", /tables\..s$/))
           .map(importLocalModule)
           .map((mod) => mod.then((m) => m.default)),
       )

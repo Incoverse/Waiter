@@ -17,15 +17,19 @@
 
 import CacheManager from "@/lib/cache.js";
 import type TwitchClient from "@twitch/client.js";
-import type { ChannelChatMessage } from "../../types.js";
-import CooldownSystem from "../cooldown.js";
 import chalk from "chalk";
+import type { ChannelChatMessage, UserWhisperMessage } from "../../types.js";
+import CooldownSystem from "../cooldown.js";
 
 
-const defaultSettings: {
-  allowSelf: boolean
-} = {
+export type CommandSettings = {
+  allowSelf?: boolean; //! Whether the command should be triggered by the bot's own messages. Use with caution to avoid potential loops.
+  scope?: "channel" | "dm" | "both"; //! Where the command can be triggered. "channel" for channel messages, "dm" for whispers, "both" for both.
+}
+
+const defaultSettings: CommandSettings = {
   allowSelf: false, //! Whether the command should be triggered by the bot's own messages. Use with caution to avoid potential loops.
+  scope: "channel"
 }
 
 export default abstract class WaiterCommand {
@@ -39,7 +43,7 @@ export default abstract class WaiterCommand {
 
     public loaded: boolean = false;
 
-    public settings = defaultSettings;
+    public settings: CommandSettings = defaultSettings;
 
     public constructor(bot: TwitchClient) {
       this.bot = bot;
@@ -84,4 +88,6 @@ export default abstract class WaiterCommand {
 }
 
 
-export type Message = ChannelChatMessage["event"]
+export type ChannelMessage = ChannelChatMessage["event"];
+export type WhisperMessage = UserWhisperMessage["event"];
+export type Message = ChannelMessage | WhisperMessage;

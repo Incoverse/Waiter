@@ -1,7 +1,8 @@
 import { deepAssign } from "@/lib/misc"
 import type TwitchClient from "@twitch/client"
 import type WaiterCommand from "./base/WaiterCommand"
-import type { Message } from "./base/WaiterCommand"
+import type { ChannelMessage, Message } from "./base/WaiterCommand"
+import type { ChannelChatMessage } from "../types"
 
 export function orHigher(permission: TwitchPermissions) {
     let bitmask = 0
@@ -39,7 +40,7 @@ export function RequiresPermission(permission: TwitchPermissions | TwitchPermiss
     ): PropertyDescriptor {
         const originalMethod = descriptor.value;
 
-        descriptor.value = function (this: WaiterCommand, source: TwitchClient, message: Message, ...args: any[]) {
+        descriptor.value = function (this: WaiterCommand, source: TwitchClient, message: ChannelMessage, ...args: any[]) {
             let requiredPermissions: TwitchPermissions | TwitchPermissions[] = permission;
 
             if (config.type === "or-above") {
@@ -87,22 +88,22 @@ export enum TwitchPermissions {
 }
 
 export const conditionUtils = {
-    isModerator: (message: Message): boolean => {
+    isModerator: (message: ChannelMessage): boolean => {
       return message.badges.some(badge => badge.set_id === "moderator");
     },
-    isHelper: (message: Message, modCheck = false): boolean => {
+    isHelper: (message: ChannelMessage, modCheck = false): boolean => {
       return (modCheck && message.badges.some(badge => badge.set_id === "moderator"));
     },
     isDeveloper: (message: Message): boolean => {
-      return message.chatter_user_id === "230887728"; // Inimi's Twitch user ID
+      return ("chatter_user_id" in message ? message.chatter_user_id : message.from_user_id) === "230887728"; // Inimi's Twitch user ID
     },
-    isBroadcaster: (message: Message): boolean => {
+    isBroadcaster: (message: ChannelMessage): boolean => {
       return message.chatter_user_id === message.broadcaster_user_id;
     },
-    isVIP: (message: Message): boolean => {
+    isVIP: (message: ChannelMessage): boolean => {
       return message.badges.some(badge => badge.set_id === "vip");
     },
-    isSubscriber: (message: Message, {minTier, minMonths}: {minTier?: number, minMonths?:number}): boolean => {
+    isSubscriber: (message: ChannelMessage, {minTier, minMonths}: {minTier?: number, minMonths?:number}): boolean => {
       if (!message.badges.some(badge => badge.set_id === "subscriber" || badge.set_id == "founder")) return false;
 
       let userTier = 0;
@@ -140,17 +141,17 @@ export const conditionUtils = {
 
       return true;
     },
-    isSubscriberT1: (message: Message): boolean => {
+    isSubscriberT1: (message: ChannelMessage): boolean => {
       return message.badges.some(badge => badge.set_id === "subscriber" && badge.info.length !== 4);
     },
-    isSubscriberT2: (message: Message): boolean => {
+    isSubscriberT2: (message: ChannelMessage): boolean => {
       return message.badges.some(badge => badge.set_id === "subscriber" && badge.info.length === 4 && badge.info.startsWith("2"));
     },
-    isSubscriberT3: (message: Message): boolean => {
+    isSubscriberT3: (message: ChannelMessage): boolean => {
       return message.badges.some(badge => badge.set_id === "subscriber" && badge.info.length === 4 && badge.info.startsWith("3"));
     },
 
-    meetsPermission: (message: Message, permissions: number[] | number, settings?:{
+    meetsPermission: (message: ChannelMessage, permissions: number[] | number, settings?:{
       subscriptions?: {
       minMonths?: number
       }
@@ -172,7 +173,7 @@ export const conditionUtils = {
 
       return false;
     },
-    getHighestPermission: (message: Message, asText: boolean): any => {
+    getHighestPermission: (message: ChannelMessage, asText: boolean): any => {
       if (conditionUtils.isDeveloper(message)) return asText ? "Developer" : TwitchPermissions.Developer;
       if (conditionUtils.isBroadcaster(message)) return asText ? "Broadcaster" : TwitchPermissions.Broadcaster;
       if (conditionUtils.isModerator(message)) return asText ? "Moderator" : TwitchPermissions.Moderator;

@@ -4,22 +4,43 @@ import { EncryptedField } from "@/lib/enc-field";
 import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
 import chalk from "chalk";
 import crypto from "crypto";
-import lodash from "lodash";
 import { eq, RecordId, Table } from "surrealdb";
 import TwitchClient from "./client";
 import WaiterEvent, { type EventInfo, type TwitchEventInfo } from "./lib/base/WaiterEvent";
-import { TwitchAuthDBSchema, type TwitchAuthDB } from "./typecheck";
+import { TwitchAuthDBSchema, type TwitchAuthDB } from "./types";
 
 type StoredToken = {
   streamer: {
-    display_name: string;
-    login: string;
     id: RecordId;
+    twitch: {
+      display_name: string;
+      login: string;
+      id: RecordId;
+    }
   };
   auth: string;
 };
 
-let registeredTwitchEvents: { name: string; as: string; version: number; condition: any }[] = [];
+function deepSortObject(obj: any): any {
+if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(deepSortObject);
+  }
+
+  // Sort keys alphabetically
+  return Object.keys(obj)
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = deepSortObject(obj[key]);
+      return acc;
+    }, {});
+}
+
+// Use a Set of hashes for deduplication of Twitch event registrations (API and handler)
+const registeredTwitchEventHashes = new Set<string>();
 
 
 export default class TwitchController extends Controller {
@@ -37,7 +58,7 @@ export default class TwitchController extends Controller {
 
   public override async statuses(): Promise<void> {
     this.logger.log(`Connected to Twitch as ${chalk.yellow(this.client.IAM.display_name)} (ID: ${chalk.yellow(this.client.IAM.id)})`);
-    this.logger.log(`Currently watching ${chalk.yellow(global.twitch.streamers.size)} streamer${global.twitch.streamers.size !== 1 ? "s" : ""}:`);
+    this.logger.log(`Currently watching ${chalk.yellow(global.twitch.streamers.size)} streamer${global.twitch.streamers.size !== 1 ? "s" : ""}${global.twitch.streamers.size > 0 ? ":" : "."}`);
     for (const streamer of global.twitch.streamers.values()) {
       this.logger.log(` - ${chalk.yellow(streamer.IAM.display_name)} (ID: ${chalk.yellow(streamer.IAM.id)})`);
     }
@@ -53,7 +74,8 @@ export default class TwitchController extends Controller {
     };
 
     const events = (await Promise.all(
-      (await findFiles(".", /\/twitch\/.*\.evt\..s$/)).map(importLocalModule)        
+      findFiles(global.isCompiled ? "dist" : "src", /\/twitch\/.*\.evt\..s$/)
+        .map(importLocalModule)        
     ))
       .map((mod) => mod.default)
       .filter((mod) => extendsClass(mod, WaiterEvent)) as (new (bot: TwitchClient) => WaiterEvent)[];
@@ -81,7 +103,7 @@ export default class TwitchController extends Controller {
     await this.registerTwitchEvents(instantiatedEvents);
 
 
-    const streamerTokensLive = await global.db.live(new Table("streamer_tokens")).where(eq("type", "twitch")).fetch("streamer");
+    const streamerTokensLive = await global.db.live(new Table("streamer_tokens")).where(eq("type", "twitch")).fetch("streamer", "streamer.twitch");
 
     streamerTokensLive.subscribe(async (event) => {
       if (event.action === "CREATE") {
@@ -90,6 +112,8 @@ export default class TwitchController extends Controller {
         if (!encryptedAuth.isSet()) {
           return;
         }
+
+        console.info(`A streamer token was created for ${(event.value as any).streamer.twitch?.display_name} (ID: ${(event.value as any).streamer.twitch?.id.id.toString()}). Attempting to set up Twitch client for this streamer...`);
 
         let auth: TwitchAuthDB;
         
@@ -120,12 +144,18 @@ export default class TwitchController extends Controller {
           }
           return false;
         });
-
-        await this.registerTwitchEvents(instantiatedEvents);
-
+        
         for (const event of instantiatedEvents) {
           event.setup([global.twitch.streamers.get(newClient.IAM.id)]);
         }
+        this.registerOnStartEvents(instantiatedEvents, [global.twitch.streamers.get(newClient.IAM.id)]);
+        await this.registerTwitchEvents(instantiatedEvents);
+
+
+        await this.client.sendWhisper(newClient.IAM.id, `Welcome ${newClient.IAM.display_name}! This Twitch account has been successfully linked to Waiter. You can now use Twitch-related commands and features in your stream. If you have any questions or need assistance, feel free to ask!`);
+
+        this.logger.great(`New streamer added: ${chalk.yellow(newClient.IAM.display_name)} (ID: ${chalk.yellow(newClient.IAM.id)})`); 
+
       } else if (event.action === "DELETE") {
         const deletedStreamerId = (event.value as any).streamer?.twitch?.id.id.toString();
 
@@ -136,20 +166,21 @@ export default class TwitchController extends Controller {
 
         const deletedStreamer = global.twitch.streamers.get(deletedStreamerId);
 
+        if (!deletedStreamer) {
+          this.logger.warn(`Received DELETE event for streamer token with streamer ID ${deletedStreamerId}, but no active streamer instance was found for that ID. This likely means the token was deleted before the streamer was fully set up, or there is some other issue. Ignoring.`);
+          return;
+        }
+
+        this.logger.warn(`Streamer token for ${deletedStreamer.IAM.display_name} (ID: ${deletedStreamer.IAM.id}) was deleted from database. We will disconnect from Twitch and stop watching this streamer.`);
+
         if (deletedStreamer) {
           await deletedStreamer.cleanup();
-
-          for (let registration of registeredTwitchEvents) {
-            if (registration.as === "broadcaster" && registration.condition?.broadcaster_user_id === deletedStreamerId) {
-              registeredTwitchEvents = registeredTwitchEvents.filter(e => e !== registration);
-            }
-          }
         }
 
         global.twitch.streamers.delete(deletedStreamerId);
         delete global.twitch.streamerData[deletedStreamerId];
 
-        this.logger.info(`Streamer ${!!deletedStreamer ? deletedStreamer.IAM.display_name : `with ID ${deletedStreamerId}`} was deleted from database. Unregistered Twitch client for this streamer.`);
+        this.logger.log("Successfully cleaned up after deleted streamer token.");
       }
     })
 
@@ -159,125 +190,84 @@ export default class TwitchController extends Controller {
     // console.log(`To authenticate a Twitch account, visit the following URL: ${authURL}`);
   }
 
-  public registerOnStartEvents(events: WaiterEvent[]) {
+  public registerOnStartEvents(events: WaiterEvent[], clients = [this.client, ...global.twitch.streamers.values()]) {
     for (const event of events) {
       const trigger = event.eventTrigger({broadcaster: null, sender: null});
 
       if (trigger.type === "Waiter:start") {
-        event.exec([this.client, ...global.twitch.streamers.values()]);
+        event.exec(clients);
       }
     }
   }
 
   public async registerTwitchEvents(events: WaiterEvent[]) {
-
     if (!this.client) {
       this.logger.warn("Tried to register Twitch events before Twitch client was initialized. This should not happen.");
       return;
     }
 
-
     for (const event of events) {
-
       let toRegister: EventInfo[] = [];
-
       if (global.twitch.streamers.size > 0) {
-
         for (const streamer of global.twitch.streamers.values()) {
           toRegister = toRegister.concat(
             event.eventTrigger({ broadcaster: streamer, sender: this.client }),
             event.registerTwitchEvents({ broadcaster: streamer, sender: this.client }).map((info) => ({ type: "Twitch:event", event: info }))
-          )
+          );
         }
-
       } else {
         toRegister = toRegister.concat(
           event.eventTrigger({ broadcaster: null, sender: this.client }),
           event.registerTwitchEvents({ broadcaster: null, sender: this.client }).map((info) => ({ type: "Twitch:event", event: info }))
-        )
+        );
       }
-
-
 
       toRegister = toRegister
         .filter((info) => info.type === "Twitch:event")
         .filter((info) => {
-          if (info.event.condition.hasOwnProperty("broadcaster_user_id") && [null,undefined].includes((info.event.condition as { broadcaster_user_id: string }).broadcaster_user_id)) {
-            return false; // Streamers were probably not loaded when this event was registered, so skip registering this event for now. It will be registered properly when streamers are loaded.
+          if (info.event.condition.hasOwnProperty("broadcaster_user_id") && [null, undefined].includes((info.event.condition as { broadcaster_user_id: string }).broadcaster_user_id)) {
+            return false;
           }
-          return true
+          return true;
         })
-        // remove duplicates
         .filter((info, index, self) => index === self.findIndex((i) => i.event.name === info.event.name && i.event.as === info.event.as && i.event.version === info.event.version && JSON.stringify(i.event.condition) === JSON.stringify(info.event.condition)))
         .map((info) => {
-          info.event.version = info.event.version.toString() as any; // Ensure version is a string, as required by Twitch API
+          info.event.version = info.event.version.toString() as any;
           return info;
-        })
+        });
 
-      const clientNeedsEventsub = (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[]).some((info) => info.event.as === "sender")
-      const broadcasterNeedsEventsub = (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[]).some((info) => info.event.as === "broadcaster")
+      for (const eventInfo of (toRegister as { type: "Twitch:event", event: TwitchEventInfo }[])) {
+        const normalizedEvent = deepSortObject(eventInfo.event);
+        const eventHash = crypto.createHash("sha256").update(JSON.stringify(normalizedEvent)).digest("hex");
 
-      
-      for (const eventInfo of (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[])) {
+        // If already registered, skip ALL registration and handler setup
+        if (registeredTwitchEventHashes.has(eventHash)) {
+          continue;
+        }
 
-        const alreadyRegistered = registeredTwitchEvents.some(e =>
-            lodash.isEqual(e.name, eventInfo.event.name) &&
-            lodash.isEqual(e.as, eventInfo.event.as) &&
-            lodash.isEqual(e.version, eventInfo.event.version) &&
-            lodash.isEqual(e.condition, eventInfo.event.condition)
-        );
-
-
-        if (!alreadyRegistered) {
-          if (clientNeedsEventsub && !this.client.wantsToConnectToEventSub) {
+        // Register with Twitch API (EventSub) and set up handler
+        if (eventInfo.event.as === "sender") {
+          if (!this.client.wantsToConnectToEventSub) {
             await this.client.enableEventSub();
           }
-
-          await this.client.awaitConnection()
-          for (const info of (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[]).filter((info) => info.event.as === "sender")) {
-            await this.client.listen(info.event.name, info.event.version, info.event.condition);
-            registeredTwitchEvents.push(info.event as any);
-            this.logger.withPrefix(`[${this.client.IAM.login}]`).debug(`Registered Twitch event: ${info.event.name} (version ${info.event.version}) for sender client with condition:`, JSON.stringify(info.event.condition));
-          }
-
-
-          if (broadcasterNeedsEventsub) {
-            for (const streamer of global.twitch.streamers.values()) {
-              if (!streamer.wantsToConnectToEventSub) {
-                await streamer.enableEventSub();
-              }
-
-              await streamer.awaitConnection();
-
-              for (const info of (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[]).filter((info) => info.event.as === "broadcaster")) {
-                await streamer.listen(info.event.name, info.event.version, info.event.condition);
-                registeredTwitchEvents.push(info.event as any);
-                this.logger.withPrefix(`[${streamer.IAM.login}]`).debug(`Registered Twitch event: ${info.event.name} (version ${info.event.version}) for broadcaster client with condition:`, JSON.stringify(info.event.condition));
-              }
-            }
-          }
-        }
-
-        for (const info of (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[]).filter((info) => info.event.as === "sender")) {
-          
-          const hashedInfo = crypto.createHash("sha256").update(JSON.stringify(info.event)).digest("hex");
-          
-          if (!this.client.registeredEventsHash.includes(hashedInfo)) {
-            this.client.events.on(info.event.name, event.exec.bind(event));
-            this.client.registeredEventsHash.push(hashedInfo);
-          }
-        }
-
-        for (const info of (toRegister as {type: "Twitch:event", event: TwitchEventInfo}[]).filter((info) => info.event.as === "broadcaster")) {
-          const hashedInfo = crypto.createHash("sha256").update(JSON.stringify(info.event)).digest("hex");
+          await this.client.awaitConnection();
+          await this.client.listen(eventInfo.event.name, eventInfo.event.version, eventInfo.event.condition);
+          this.client.events.on(eventInfo.event.name, event.exec.bind(event));
+          this.client.registeredEventsHash.push(eventHash);
+        } else if (eventInfo.event.as === "broadcaster") {
           for (const streamer of global.twitch.streamers.values()) {
-            if (!streamer.registeredEventsHash.includes(hashedInfo)) {
-              streamer.events.on(info.event.name, event.exec.bind(event));
-              streamer.registeredEventsHash.push(hashedInfo);
+            if (!streamer.wantsToConnectToEventSub) {
+              await streamer.enableEventSub();
             }
+            await streamer.awaitConnection();
+            await streamer.listen(eventInfo.event.name, eventInfo.event.version, eventInfo.event.condition);
+            streamer.events.on(eventInfo.event.name, event.exec.bind(event));
+            streamer.registeredEventsHash.push(eventHash);
           }
         }
 
+        // Add hash to global set to prevent future duplicate registration
+        registeredTwitchEventHashes.add(eventHash);
       }
     }
   }
@@ -289,12 +279,12 @@ export default class TwitchController extends Controller {
   }
 
   public async createStreamers(streamerInit = async (client: TwitchClient) => true) {
-    const storedTokens: StoredToken[] = (await global.db.query("SELECT streamer, auth FROM streamer_tokens WHERE type = 'twitch' FETCH streamer").collect().then((res)=>res[0] as StoredToken[]))
-      .filter(token => !global.twitch.streamers.has(token.streamer.id.id.toString())); // Only attempt to create streamers for tokens that don't already have a streamer instance
+    const storedTokens: StoredToken[] = (await global.db.query("SELECT streamer, auth FROM streamer_tokens WHERE type = 'twitch' FETCH streamer, streamer.twitch").collect().then((res)=>res[0] as StoredToken[]))
+      .filter(token => !global.twitch.streamers.has(token.streamer.twitch.id.id.toString())); // Only attempt to create streamers for tokens that don't already have a streamer instance
 
 
     for (const tokenRecord of storedTokens) {
-      this.logger.debug(`Found stored token for streamer: ${tokenRecord.streamer.display_name} (${tokenRecord.streamer.login})`);
+      this.logger.debug(`Found stored token for streamer: ${tokenRecord.streamer.twitch?.display_name} (${tokenRecord.streamer.twitch?.login})`);
       
       const encryptedAuth = EncryptedField.fromDB(tokenRecord.auth);
       let auth: TwitchAuthDB;
@@ -312,17 +302,15 @@ export default class TwitchController extends Controller {
         } catch (error) {
           this.logger.error("Error parsing stored Twitch auth:", error?.message || error);
           this.logger.debug("Clearing invalid Twitch auth from database.");
-          await global.db.query('DELETE streamer_tokens WHERE streamer.id = $streamerId AND type = "twitch"', {
+          await global.db.query('DELETE streamer_tokens WHERE streamer = $streamerId AND type = "twitch"', {
             streamerId: tokenRecord.streamer.id
           });
           continue; // Skip to next token
         }
-
-        this.logger.great("Twitch auth loaded from database.");
       }
 
       if (!auth) {
-        this.logger.warn(`No valid auth found for streamer ${tokenRecord.streamer.display_name} (${tokenRecord.streamer.login}). Skipping.`);
+        this.logger.warn(`No valid auth found for streamer ${tokenRecord.streamer.twitch?.display_name} (${tokenRecord.streamer.twitch?.login}). Skipping.`);
         continue;
       }
       

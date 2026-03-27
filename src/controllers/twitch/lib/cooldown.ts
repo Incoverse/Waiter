@@ -104,15 +104,18 @@ export default class CooldownSystem {
     message?: string
   } {
 
-    if (this.hasCooldown(message.broadcaster_user_id, message.chatter_user_id)) {
+    const broadcasterId = "broadcaster_user_id" in message ? message.broadcaster_user_id : message.to_user_id;
+    const userId = "chatter_user_id" in message ? message.chatter_user_id : message.from_user_id;
+
+    if (this.hasCooldown(broadcasterId, userId)) {
       return {
         valid: false,
-        message: this.settings.cooldownActiveMessage == null ? null : this.getCooldownMessage(message.broadcaster_user_id, message.chatter_user_id, message)
+        message: this.settings.cooldownActiveMessage == null ? null : this.getCooldownMessage(broadcasterId, userId, message)
       }
     }
 
     if (this.settings.type !== "switch") {
-      this.setCooldown(message.broadcaster_user_id, message.chatter_user_id, this.settings.cooldownTime);
+      this.setCooldown(broadcasterId, userId, this.settings.cooldownTime);
     }
 
     return {
@@ -125,8 +128,8 @@ export default class CooldownSystem {
     let messageBase = this.settings.cooldownActiveMessage;
 
     const cooldownMessage = messageBase
-      .replace("{time}", formatDuration(this.getMsLeft(prefix, identifier), true, true))
-      .replace("{user}", message.chatter_user_name);
+      .replace("{{time}}", formatDuration(this.getMsLeft(prefix, identifier), true, true))
+      .replace("{{user}}", "chatter_user_name" in message ? message.chatter_user_name : message.from_user_name);
 
     return cooldownMessage;
 
@@ -171,7 +174,7 @@ export function CooldownWrapper() {
       if (this.cooldown) {
         const cooldownResult = this.cooldown.process(message);
         if (!cooldownResult.valid) {
-          await this.bot.withChannel(streamer).sendMessage(cooldownResult.message, { replyTo: message.message_id }).catch((err) => {
+          await this.bot.withChannel(streamer).sendMessage(cooldownResult.message, { replyTo: "message_id" in message ? message.message_id : null }).catch((err: Error) => {
             this.logger.warn("Error sending cooldown message:", err);
           });
           return;

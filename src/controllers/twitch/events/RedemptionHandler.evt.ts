@@ -41,7 +41,8 @@ export default class TRED extends WaiterEvent {
 
   public override async setup(clients: TwitchClient[]): Promise<boolean | null> {
     const triggers = (await Promise.all(
-      (await findFiles(".", /\/twitch\/.*\.rtgr\..s$/)).map(importLocalModule)        
+      findFiles(global.isCompiled ? "dist" : "src", /\/twitch\/.*\.rtgr\..s$/)
+        .map(importLocalModule)        
     ))
       .map((mod) => mod.default)
       .filter((mod) => extendsClass(mod, WaiterRedemptionTrigger)) as (new (bot: TwitchClient) => WaiterRedemptionTrigger)[];

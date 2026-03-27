@@ -7,7 +7,7 @@ import prettyMilliseconds from "pretty-ms";
 import { WebSocket } from "ws";
 import { registerRoute } from "../web";
 import { generateAuthURL } from "./lib/authentication";
-import { TwitchAuthDBSchema, type TwitchAuthDB, type TwitchUser } from "./typecheck";
+import { TwitchAuthDBSchema, type TwitchAuthDB, type TwitchUser } from "./types";
 
 
 import { findFiles, schedule } from "@/lib/misc";
@@ -265,7 +265,7 @@ export default class TwitchClient {
         this.connect()
       }
       
-      this.logger.success(`Twitch Client initialized as ${this.IAM.display_name} (${this.IAM.login})`);
+      this.logger.success(`Twitch Client initialized as ${this.IAM.display_name} (ID: ${this.IAM.id})`);
       resolve();
     })
   }
@@ -620,7 +620,7 @@ export default class TwitchClient {
 
   @registerRoute("GET", "/twitch/auth")
   private static async handleAuthRoute(req: Request, res: Response) {
-    const errorTemplate = findFiles(".", /\/twitch\/templates\/error\.html$/)?.shift();
+    const errorTemplate = findFiles(global.isCompiled ? "dist" : "src", /\/twitch\/templates\/error\.html$/)?.shift();
     let state = req.query.state?.toString();
 
     if (state) {
@@ -652,8 +652,6 @@ export default class TwitchClient {
         return res.status(400).template(errorTemplate, { title: "Authentication Error", message: "Invalid or expired Waiter Twitch authentication code." });
       }
 
-      // Delete the code from the database to prevent reuse
-      await global.db.query("DELETE FROM twitch_auth_codes WHERE code = $code", { code: authCode });
       // await TwitchClient.generateCode("15m"); // Generate a new code immediately to replace the one that was just used, ensuring there's always a valid code available for the web interface to display.
       const resp = await axios.post(`https://id.twitch.tv/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&code=${code}&grant_type=authorization_code&redirect_uri=${redirectURI}`)
 
@@ -714,7 +712,10 @@ export default class TwitchClient {
         }
       }
 
-      const successfulAuthTemplate = findFiles(".", /\/twitch\/templates\/successful_auth\.html$/)?.shift();
+      // Delete the code from the database to prevent reuse
+      await global.db.query("DELETE FROM twitch_auth_codes WHERE code = $code", { code: authCode });
+
+      const successfulAuthTemplate = findFiles(global.isCompiled ? "dist" : "src", /\/twitch\/templates\/successful_auth\.html$/)?.shift();
       return res.template(successfulAuthTemplate)
     }
   }
