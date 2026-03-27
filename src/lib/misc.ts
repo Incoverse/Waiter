@@ -169,14 +169,17 @@ export function formatDuration(durationMs: any, full=false, noMS=false): string 
 
 export function deepAssign(target: { [x: string]: any; }, source: { [x: string]: any; }) {
   for (const key in source) {
-      if (source[key] instanceof Object) {
-          if (!target[key]) {
-              target[key] = {};
-          }
-          deepAssign(target[key], source[key]);
-      } else {
-          target[key] = source[key];
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      continue;
+    }
+    if (source[key] instanceof Object) {
+      if (!target[key]) {
+        target[key] = {};
       }
+      deepAssign(target[key], source[key]);
+    } else {
+      target[key] = source[key];
+    }
   }
 
   return target;
