@@ -1,8 +1,8 @@
 import type { AxiosInstance } from "axios";
 import axios from "axios";
 import chalk from "chalk";
-import type { SpotifyAuthDB } from "./typecheck";
 import { registerRoute } from "../web";
+import type { SpotifyAuthDB } from "./types";
 
 const SPOTSender = chalk.hex("#1DB954").bold("SPOT");
 
