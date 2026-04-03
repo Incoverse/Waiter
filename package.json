@@ -19,7 +19,7 @@
     "eventemitter2": "^6.4.9",
     "express": "^5.2.1",
     "jose": "^6.2.2",
-    "lodash": "^4.17.23",
+    "lodash": "^4.18.1",
     "moment": "^2.30.1",
     "obscenity": "^0.4.6",
     "ping": "^1.0.0",
