@@ -1,8 +1,31 @@
+import prettyMilliseconds from "pretty-ms";
+
+type CacheManagerSettings = {
+  name?: string; // For logging purposes, not used internally
+  logger?: Console; // Optional custom logger, defaults to global console
+  loggingEnabled?: boolean; // Whether to enable logging, default: true
+}
+let defaultSettings: CacheManagerSettings = {
+  name: "CacheManager",
+  logger: console,
+  loggingEnabled: true,
+}
+
 export default class CacheManager<K = string, V = any> {
   private cache: Map<K, { expires: Date | null; value: V }>;
+  private settings: CacheManagerSettings;
 
-  constructor(cache: Map<K, { expires: Date | null; value: V }> = new Map()) {
+  constructor(settings: CacheManagerSettings = defaultSettings, cache: Map<K, { expires: Date | null; value: V }> = new Map()) {
     this.cache = cache;
+    this.settings = {
+      ...defaultSettings,
+      ...settings,
+    }
+  }
+
+
+  public setLogger(logger: Console) {
+    this.settings.logger = logger;
   }
 
   private isExpired(entry: { expires: Date | null }): boolean {
@@ -13,6 +36,9 @@ export default class CacheManager<K = string, V = any> {
     const now = Date.now();
     for (const [key, entry] of this.cache.entries()) {
       if (entry.expires && entry.expires.getTime() < now) {
+        if (this.settings.loggingEnabled) {
+          this.settings.logger.warn(`[${this.settings.name}] Cache entry expired - ${String(key)}`);
+        }
         this.cache.delete(key);
       }
     }
@@ -20,19 +46,40 @@ export default class CacheManager<K = string, V = any> {
 
   get(key: K): V | null {
     const entry = this.cache.get(key);
-    if (!entry) return null;
+    if (!entry) {
+      if (this.settings.loggingEnabled) {
+        this.settings.logger.warn(`[${this.settings.name}] Cache miss - ${String(key)} (not found)`);
+      }
+      return null;
+    };
     if (this.isExpired(entry)) {
       this.cache.delete(key);
+      if (this.settings.loggingEnabled) {
+        this.settings.logger.warn(`[${this.settings.name}] Cache miss - ${String(key)} (expired)`);
+      }
       return null;
+    }
+
+
+    if (this.settings.loggingEnabled) {
+      this.settings.logger.debug(`[${this.settings.name}] Cache hit[${prettyMilliseconds(entry.expires.getTime() - Date.now())} left] - ${String(key)}`);
     }
     return entry.value;
   }
 
   getExpiry(key: K): Date | null {
     const entry = this.cache.get(key);
-    if (!entry) return null;
+    if (!entry) {
+      if (this.settings.loggingEnabled) {
+        this.settings.logger.debug(`[${this.settings.name}] Tag miss - ${String(key)} (not found)`);
+      }
+      return null;
+    };
     if (this.isExpired(entry)) {
       this.cache.delete(key);
+      if (this.settings.loggingEnabled) {
+        this.settings.logger.debug(`[${this.settings.name}] Tag miss - ${String(key)} (expired)`);
+      }
       return null;
     }
     return entry.expires;
@@ -40,19 +87,36 @@ export default class CacheManager<K = string, V = any> {
 
   has(key: K): boolean {
     const entry = this.cache.get(key);
-    if (!entry) return false;
+    if (!entry) {
+      if (this.settings.loggingEnabled) {
+        this.settings.logger.debug(`[${this.settings.name}] Tag miss - ${String(key)} (not found)`);
+      }
+      return false;
+    };
     if (this.isExpired(entry)) {
       this.cache.delete(key);
+      if (this.settings.loggingEnabled) {
+        this.settings.logger.debug(`[${this.settings.name}] Tag miss - ${String(key)} (expired)`);
+      }
       return false;
+    }
+    if (this.settings.loggingEnabled) {
+      this.settings.logger.debug(`[${this.settings.name}] Tag hit - ${String(key)}`);
     }
     return true;
   }
 
   clear(): void {
+    if (this.settings.loggingEnabled) {
+      this.settings.logger.debug(`[${this.settings.name}] Cache cleared`);
+    }
     this.cache.clear();
   }
 
   delete(key: K): boolean {
+    if (this.settings.loggingEnabled) {
+      this.settings.logger.debug(`[${this.settings.name}] Cache invalidate - ${String(key)}`);
+    }
     return this.cache.delete(key);
   }
 
@@ -86,6 +150,9 @@ export default class CacheManager<K = string, V = any> {
       expiresAt = expires;
     } else if (typeof expires === 'number') {
       expiresAt = new Date(Date.now() + expires);
+    }
+    if (this.settings.loggingEnabled) {
+      this.settings.logger.debug(`[${this.settings.name}] Cache set${expiresAt ? ` (expires in ${prettyMilliseconds(expiresAt.getTime() - Date.now())})` : ""} - ${String(key)}`);
     }
     this.cache.set(key, { value, expires: expiresAt });
     return this;

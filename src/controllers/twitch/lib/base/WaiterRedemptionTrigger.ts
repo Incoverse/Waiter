@@ -33,6 +33,7 @@ export default abstract class WaiterRedemptionTrigger {
       this.bot = bot;
 
       this.logger = console.withSender(chalk.hex("#8956FB")(this.constructor.name)); 
+      this.cache.setLogger(this.logger);
     }
 
 

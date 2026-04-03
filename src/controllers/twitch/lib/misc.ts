@@ -1,8 +1,11 @@
-import { deepAssign } from "@/lib/misc"
-import type TwitchClient from "@twitch/client"
-import type WaiterCommand from "./base/WaiterCommand"
-import type { ChannelMessage, Message } from "./base/WaiterCommand"
-import type { ChannelChatMessage } from "../types"
+import { deepAssign } from "@/lib/misc";
+import type TwitchClient from "@twitch/client";
+import type WaiterCommand from "./base/WaiterCommand";
+import type { ChannelMessage, Message } from "./base/WaiterCommand";
+
+export function getTwitchClient(wuId: string) {
+  return global.twitch.streamers.values().find(client => client.waiterUserId === wuId);
+}
 
 export function orHigher(permission: TwitchPermissions) {
     let bitmask = 0
@@ -24,13 +27,11 @@ export function RequiresPermission(permission: TwitchPermissions | TwitchPermiss
     silent?: boolean // If true, the command will not execute and no message will be sent to the user. If false, the command will not execute and a message will be sent to the user informing them of insufficient permissions.
 } = {}) {
 
-    const config = {
+    const config = deepAssign({
       type: "or-above",
       settings: {},
       silent: true,
-    }
-
-    deepAssign(config, configuration);
+    }, configuration);
 
 
     return function (
@@ -187,14 +188,15 @@ export const conditionUtils = {
   }
 
 
-export function parameterize(CMD: string) {
-    // Updated regex to also match key=value (with or without quotes)
-    const parts = CMD.match(/(?:[^\s"=]+="[^"]*"|[^\s"=]+=[^\s"]+|[^\s"]+|"[^"]*")+/g) || [];
+export function parameterize(CMD: string, assume?: (string | number)[]) {
+    // Updated regex to also match key=value or key:value (with or without quotes)
+    const parts = CMD.match(/(?:[^\s":=]+[:=]"[^"]*"|[^\s":=]+[:=][^\s"]+|[^\s"]+|"[^"]*")+/g) || [];
     const obj: { [key: string]: any } = {};
+    let assumeIndex = 0;
     for (let i = 0; i < parts.length; i++) {
-        // Handle key=value pattern
-        if (parts[i].includes("=")) {
-            const [key, ...rest] = parts[i].split("=");
+        // Handle key=value or key:value pattern
+        if (parts[i].includes("=") || parts[i].includes(":")) {
+            const [key, ...rest] = parts[i].split(/[:=]/);
             let value: any = rest.join("=");
             if (value.startsWith('"') && value.endsWith('"')) {
                 value = value.slice(1, -1);
@@ -205,14 +207,23 @@ export function parameterize(CMD: string) {
             }
             obj[key] = value;
         } else if (parts[i].startsWith('"') && parts[i].endsWith('"')) {
-            obj[parts[i - 1]] = parts[i].slice(1, -1);
+            const key = assume && assumeIndex < assume.length ? assume[assumeIndex++] : parts[i - 1];
+            obj[key] = parts[i].slice(1, -1);
         } else if (parts[i] === "true") {
-            obj[parts[i - 1]] = true;
+            const key = assume && assumeIndex < assume.length ? assume[assumeIndex++] : parts[i - 1];
+            obj[key] = true;
         } else if (parts[i] === "false") {
-            obj[parts[i - 1]] = false;
+            const key = assume && assumeIndex < assume.length ? assume[assumeIndex++] : parts[i - 1];
+            obj[key] = false;
         } else if (!parts[i].startsWith('"')) {
-            obj[parts[i]] = parts[i + 1] && parts[i + 1].startsWith('"') ? parts[i + 1].slice(1, -1) : parts[i + 1];
-            i++;
+            if (assume && assumeIndex < assume.length) {
+                const key = assume[assumeIndex++];
+                obj[key] = parts[i];
+            } else {
+                const key = parts[i];
+                obj[key] = parts[i + 1] && parts[i + 1].startsWith('"') ? parts[i + 1].slice(1, -1) : parts[i + 1];
+                i++;
+            }
         }
     }
     return obj;

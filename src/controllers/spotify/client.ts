@@ -11,15 +11,19 @@ import { registerRoute } from "../web";
 import { getRedirectURI } from "./lib/authentication";
 import type { SpotifyAuthDB } from "./types";
 
+import * as Playback from "./funcs/playback";
+
 const SPOTSender = chalk.hex("#1DB954").bold("SPOT");
 export default class SpotifyClient {
   public api: AxiosInstance;
 
-  private logger: Console;
+  public logger: Console;
   private tokenRefresher: CronJob;
   
   private auth: SpotifyAuthDB;
 
+  public waiterUserId: string;
+  
   public IAM: {
     id: string;
     display_name: string;
@@ -34,9 +38,8 @@ export default class SpotifyClient {
 
   
   
-  public static async create(auth: SpotifyAuthDB): Promise<SpotifyClient> {
-    const client = new SpotifyClient(auth);
-    client.auth = auth;
+  public static async create(auth: SpotifyAuthDB, wuId: string): Promise<SpotifyClient> {
+    const client = new SpotifyClient(auth, wuId);
     await client.initialize();
     return client;
   }
@@ -55,8 +58,9 @@ export default class SpotifyClient {
     }
   }
   
-  private constructor(auth: SpotifyAuthDB) {
+  private constructor(auth: SpotifyAuthDB, wuId: string = null) {
     this.auth = auth;
+    this.waiterUserId = wuId;
     this.logger = console.withSender(SPOTSender).withPrefix(
       "[CLIENT]",
     );
@@ -122,12 +126,12 @@ export default class SpotifyClient {
       this.logger.info("Token Refresher initialized");
       
       if (!this.IAM) {
-        this.logger.log("Fetching information about the authenticated user...");
+        this.logger.debug("Fetching information about the authenticated user...");
         this.IAM = await this.fetchUser();
         this.logger = this.logger.withPrefix(`[${this.IAM.display_name}]`);
       }
       
-      this.logger.success(`Spotify Client initialized as ${this.IAM.display_name} (ID: ${this.IAM.id})`);
+      this.logger.perf(`Spotify Client initialized as ${this.IAM.display_name} (ID: ${this.IAM.id})`);
       resolve();
     })
   }
@@ -239,7 +243,6 @@ export default class SpotifyClient {
       }
 
 
-      // await TwitchClient.generateCode("15m"); // Generate a new code immediately to replace the one that was just used, ensuring there's always a valid code available for the web interface to display.
       const resp = await axios.post(`https://accounts.spotify.com/api/token`, new URLSearchParams({
         grant_type: "authorization_code",
         code,
@@ -320,4 +323,20 @@ export default class SpotifyClient {
       return res.template(successfulAuthTemplate)
 
   }
+
+  private bindChannelFn<T extends (this: any, ...args: any[]) => any>(fn: T): OmitThisParameter<T> {
+    return fn.bind(this) as OmitThisParameter<T>;
+  }
+
+
+
+  //! -- Functions -- !//
+
+  public get playback() {
+    return {
+      get: this.bindChannelFn(Playback.get),
+    }
+  }
+
 }
+

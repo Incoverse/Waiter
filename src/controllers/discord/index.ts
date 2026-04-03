@@ -84,7 +84,7 @@ export default class DiscordController extends Controller {
     global.discord.client = client;
 
     client.on(Events.ClientReady, () => {
-      this.logger.great(`Successfully logged in to Discord as ${client.user?.tag}!`);
+      this.logger.perf(`Successfully logged in to Discord as ${client.user?.tag}!`);
     });
 
     const token = process.env.DISCORD_TOKEN;

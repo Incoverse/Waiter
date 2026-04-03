@@ -19,8 +19,20 @@ declare global {
         lurkedUsers: { id: string; login: string; display_name: string }[];
       }>;
     }
+    /** Bypasses that are set by the Waiter developer. */
+    bypasses: Set<Bypass>;
   }
 }
 
 export { };
 
+
+type Bypass = 
+  LiveBypass;
+
+type LiveBypass = {
+  /** The type of bypass, e.g., "permission", "cooldown", etc. */
+  type: "live";
+  /** The ID of the streamer for whom the bypass is set. Can be "all" to bypass for all channels. */
+  scope: string;
+}

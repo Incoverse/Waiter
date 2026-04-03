@@ -72,15 +72,20 @@ export function paginateData<T>(
 
 
 const TWCHSender = chalk.hex("#8956FB")("TWCH");
+
+const UserCache = new CacheManager({
+  name: "TwitchUserCache",
+  logger: console.withSender(TWCHSender),
+});
 export default class TwitchClient {
   public api: AxiosInstance;
   public isBot: boolean = false;
-  public cache: CacheManager = new CacheManager(new Map());
+  public cache: CacheManager = new CacheManager();
 
   private auth: TwitchAuthDB;
 
   private tokenRefresher: CronJob;
-  private logger: Console;
+  public logger: Console;
 
   private eventsubWS: WebSocket;
   private ESKATimeout: number;
@@ -105,6 +110,7 @@ export default class TwitchClient {
     display_name: string;
   }
 
+  public waiterUserId: string;
 
   @schedule("*/5 * * * *")
   public static cleanOldCodes() {
@@ -175,8 +181,9 @@ export default class TwitchClient {
 
   }
 
-  private constructor(auth: TwitchAuthDB, connectToEventSub = true, bot = false) {
+  private constructor(auth: TwitchAuthDB, wuId: string = null, connectToEventSub = true, bot = false) {
     this.isBot = bot
+    this.waiterUserId = wuId;
     this.logger = console.withSender(TWCHSender).withPrefix(
       bot ? "[BOT]" : "[CLIENT]",
     );
@@ -253,9 +260,10 @@ export default class TwitchClient {
 
 
       if (!this.IAM) {
-        this.logger.log("Fetching information about the authenticated user...");
+        this.logger.debug("Fetching information about the authenticated user...");
         this.IAM = await this.fetchUser();
         this.logger = this.logger.withPrefix(`[${this.IAM.login}]`);
+        this.cache.setLogger(this.logger);
       }
 
 
@@ -264,7 +272,7 @@ export default class TwitchClient {
         this.connect()
       }
       
-      this.logger.success(`Twitch Client initialized as ${this.IAM.display_name} (ID: ${this.IAM.id})`);
+      this.logger.perf(`Twitch Client initialized as ${this.IAM.display_name} (ID: ${this.IAM.id})`);
       resolve();
     })
   }
@@ -276,7 +284,7 @@ export default class TwitchClient {
       throw err;
     });
 
-    const cli = new TwitchClient(auth, connectToEventSub, true);
+    const cli = new TwitchClient(auth, null, connectToEventSub, true);
     if (waitForInit) {
       await cli.initialize()
       await cli.awaitConnection();
@@ -285,8 +293,8 @@ export default class TwitchClient {
     return cli;
   }
 
-  public static async createStreamer(auth: TwitchAuthDB, connectToEventSub = true, waitForInit = true): Promise<TwitchClient> {
-    const cli = new TwitchClient(auth, connectToEventSub, false);
+  public static async createStreamer(auth: TwitchAuthDB, wuId: string = null, connectToEventSub = true, waitForInit = true): Promise<TwitchClient> {
+    const cli = new TwitchClient(auth, wuId, connectToEventSub, false);
     if (waitForInit) {
       await cli.initialize()
       await cli.awaitConnection();
@@ -422,6 +430,38 @@ export default class TwitchClient {
           version: v.toString() as EventVersion<Topic>,
           condition: conditions as EventCondition<Topic>
         })
+      }
+    }).catch(async(err) => {
+
+      const msg = err.response.data?.message || err.message
+
+      if (/invalid oauth token/i.test(msg)) {
+        this.logger.error("Failed to register EventSub subscription due to invalid OAuth token. Attempting to refresh token and retry...");
+        await this.refreshToken();
+        return await this.listen(topic, v, conditions, noSave);
+      } else if (/subscription already exists/i.test(msg)) {
+        this.logger.warn("Subscription already exists. Fetching existing subscriptions to find the ID...");
+
+        const subs = await this.api.get(`/eventsub/subscriptions?status=enabled&type=${topic}`).then(ResDataData);
+        const sub = subs.find((s) => s.type === topic && s.transport.session_id === this.esID);
+
+        if (sub) {
+          this.logger.warn("Found existing subscription with matching session ID. Using existing subscription.");
+          if (!noSave)
+          this.eventSubData.push({
+            id: sub.id,
+            type: topic,
+            version: sub.version as EventVersion<Topic>,
+            condition: sub.condition as EventCondition<Topic>
+          })
+          return;
+        } else {
+          this.logger.error("Failed to find existing subscription with matching session ID. Cannot proceed.");
+          throw err;
+        }
+      } else {
+        this.logger.error(`Failed to register EventSub subscription for '${topic}': ${msg}`);
+        throw err;
       }
     })
   }
@@ -652,7 +692,6 @@ export default class TwitchClient {
         return res.status(400).template(errorTemplate, { title: "Authentication Error", message: "Invalid or expired Waiter Twitch authentication code." });
       }
 
-      // await TwitchClient.generateCode("15m"); // Generate a new code immediately to replace the one that was just used, ensuring there's always a valid code available for the web interface to display.
       const resp = await axios.post(`https://id.twitch.tv/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&code=${code}&grant_type=authorization_code&redirect_uri=${getRedirectURI()}`)
 
 
@@ -720,8 +759,8 @@ export default class TwitchClient {
     }
   }
 
-  private bindChannelFn<T extends (...args: any[]) => any>(fn: T): T {
-    return fn.bind(this) as T;
+  private bindChannelFn<T extends (this: any, ...args: any[]) => any>(fn: T): OmitThisParameter<T> {
+    return fn.bind(this) as OmitThisParameter<T>;
   }
 
   public sendWhisper = this.bindChannelFn(User.sendWhisper)
@@ -735,7 +774,18 @@ export default class TwitchClient {
   public deleteReward = this.bindChannelFn(Rewards.deleteReward)
 
 
-  public fetchUser = (idLogin?: string): Promise<TwitchUser> => this.api.get(`/users${idLogin ? `?${/^\d+$/.test(idLogin) ? "id":"login"}=${idLogin}` : ""}`).then(ResDataData0).catch(()=>null)
+  public fetchUser = (idLogin?: string): Promise<TwitchUser> => {
+
+    if (idLogin || this.IAM?.id) {
+      const cached = UserCache.get(idLogin ?? this.IAM?.id);
+      if (cached) return Promise.resolve(cached);
+    }
+    
+    return this.api.get(`/users${idLogin ? `?${/^\d+$/.test(idLogin) ? "id":"login"}=${idLogin}` : ""}`).then(ResDataData0).then((result: TwitchUser) => {
+      if (result) UserCache.set(idLogin || result.id, result, 300000); // 5 minutes
+      return result;
+    }).catch(()=>null);
+  }
   public getSubscriptions = () => this.api.get(`/eventsub/subscriptions`).then(ResData).catch(()=>null)
 
   public withChannel = (channelId: string | TwitchClient = this) => new ChannelSpecificWrapper(this, channelId);
@@ -768,8 +818,8 @@ export class ChannelSpecificWrapper {
   }
 
 
-  private bindChannelFn<T extends (...args: any[]) => any>(fn: T): T {
-    return fn.bind(this) as T;
+  private bindChannelFn<T extends (this: any, ...args: any[]) => any>(fn: T): OmitThisParameter<T> {
+    return fn.bind(this) as OmitThisParameter<T>;
   }
 
   public addVIP = this.bindChannelFn(VIP.add)

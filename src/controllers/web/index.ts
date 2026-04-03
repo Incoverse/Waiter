@@ -21,7 +21,9 @@ app.use((req, res, next) => {
 });
 
 const registeredRoutes: { method: string; path: string; handlerStr: string }[] = [];
-const shortenCache = new CacheManager();
+const shortenCache = new CacheManager({
+  name: "ShortenCache",
+});
 
 
 const toRegister: {
@@ -86,7 +88,7 @@ export default class WebController extends Controller {
           return;
         }
 
-        this.logger.info(`Web server is running on port ${global.config.web.port}`);
+        this.logger.info(`Web server is listening on *:${global.config.web.port}`);
         resolve();
       });
 
@@ -99,7 +101,6 @@ export default class WebController extends Controller {
 
       app.use(async (req, res) => {
         this.logger.warn(`No route found for ${req.method} ${req.path}`);
-
 
         const NotFoundTemplate = findFiles(global.isCompiled ? "dist" : "src", /web\/templates\/404\.html$/)?.shift();
         res.status(404).template(NotFoundTemplate);

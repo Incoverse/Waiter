@@ -57,6 +57,7 @@ export default class WaiterReward {
         };
 
         this.logger = console.withSender(chalk.hex("#8956FB")(this.constructor.name)); 
+        this.cache.setLogger(this.logger);
 
         this.currentPrice = this.settings.price;
     }

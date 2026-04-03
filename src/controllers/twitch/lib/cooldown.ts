@@ -1,38 +1,54 @@
 import CacheManager from "@/lib/cache.js";
-import { deepAssign, formatDuration, parseDuration } from "@/lib/misc.js";
-import type TwitchClient from "@twitch/client";
+import { formatDuration, parseDuration } from "@/lib/misc.js";
+import TwitchClient from "@twitch/client";
 import type { Message } from "./base/WaiterCommand";
+
+type CooldownDuration = string | number;
+type CooldownDurationResolver = (message: Message) => CooldownDuration | null | undefined;
 
 
 const defaultSettings: Partial<CooldownSettings> = {
   resetOnStreamEnd: false,
   cooldownTime: "1m", // 1 minute default cooldown
-  cooldownActiveMessage: null, // null means no message
+  cooldownActiveMessage: "Please wait {{time}} before using this command again.", // null means no message
+  logger: console,
+  immunityCheck: () => false // By default, no one is immune
 }
 
 export default class CooldownSystem {
   private settings: CooldownSettings = null;
-  private cache: CacheManager = new CacheManager();
+  private cache: CacheManager = new CacheManager({
+    name: "CooldownCache",
+  });
+
+  public setLogger(logger: Console) {
+    this.settings.logger = logger;
+    this.cache.setLogger(logger);
+  }
 
   constructor(settings: CooldownSettings) {
-    this.settings = deepAssign(defaultSettings, settings) as CooldownSettings;
-
+    this.settings = { ...defaultSettings, ...settings } as CooldownSettings;
     if (this.settings.resetOnStreamEnd) {
       global.broadcaster.events.on("stream.offline", (streamer: TwitchClient) => {
         for (const [key] of this.cache.entries()) {
-          if (key.startsWith(`${streamer.IAM.id}-`)) {
+          if (key.startsWith(`c${streamer.IAM.id}-`)) {
             this.cache.delete(key);
           }
         }
       })
     }
+
+    this.cache.setLogger(this.settings.logger);
   }
 
 
 
 
-  public setCooldown(prefix: string, identifierOrState: string | boolean, duration: string | null = null) {
-    const durationMs = duration == null ? null : parseDuration(duration);
+  public setCooldown(prefix: string, identifierOrState: string | boolean, duration: CooldownDuration | null = null) {
+    const durationMs = duration == null
+      ? null
+      : (typeof duration === "number" ? duration : parseDuration(duration));
+
     if (!durationMs && duration !== null) return false;
 
     switch (this.settings.type) {
@@ -40,23 +56,23 @@ export default class CooldownSystem {
         if (identifierOrState == null) identifierOrState = true;
         if (!(typeof identifierOrState == "boolean")) return false;
         if (!identifierOrState) {
-          this.cache.delete(`${prefix}-global`);
+          this.cache.delete(`c${prefix}-global`);
         } else {
-          this.cache.set(`${prefix}-global`, identifierOrState, durationMs);
+          this.cache.set(`c${prefix}-global`, identifierOrState, durationMs);
         }
         break;
       case "user":
         if (identifierOrState == null) return false;
         if (!(typeof identifierOrState == "string")) return false;
-        this.cache.set(`${prefix}-user-${identifierOrState}`, true, durationMs);
+        this.cache.set(`c${prefix}-user-u${identifierOrState}`, true, durationMs);
         break;
       case "switch":
         if (identifierOrState == null) return true;
         if (!(typeof identifierOrState == "boolean")) return false;
         if (!identifierOrState) {
-          this.cache.delete(`${prefix}-cooldown`);
+          this.cache.delete(`c${prefix}-cooldown`);
         } else {
-          this.cache.set(`${prefix}-cooldown`, identifierOrState, durationMs);
+          this.cache.set(`c${prefix}-cooldown`, identifierOrState, durationMs);
         }
         break;
       default:
@@ -69,14 +85,14 @@ export default class CooldownSystem {
   public clearCooldown(prefix: string, identifier?: string) {
     switch (this.settings.type) {
       case "global":
-        this.cache.delete(`${prefix}-global`);
+        this.cache.delete(`c${prefix}-global`);
         break;
       case "user":
         if (identifier == null) return false;
-        this.cache.delete(`${prefix}-user-${identifier}`);
+        this.cache.delete(`c${prefix}-user-u${identifier}`);
         break;
       case "switch":
-        this.cache.delete(`${prefix}-cooldown`);
+        this.cache.delete(`c${prefix}-cooldown`);
         break;
       default:
         return false;
@@ -88,12 +104,12 @@ export default class CooldownSystem {
   public hasCooldown(prefix: string, identifier?: string) {
       switch (this.settings.type) {
           case "global":
-              return this.cache.has(`${prefix}-global`);
+              return this.cache.has(`c${prefix}-global`);
           case "user":
               if (identifier == null) return false;
-              return this.cache.has(`${prefix}-user-${identifier}`);
+              return this.cache.has(`c${prefix}-user-u${identifier}`);
           case "switch":
-              return this.cache.has(`${prefix}-cooldown`);
+              return this.cache.has(`c${prefix}-cooldown`);
           default:
               return false;
       }
@@ -108,6 +124,29 @@ export default class CooldownSystem {
     const userId = "chatter_user_id" in message ? message.chatter_user_id : message.from_user_id;
 
     if (this.hasCooldown(broadcasterId, userId)) {
+
+      if (this.settings.immunityCheck) {
+        try {
+          const isImmune = this.settings.immunityCheck(message);
+          if (isImmune) {
+            this.settings.logger.debug(`Cooldown immunity check passed for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}). Cooldown bypassed.`);
+            return {
+              valid: true
+            }
+          }
+        } catch (err) {
+          this.settings.logger.error("Error in cooldown immunity check:", err);
+        }
+      }
+          
+
+      const msLeft = this.getMsLeft(broadcasterId, userId);
+      if (msLeft != null) {
+        const timeLeft = formatDuration(msLeft, true, true);
+        this.settings.logger.log(`Cooldown is active for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}). Time left: ${timeLeft}.`);
+      } else {
+        this.settings.logger.log(`Cooldown is active for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}).`);
+      }
       return {
         valid: false,
         message: this.settings.cooldownActiveMessage == null ? null : this.getCooldownMessage(broadcasterId, userId, message)
@@ -115,7 +154,13 @@ export default class CooldownSystem {
     }
 
     if (this.settings.type !== "switch") {
-      this.setCooldown(broadcasterId, userId, this.settings.cooldownTime);
+      const configuredCooldown = this.settings.cooldownTime;
+      const resolvedDuration = typeof configuredCooldown === "function"
+        ? configuredCooldown(message)
+        : configuredCooldown;
+
+      const identifierOrState = this.settings.type === "global" ? true : userId;
+      this.setCooldown(broadcasterId, identifierOrState, resolvedDuration ?? null);
     }
 
     return {
@@ -126,19 +171,37 @@ export default class CooldownSystem {
 
   private getCooldownMessage(prefix:string, identifier: string, message: Message): string {
     let messageBase = this.settings.cooldownActiveMessage;
+    const msLeft = this.getMsLeft(prefix, identifier);
+    const timeReplacement = msLeft == null ? "active" : formatDuration(msLeft, true, true);
 
     const cooldownMessage = messageBase
-      .replace("{{time}}", formatDuration(this.getMsLeft(prefix, identifier), true, true))
+      .replace("{{time}}", timeReplacement)
       .replace("{{user}}", "chatter_user_name" in message ? message.chatter_user_name : message.from_user_name);
 
     return cooldownMessage;
 
   }
 
-  private getMsLeft(prefix: string, identifier: string): number {
-    const cooldown = this.cache.getExpiry(`${prefix}-user-${identifier}`);
+  private getMsLeft(prefix: string, identifier?: string): number | null {
+    let cacheKey: string;
+
+    switch (this.settings.type) {
+      case "user":
+        if (!identifier) return 0;
+        cacheKey = `c${prefix}-user-u${identifier}`;
+        break;
+      case "global":
+        cacheKey = `c${prefix}-global`;
+        break;
+      case "switch":
+        return null;
+      default:
+        return 0;
+    }
+
+    const cooldown = this.cache.getExpiry(cacheKey);
     if (!cooldown) return 0;
-    return cooldown?.getTime() - Date.now();
+    return Math.max(0, cooldown.getTime() - Date.now());
   }
 
 }
@@ -147,21 +210,24 @@ export default class CooldownSystem {
 export type CooldownSettings = {
   resetOnStreamEnd?: boolean, // default: false
   cooldownActiveMessage?: string | null // default: null
+  logger?: Console // default: console
+  immunityCheck?: (message: Message) => boolean // default: async () => false
 } & (
   {
     type: "switch"
   } |
   {
     type: "global",
-    cooldownTime: string // default: 1m (1 minute)
+    cooldownTime: CooldownDuration | CooldownDurationResolver // default: 1m (1 minute)
   } |
   {
     type: "user"
-    cooldownTime: string // default: 1m (1 minute)
+    cooldownTime: CooldownDuration | CooldownDurationResolver // default: 1m (1 minute)
   }
 )
 
 
+/** Decorator for applying cooldown functionality to command methods. This will automatically check and assign cooldowns */
 export function CooldownWrapper() {
   return function (
       target: any,
@@ -172,18 +238,21 @@ export function CooldownWrapper() {
 
     descriptor.value = async function (source: TwitchClient, message: Message) {
       if (this.cooldown) {
+        this.cooldown.setLogger(this.logger);
         const cooldownResult = this.cooldown.process(message);
         if (!cooldownResult.valid) {
           const isChannelMessage = "chatter_user_id" in message;
 
-          if (isChannelMessage) { 
-            await this.bot.withChannel(source).sendMessage(cooldownResult.message, { replyTo: message.message_id }).catch((err: Error) => {
-              this.logger.warn("Error sending cooldown message:", err);
-            });
-          } else {
-            await this.bot.sendWhisper(message.from_user_id, cooldownResult.message).catch((err: Error) => {
-              this.logger.warn("Error sending cooldown whisper:", err);
-            });
+          if (cooldownResult.message) {
+            if (isChannelMessage) { 
+              await this.bot.withChannel(source).sendMessage(cooldownResult.message, { replyTo: message.message_id }).catch((err: Error) => {
+                this.logger.warn("Error sending cooldown message:", err);
+              });
+            } else {
+              await this.bot.sendWhisper(message.from_user_id, cooldownResult.message).catch((err: Error) => {
+                this.logger.warn("Error sending cooldown whisper:", err);
+              });
+            }
           }
           return;
         }

@@ -29,7 +29,6 @@ export default class JoinCMD extends WaiterCommand {
   public override cooldown: CooldownSystem = new CooldownSystem({
     type: "user",
     cooldownTime: "30s",
-    cooldownActiveMessage: "Please wait {{time}} before using this command again."
   });
 
   public override settings: CommandSettings = {

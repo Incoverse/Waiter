@@ -1,7 +1,7 @@
 import { Controller } from "@/lib/base/controller";
 import Communication from "@/lib/communication";
 import { EncryptedField } from "@/lib/enc-field";
-import { invalidateCache } from "@/lib/misc";
+import { invalidateCache, parseDuration } from "@/lib/misc";
 import chalk from "chalk";
 import { eq, Table, type RecordId } from "surrealdb";
 import z, { ZodType } from "zod";
@@ -41,7 +41,13 @@ export default class SpotifyController extends Controller {
           .describe("The endpoint for Spotify authentication")
           .default("/spotify/auth")
           .refine((endpoint: string) => endpoint.startsWith("/"), "Auth endpoint must start with a slash"),
-      }).default({ authEndpoint: "/spotify/auth" }),
+        generatedCodeValidity: z.string()
+          .describe("The validity duration for generated Spotify auth codes. Supports values accepted by parseDuration, such as '15m', '1h 30m', '2mo', '1w2d', and '500ms'.")
+          .default("15m")
+          .refine((duration: string) => {
+            return !Number.isNaN(parseDuration(duration));
+          }, "Generated code validity must be a valid duration string supported by parseDuration, such as '15m', '1h 30m', or '2mo'.")
+      }).default({ authEndpoint: "/spotify/auth", generatedCodeValidity: "15m" }),  
     }) satisfies z.ZodType<Pick<WaiterConfig, "spotify">>;
   }
 
@@ -98,7 +104,7 @@ export default class SpotifyController extends Controller {
           return; // Abort processing this event
         }
         
-        const newClient = await SpotifyClient.create(auth);
+        const newClient = await SpotifyClient.create(auth, (event.value as any).streamer?.id.id.toString() ?? null);
         global.spotify.clients.set(newClient.IAM.id, newClient);
 
         await this.createAccounts();
@@ -137,7 +143,7 @@ export default class SpotifyController extends Controller {
   public override async statuses(): Promise<void> {
     this.logger.log(`Currently connected to ${chalk.yellow(global.spotify.clients.size)} Spotify account${global.spotify.clients.size !== 1 ? "s" : ""}${global.spotify.clients.size > 0 ? ":" : "."}`);
     for (const client of global.spotify.clients.values()) {
-      this.logger.log(`  - ${chalk.yellow(client.IAM.display_name)} (ID: ${chalk.yellow(client.IAM.id)})`);
+      this.logger.log(`  - ${chalk.yellow(client.IAM.display_name)} ${chalk.dim(`(ID: ${chalk.yellow(client.IAM.id)})`)}`);
     }
   }
 
@@ -182,7 +188,7 @@ export default class SpotifyController extends Controller {
           continue;
         }
         
-        const client = await SpotifyClient.create(auth);
+        const client = await SpotifyClient.create(auth, tokenRecord.streamer.id.id.toString());
         global.spotify.clients.set(client.IAM.id, client);
         await accountInit(client);
       }

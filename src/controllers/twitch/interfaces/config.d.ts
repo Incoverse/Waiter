@@ -4,6 +4,8 @@ declare global {
     twitch?: {
       /** The endpoint for Twitch authentication */
       authEndpoint?: string;
+      /** The validity duration for generated Twitch auth codes */
+      generatedCodeValidity?: string;
     };
   }
 }

@@ -169,18 +169,29 @@ export function formatDuration(durationMs: any, full=false, noMS=false): string 
 }
 
 
+function isPlainObject(value: any): value is Record<string, any> {
+  if (value == null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
 export function deepAssign(target: { [x: string]: any; }, source: { [x: string]: any; }) {
   for (const key in source) {
     if (key === "__proto__" || key === "constructor" || key === "prototype") {
       continue;
     }
-    if (source[key] instanceof Object) {
-      if (!target[key]) {
+
+    const sourceValue = source[key];
+    const targetValue = target[key];
+
+    // Only deep merge plain objects; assign functions, arrays, and class instances directly.
+    if (isPlainObject(sourceValue)) {
+      if (!isPlainObject(targetValue)) {
         target[key] = {};
       }
-      deepAssign(target[key], source[key]);
+      deepAssign(target[key], sourceValue);
     } else {
-      target[key] = source[key];
+      target[key] = sourceValue;
     }
   }
 
@@ -223,14 +234,15 @@ export type EnsureExactSchema<TSchema extends z.ZodType<any>, TExpected> =
   Exact<Infer<TSchema>, TExpected>;
 
 
-export const UserCache = new CacheManager()
+export const UserCache = new CacheManager({
+  name: "WaiterUserCache",
+})
 
 
 export async function invalidateCache(anyId: string | RecordId) {
   const normalizedId = anyId instanceof RecordId ? anyId.id.toString() : anyId;
   if (UserCache.has(normalizedId)) {
     UserCache.delete(normalizedId);
-    console.withSender("MISC").log(`Invalidated cache for user with ID ${normalizedId}`);
   } else {
     let invalidated = false;
     // Check if any cached user has this ID in their twitch/discord/spotify sub-objects
@@ -240,7 +252,6 @@ export async function invalidateCache(anyId: string | RecordId) {
           cachedUser.spotify?.id.id.toString() === normalizedId ||
           cachedUser.id.id.toString() === normalizedId) {
         UserCache.delete(key);
-        console.withSender("MISC").log(`Invalidated cache for user with ID ${cachedUser.id.id.toString()} (cached under key ${key})`);
         invalidated = true;
         break;
       }
@@ -290,7 +301,6 @@ export async function getUser(anyId: string | RecordId, forceFetch = false): Pro
   if (!forceFetch) {
     if (UserCache.has(normalizedId)) {
       const cachedUser = UserCache.get(normalizedId);
-      console.withSender("MISC").debug(`Direct user cache hit for ID ${cachedUser.id.id.toString()} (cached under key ${normalizedId})`);
       return cachedUser;
     }
 
@@ -316,7 +326,6 @@ export async function getUser(anyId: string | RecordId, forceFetch = false): Pro
 
     // TODO: Invalidate cache if the user has been updated in the database since it was cached (e.g live query, on update of user, find all cache entries for that user and delete)
     UserCache.set(res.id.id.toString(), res, new Date(Date.now() + 60 * 60 * 1000)); // Cache for 1 hour
-    console.withSender("MISC").debug(`User cache set for ID ${res.id.id.toString()} (cached under key ${res.id.id.toString()})`);
     return res;
   } catch (error) {
     console.withSender("MISC").warn("Error fetching user by ID:", error);

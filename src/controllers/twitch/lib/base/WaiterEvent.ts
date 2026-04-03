@@ -24,7 +24,7 @@ import chalk from "chalk";
 export default abstract class WaiterEvent {
     protected bot: TwitchClient;
 
-    protected cache: CacheManager = new CacheManager(new Map());    
+    protected cache: CacheManager = new CacheManager();    
     protected logger: Console;
 
     public loaded: boolean = false;
@@ -32,6 +32,7 @@ export default abstract class WaiterEvent {
     public constructor(bot: TwitchClient) {
       this.bot = bot;
       this.logger = console.withSender(chalk.hex("#8956FB")(this.constructor.name)); 
+      this.cache.setLogger(this.logger);
     }
 
 

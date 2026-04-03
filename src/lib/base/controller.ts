@@ -5,7 +5,7 @@ export abstract class Controller {
   public logger: Console;
   public abbr: string;
   public priority: number = 0;
-  public stage: "pre" | "normal" = "normal";
+  public stage: "pre" | "normal" | "post" = "normal";
 
   constructor(abbr: string, hex?: string) {
     this.abbr = abbr;

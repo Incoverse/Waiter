@@ -54,6 +54,8 @@ export default abstract class WaiterCommand {
       }
 
       this.logger = console.withSender(chalk.hex("#8956FB")(this.constructor.name)); 
+      this.cache.setLogger(this.logger);
+      if (this.cooldown) this.cooldown.setLogger(this.logger);
     }
 
     public abstract messageTrigger: RegExp | ((event: Message) => Promise<boolean>); //! Trigger on message that matches this regex

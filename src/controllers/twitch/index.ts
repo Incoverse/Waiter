@@ -1,7 +1,7 @@
 import { Controller } from "@/lib/base/controller";
 import Communication from "@/lib/communication";
 import { EncryptedField } from "@/lib/enc-field";
-import { extendsClass, findFiles, importLocalModule, invalidateCache } from "@/lib/misc";
+import { extendsClass, findFiles, importLocalModule, invalidateCache, parseDuration } from "@/lib/misc";
 import chalk from "chalk";
 import crypto from "crypto";
 import { eq, RecordId, Table } from "surrealdb";
@@ -58,11 +58,11 @@ export default class TwitchController extends Controller {
   }
 
   public override async statuses(): Promise<void> {
-    this.logger.log(`Connected to Twitch as ${chalk.yellow(this.client.IAM.display_name)} (ID: ${chalk.yellow(this.client.IAM.id)})`);
-    this.logger.log(`Currently watching ${chalk.yellow(global.twitch.streamers.size)} streamer${global.twitch.streamers.size !== 1 ? "s" : ""}${global.twitch.streamers.size > 0 ? ":" : "."}`);
+    this.logger.log(`Currently connected to ${chalk.yellow(global.twitch.streamers.size)} Twitch account${global.twitch.streamers.size !== 1 ? "s" : ""}${global.twitch.streamers.size > 0 ? ":" : "."}`);
     for (const streamer of global.twitch.streamers.values()) {
-      this.logger.log(`  - ${chalk.yellow(streamer.IAM.display_name)} (ID: ${chalk.yellow(streamer.IAM.id)})`);
+      this.logger.log(`  - ${chalk.yellow(streamer.IAM.display_name)} ${chalk.dim(`(ID: ${chalk.yellow(streamer.IAM.id)})`)}`);
     }
+    this.logger.log(`Connected to Twitch as ${chalk.yellow(this.client.IAM.display_name)} ${chalk.dim(`(ID: ${chalk.yellow(this.client.IAM.id)})`)} for bot operations.`);
   }
 
   public override registerConfig(): ZodType | void {
@@ -72,7 +72,13 @@ export default class TwitchController extends Controller {
           .describe("The endpoint for Twitch authentication")
           .default("/twitch/auth")
           .refine((endpoint: string) => endpoint.startsWith("/"), "Auth endpoint must start with a slash"),
-      }).default({ authEndpoint: "/twitch/auth" }),
+        generatedCodeValidity: z.string()
+          .describe("The validity duration for generated Twitch auth codes. Supports values accepted by parseDuration, such as '15m', '1h 30m', '2mo', '1w2d', and '500ms'.")
+          .default("15m")
+          .refine((duration: string) => {
+            return !Number.isNaN(parseDuration(duration));
+          }, "Generated code validity must be a valid duration string supported by parseDuration, such as '15m', '1h 30m', or '2mo'.")
+      }).default({ authEndpoint: "/twitch/auth", generatedCodeValidity: "15m" }),
     }) satisfies z.ZodType<Pick<WaiterConfig, "twitch">>;
   }
 
@@ -83,6 +89,7 @@ export default class TwitchController extends Controller {
       communication: new Communication(),
       streamers: new Map(),
       streamerData: {},
+      bypasses: new Set(),
     };
 
     const events = (await Promise.all(
@@ -158,7 +165,7 @@ export default class TwitchController extends Controller {
           return; // Abort processing this event
         }
         
-        const newClient = await TwitchClient.createStreamer(auth, false);
+        const newClient = await TwitchClient.createStreamer(auth, (event.value as any).streamer?.id.id.toString() ?? null, false);
 
         await this.createStreamers(async (client) => {
           if (client.IAM.id === newClient.IAM.id) {
@@ -335,7 +342,7 @@ export default class TwitchController extends Controller {
         continue;
       }
       
-      const client = await TwitchClient.createStreamer(auth, false);
+      const client = await TwitchClient.createStreamer(auth, tokenRecord.streamer?.id.id.toString() ?? null, false);
       global.twitch.streamers.set(client.IAM.id, client);
       await streamerInit(client);
     }

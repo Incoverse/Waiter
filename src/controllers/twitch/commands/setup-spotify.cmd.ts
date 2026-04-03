@@ -38,8 +38,8 @@ export default class SetupSpotifyCMD extends WaiterCommand {
     scope: "dm"
   }
 
-  @CooldownWrapper()
   @UserIsRegisteredStreamer()
+  @CooldownWrapper()
   public async exec(recipient: TwitchClient, message: WhisperMessage): Promise<any> {
     const user = await getUser(message.from_user_id);
 
@@ -55,7 +55,7 @@ export default class SetupSpotifyCMD extends WaiterCommand {
 
     const userId = user?.id.id.toString() || null;
     
-    const code = await SpotifyClient.generateCode("15m");
+    const code = await SpotifyClient.generateCode(global.config.spotify.generatedCodeValidity);
     const url = generateSpotifyAuthURL(Buffer.from(`${code}-${userId}`).toString("base64url"));
 
     const shortenedUrl = shorten(url);

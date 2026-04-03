@@ -83,7 +83,7 @@ export default class SurrealDBController extends Controller {
         process.exit(1);
       });
 
-    this.logger.great("Connected to database.");
+    this.logger.perf("Connected to database");
 
     const sessionInfo = await qrh.getSessionInfo();
 
@@ -91,7 +91,7 @@ export default class SurrealDBController extends Controller {
 
     const dbLoc = `${sessionInfo.db}@${sessionInfo.ns}`;
     const dbUser = sessionInfo.tk.AC;
-    const tokenExp = prettyMs(sessionInfo.tk.exp * 1000 - Date.now());
+    const tokenExp = prettyMs(sessionInfo.tk.exp * 1000 - Date.now(), { compact: true, verbose: true });
 
     this.logger.debug(
       `Connected to database ${chalk.yellow(dbLoc)} as ${chalk.yellow(dbUser)}. Token expires in: ${chalk.red(tokenExp)}`,
@@ -161,10 +161,13 @@ export default class SurrealDBController extends Controller {
         this.logger.debug(
           `Loading table definition ${chalk.yellow(tableName)}...`,
         );
-        await db.query(SQL).then(() => {
-          this.logger.debug(
-            `Loaded table definition ${chalk.yellow(tableName)}.`,
+        await db.query(SQL).catch((err) => {
+          this.logger.error(
+            `Error loading table definition ${chalk.yellow(tableName)}:`,
+            err,
           );
+          this.logger.error(`SQL: ${SQL}`);
+          throw err;
         });
       }
     }

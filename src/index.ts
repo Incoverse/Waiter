@@ -1,3 +1,4 @@
+performance.mark("app_start");
 import WaiterLogger, { LOGLEVEL } from "@/lib/log.js";
 
 new WaiterLogger({
@@ -12,12 +13,22 @@ new WaiterLogger({
 });
 
 import crypto from "crypto";
-import de from "dotenv";
+import dotenv from "dotenv";
 import fs from "fs/promises";
 import path from "path";
 import { IEM } from "./lib/iem";
 
 import chalk from "chalk";
+import {
+  RegExpMatcher,
+  TextCensor,
+  asteriskCensorStrategy,
+  englishDataset,
+  englishRecommendedTransformers,
+  keepEndCensorStrategy,
+  keepStartCensorStrategy
+} from "obscenity";
+import prettyMilliseconds from "pretty-ms";
 import { fileURLToPath } from "url";
 import z, { ZodObject, type ZodRawShape } from "zod";
 import { Controller } from "./lib/base/controller";
@@ -29,9 +40,20 @@ global.isCompiled = path.extname(__filename) === ".js";
 
 const waiterInfo = JSON.parse(
   await fs.readFile(path.resolve(process.cwd(), "package.json"), "utf-8"),
-);
+)
+const matcher = new RegExpMatcher({
+    ...englishDataset.build(),
+    ...englishRecommendedTransformers,
+});
+const censor = new TextCensor();
+censor.setStrategy(keepStartCensorStrategy(keepEndCensorStrategy(asteriskCensorStrategy())));
 
+global.contentFilter = (message: string) => {
+    if (!message) return null
+    const matches = matcher.getAllMatches(message);
 
+    return censor.applyTo(message, matches);    
+}
 
 process.on("warning", (warning) => {
   if (warning.name == "TimeoutOverflowWarning") return; // Ignore TimeoutOverflowWarning (from SurrealDB)
@@ -39,7 +61,7 @@ process.on("warning", (warning) => {
   console.warn(warning);
 });
 
-de.config({ quiet: true });
+dotenv.config({ quiet: true });
 
 console.info(`Starting Waiter v${waiterInfo.version}`);
 console.info(`------------------${"-".repeat(waiterInfo.version.length)}`);
@@ -65,6 +87,10 @@ const controllers: Controller[] = (await Promise.all(findFiles(global.isCompiled
   .toSorted((a: Controller, b: Controller) => {
     if (a.stage === "pre" && b.stage !== "pre") return -1;
     if (a.stage !== "pre" && b.stage === "pre") return 1;
+
+    if (a.stage === "post" && b.stage !== "post") return 1;
+    if (a.stage !== "post" && b.stage === "post") return -1;
+
     return a.priority - b.priority;
   })
   
@@ -127,7 +153,7 @@ global.config = parseResult.data as unknown as WaiterConfig
 
 const preControllers = controllers.filter(c => c.stage === "pre");
 const normalControllers = controllers.filter(c => c.stage === "normal");
-
+const postControllers = controllers.filter(c => c.stage === "post");
 
 for (const controller of controllers) {
   global.controllers.set(controller.abbr, controller);
@@ -137,8 +163,11 @@ async function runController(controller: Controller) {
   const controllerName = controller.constructor.name;
   console.debug(`Starting controller: ${controllerName} (${controller.abbr})`);
   try {
+    performance.mark(`${controllerName}_start`);
     await controller.exec();
-    console.debug(`Controller ${controllerName} (${controller.abbr}) started successfully.`);
+    performance.mark(`${controllerName}_end`);
+    const duration = performance.measure(`${controllerName}_duration`, `${controllerName}_start`, `${controllerName}_end`).duration;
+    console.debug(`Controller ${controllerName} (${controller.abbr}) started successfully in ${chalk.bold(prettyMilliseconds(duration))}.`);
   } catch (err) {
     console.error(`Error starting controller ${controllerName} (${controller.abbr}):`, err);
   }
@@ -146,11 +175,25 @@ async function runController(controller: Controller) {
 
 await Promise.all(preControllers.map(runController));
 await Promise.all(normalControllers.map(runController));
-    
+await Promise.all(postControllers.map(runController));
 
 console.perfect("All controllers started.");
+performance.mark("app_ready");
 
 
+const s2r = performance.measure("start_to_ready", "app_start", "app_ready");
+
+console.debug("---------------------------------")
+console.debug(`Startup times:`);
+console.debug(`  - Waiter: ${chalk.cyanBright.bold(prettyMilliseconds(s2r.duration))}`);
+for (const controller of controllers) {
+  const startMark = `${controller.constructor.name}_start`;
+  const endMark = `${controller.constructor.name}_end`;
+  const measureName = `${controller.constructor.name}_duration`;
+  const duration = performance.measure(measureName, startMark, endMark).duration;
+  const stagePrefix = controller.stage === "normal" ? "norm" : controller.stage.padEnd(4, " ");
+  console.debug(`    - [${stagePrefix}] ${controller.constructor.name} (${controller.abbr}): ${chalk.cyanBright.bold(prettyMilliseconds(duration))}`);
+}
 console.log("---------------------------------")
 console.info("Waiter", chalk.cyanBright(`v${waiterInfo.version}`), "is up and running!");
 console.log()
