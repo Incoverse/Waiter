@@ -1,95 +1,97 @@
-export default class CacheManager {
+export default class CacheManager<K = string, V = any> {
+  private cache: Map<K, { expires: Date | null; value: V }>;
 
-  private cache: Map<string, { expires: Date | null, value: any }>;
-
-  constructor(cache: Map<string, { expires: Date | null, value: any }> = new Map()) {
+  constructor(cache: Map<K, { expires: Date | null; value: V }> = new Map()) {
     this.cache = cache;
   }
 
-  get(key: string) {
-    if (!this.cache.has(key)) return null;
-    if (this.cache.get(key).expires && this.cache.get(key).expires.getTime() < Date.now()) {
+  private isExpired(entry: { expires: Date | null }): boolean {
+    return !!entry.expires && entry.expires.getTime() < Date.now();
+  }
+
+  private cleanupExpired(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.expires && entry.expires.getTime() < now) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  get(key: K): V | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (this.isExpired(entry)) {
       this.cache.delete(key);
       return null;
     }
-    return this.cache.get(key).value;
+    return entry.value;
   }
 
-  getExpiry(key: string): Date | null {
-    if (!this.cache.has(key)) return null;
-    if (this.cache.get(key).expires && this.cache.get(key).expires.getTime() < Date.now()) {
+  getExpiry(key: K): Date | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (this.isExpired(entry)) {
       this.cache.delete(key);
       return null;
     }
-    return this.cache.get(key).expires;
+    return entry.expires;
   }
 
-  has(key: any): boolean {
-    const entry = this.cache.get(key)
-    if (!entry) return false
-
-    if (entry.expires && entry.expires.getTime() < Date.now()) {
-      this.cache.delete(key)
-      return false
+  has(key: K): boolean {
+    const entry = this.cache.get(key);
+    if (!entry) return false;
+    if (this.isExpired(entry)) {
+      this.cache.delete(key);
+      return false;
     }
-
-    return true
+    return true;
   }
 
   clear(): void {
-    return this.cache.clear()
+    this.cache.clear();
   }
 
-  delete(key: any): boolean {
-    return this.cache.delete(key)
+  delete(key: K): boolean {
+    return this.cache.delete(key);
   }
 
-  entries(): IterableIterator<[any, any]> {
-    const entires = this.cache.entries()
+  entries(): IterableIterator<[K, V]> {
+    this.cleanupExpired();
+    const entries = Array.from(this.cache.entries()).map(([key, value]) => [key, value.value] as [K, V]);
+    return entries[Symbol.iterator]();
+  }
 
-    for (const [key, value] of entires) {
-      if (value.expires && value.expires.getTime() < Date.now()) {
-        this.cache.delete(key)
-      }
+  values(): IterableIterator<V> {
+    this.cleanupExpired();
+    const values = Array.from(this.cache.values()).map((entry) => entry.value);
+    return values[Symbol.iterator]();
+  }
+
+  forEach(callbackfn: (value: V, key: K) => void): void {
+    this.cleanupExpired();
+    for (const [key, entry] of this.cache.entries()) {
+      callbackfn(entry.value, key);
     }
-
-    // only return the key, and value, not the expires
-    return (function* () {
-      for (const [key, value] of entires) {
-        yield [key, value.value];
-      }
-    })();
   }
 
-  forEach(callbackfn: (value: any, key: any) => void): void {
-    this.cache.forEach((value, key) => {
-      if (value.expires && value.expires.getTime() < Date.now()) {
-        this.cache.delete(key)
-        return
-      }
-
-      callbackfn(value.value, key)
-    })
+  keys(): IterableIterator<K> {
+    this.cleanupExpired();
+    return this.cache.keys();
   }
 
-  keys(): IterableIterator<string> {
-    const keys = this.cache.keys()
-
-    for (const key of keys) {
-      if (this.cache.get(key).expires && this.cache.get(key).expires.getTime() < Date.now()) {
-        this.cache.delete(key)
-      }
+  set(key: K, value: V, expires: number | Date | null): this {
+    let expiresAt: Date | null = null;
+    if (expires instanceof Date) {
+      expiresAt = expires;
+    } else if (typeof expires === 'number') {
+      expiresAt = new Date(Date.now() + expires);
     }
-
-    return keys
+    this.cache.set(key, { value, expires: expiresAt });
+    return this;
   }
 
-  set(key: any, value: any, expires: number | Date | null): this {
-    this.cache.set(key, { value, expires: expires instanceof Date ? expires : expires == null ? null : new Date(Date.now() + expires) })
-    return this
-  }
-
-  public cacheize() {
-    return this.cache
+  public cacheize(): Map<K, { expires: Date | null; value: V }> {
+    return this.cache;
   }
 }

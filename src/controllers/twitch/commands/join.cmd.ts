@@ -17,7 +17,6 @@
 
 import { shorten } from "@/controllers/web";
 import type TwitchClient from "@twitch/client";
-import { redirectURI } from "@twitch/client";
 import WaiterCommand, { type CommandSettings, type WhisperMessage } from "@twitch/lib/base/WaiterCommand";
 import { eq, Table } from "surrealdb";
 import { generateAuthURL } from "../lib/authentication";
@@ -56,7 +55,7 @@ export default class JoinCMD extends WaiterCommand {
       return recipient.sendWhisper(message.from_user_id, "Invalid code. Please check the code and try again.");
     }
 
-    const authUrl = generateAuthURL(redirectURI, Buffer.from(code).toString("base64url"));
+    const authUrl = generateAuthURL(Buffer.from(code).toString("base64url"));
     
     const shortenedUrl = shorten(authUrl);
 

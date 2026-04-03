@@ -23,6 +23,14 @@ app.use((req, res, next) => {
 const registeredRoutes: { method: string; path: string; handlerStr: string }[] = [];
 const shortenCache = new CacheManager();
 
+
+const toRegister: {
+  call: () => string,
+  method: HTTPMethod,
+  handler: any,
+  handlerStr: string,
+}[] = [];
+
 export default class WebController extends Controller {
   public override priority: number = Number.MIN_SAFE_INTEGER + 1; //? Ensure this controller loads after the database controller, but before all other controllers that might want to register routes.
   constructor() {
@@ -60,8 +68,18 @@ export default class WebController extends Controller {
 
   public exec() {
     return new Promise<void>((resolve, reject) => {
-      app.listen(global.config.web.port, (err) => {
 
+      for (const route of toRegister) {
+        const path = route.call();
+        app[route.method.toLowerCase()](path, route.handler);
+        registeredRoutes.push({
+          method: route.method.toUpperCase(),
+          path,
+          handlerStr: route.handlerStr,
+        });
+      } 
+
+      app.listen(global.config.web.port, (err) => {
         if (err) {
           this.logger.error("Error starting web server:", err);
           reject(err);
@@ -102,8 +120,6 @@ export default class WebController extends Controller {
     }
     this.logger.log(`Registered routes:`);
     for (const route of registeredRoutes) {
-
-
       this.logger.log(
         `  - ${methodColors[route.method](route.method)} ${route.path} ${chalk.dim(`-> ${route.handlerStr}`)}`,
       );
@@ -132,7 +148,7 @@ type HTTPMethod =
   | "HEAD";
 
 
-export function registerRoute(method: HTTPMethod, path: string) {
+export function registerRoute(method: HTTPMethod, path: string | (()=>string)) {
   return function (
     target: any,
     propertyKey: string,
@@ -150,23 +166,32 @@ export function registerRoute(method: HTTPMethod, path: string) {
         console
           .withSender(chalk.hex("009f9f")("HTTP"))
           .debug(
-            `Handling ${method.toUpperCase()} ${path} with ${target.name ?? target.constructor.name}#${propertyKey}()`,
+            `Handling ${method.toUpperCase()} ${req.path} with ${target.name ?? target.constructor.name}#${propertyKey}()`,
           );
         await originalMethod.apply(this, [req, res, next, ...args]);
       } catch (error) {
         console
           .withSender(chalk.hex("009f9f")("HTTP"))
-          .error(`Error handling ${method.toUpperCase()} ${path}:`, error);
+          .error(`Error handling ${method.toUpperCase()} ${req.path}:`, error);
         res.status(500).send("Internal Server Error");
       }
     };
 
-    app[method.toLowerCase()](path, descriptor.value);
-    registeredRoutes.push({
-      method: method.toUpperCase(),
-      path,
-      handlerStr: `${target.name ?? target.constructor.name}#${propertyKey}()`,
-    });
+    if (typeof path === "function") {
+      toRegister.push({
+        call: path,
+        method,
+        handler: descriptor.value,
+        handlerStr: `${target.name ?? target.constructor.name}#${propertyKey}()`,
+      });
+    } else {
+      app[method.toLowerCase()](path, descriptor.value);
+      registeredRoutes.push({
+        method: method.toUpperCase(),
+        path,
+        handlerStr: `${target.name ?? target.constructor.name}#${propertyKey}()`,
+      });
+    }
 
     return descriptor;
   };

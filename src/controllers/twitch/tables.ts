@@ -15,6 +15,17 @@ export default class TwitchDefinitions extends TableDefinition {
     DEFINE FIELD OVERWRITE expires_at ON twitch_auth_codes TYPE datetime;
   `.trim();
   
+  public static readonly TWITCH_USERS = `
+    DEFINE TABLE OVERWRITE twitch_users SCHEMALESS;
+
+    DEFINE FIELD OVERWRITE login ON twitch_users TYPE string;
+    DEFINE FIELD OVERWRITE display_name ON twitch_users TYPE string;
+  `.trim();
+  
+  public static readonly USERS_ADDON_TWITCH = `
+    DEFINE FIELD OVERWRITE twitch ON users TYPE record<twitch_users> | null DEFAULT null;
+    DEFINE INDEX OVERWRITE unique_twitch ON TABLE users FIELDS twitch UNIQUE;
+  `.trim();
 
 
 

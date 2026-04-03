@@ -15,8 +15,12 @@
   * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import SpotifyClient from "@/controllers/spotify/client";
+import { shorten } from "@/controllers/web";
+import { getUser, hasSpotifyTokenStored } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type CommandSettings, type WhisperMessage } from "@twitch/lib/base/WaiterCommand";
+import { generateAuthURL as generateSpotifyAuthURL } from "../../spotify/lib/authentication";
 import { UserIsRegisteredStreamer } from "../lib/conditions";
 import CooldownSystem, { CooldownWrapper } from "../lib/cooldown";
 
@@ -37,8 +41,25 @@ export default class SetupSpotifyCMD extends WaiterCommand {
   @CooldownWrapper()
   @UserIsRegisteredStreamer()
   public async exec(recipient: TwitchClient, message: WhisperMessage): Promise<any> {
-    return recipient.sendWhisper(message.from_user_id, "Spotify integration setup is currently in development. Stay tuned for updates!").catch((err) => {
-      this.logger.warn("Error sending Spotify setup response:", err);
-    });
+    const user = await getUser(message.from_user_id);
+
+    if (!user) {
+      this.logger.error(`Failed to find user in database for Twitch ID ${message.from_user_id}`);
+      return recipient.sendWhisper(message.from_user_id, "An error occurred while setting up Spotify. Please try again later.");
+    }
+
+    if (user.spotify?.id && await hasSpotifyTokenStored(user.id)) {
+      this.logger.warn(`User ${message.from_user_login} (${message.from_user_id}) attempted to set up Spotify, but they already have a Spotify account linked.`);
+      return recipient.sendWhisper(message.from_user_id, "You already have a Spotify account linked.");
+    }
+
+    const userId = user?.id.id.toString() || null;
+    
+    const code = await SpotifyClient.generateCode("15m");
+    const url = generateSpotifyAuthURL(Buffer.from(`${code}-${userId}`).toString("base64url"));
+
+    const shortenedUrl = shorten(url);
+
+    return recipient.sendWhisper(message.from_user_id, `To set up Spotify for your account, please click the following URL: ${shortenedUrl} (valid for 15 minutes)`);
   }
 }

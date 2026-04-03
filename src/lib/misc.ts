@@ -1,7 +1,9 @@
 import { CronJob } from "cron";
 import fs from "fs";
 import path from "path";
+import { RecordId } from "surrealdb";
 import { z, ZodObject, type ZodJSONSchema } from "zod";
+import CacheManager from "./cache";
 
 export function getStaticProps(cls: any) {
   return Object.getOwnPropertyNames(cls)
@@ -219,3 +221,125 @@ type Infer<T extends z.ZodType<any>> = z.infer<T>;
 
 export type EnsureExactSchema<TSchema extends z.ZodType<any>, TExpected> =
   Exact<Infer<TSchema>, TExpected>;
+
+
+export const UserCache = new CacheManager()
+
+
+export async function invalidateCache(anyId: string | RecordId) {
+  const normalizedId = anyId instanceof RecordId ? anyId.id.toString() : anyId;
+  if (UserCache.has(normalizedId)) {
+    UserCache.delete(normalizedId);
+    console.withSender("MISC").log(`Invalidated cache for user with ID ${normalizedId}`);
+  } else {
+    let invalidated = false;
+    // Check if any cached user has this ID in their twitch/discord/spotify sub-objects
+    for (const [key, cachedUser] of UserCache.entries()) {
+      if (cachedUser.twitch?.id.id.toString() === normalizedId ||
+          cachedUser.discord?.id.id.toString() === normalizedId ||
+          cachedUser.spotify?.id.id.toString() === normalizedId ||
+          cachedUser.id.id.toString() === normalizedId) {
+        UserCache.delete(key);
+        console.withSender("MISC").log(`Invalidated cache for user with ID ${cachedUser.id.id.toString()} (cached under key ${key})`);
+        invalidated = true;
+        break;
+      }
+    }
+    if (!invalidated) {
+      console.withSender("MISC").debug(`Attempted to invalidate cache for user with ID ${normalizedId}, but no matching cache entry was found.`);
+    }
+  }
+}
+
+export async function getSpotify(anyId: string | RecordId, forceFetch = false) {
+  const user = await getUser(anyId, forceFetch);
+  return user?.spotify
+}
+
+export async function getDiscord(anyId: string | RecordId, forceFetch = false) {
+  const user = await getUser(anyId, forceFetch);
+  return user?.discord
+}
+
+export async function getTwitch(anyId: string | RecordId, forceFetch = false) {
+  const user = await getUser(anyId, forceFetch);
+  return user?.twitch
+}
+
+export async function getUser(anyId: string | RecordId, forceFetch = false): Promise<{
+  id: RecordId;
+  twitch?: {
+    display_name: string;
+    login: string;
+    id: RecordId;
+  },
+  discord?: {
+    display_name: string;
+    username: string;
+    id: RecordId;
+  },
+  spotify?: {
+    display_name: string;
+    has_premium: boolean;
+    id: RecordId;
+  }
+} | null> {
+
+  const normalizedId = anyId instanceof RecordId ? anyId.id.toString() : anyId;
+
+  if (!forceFetch) {
+    if (UserCache.has(normalizedId)) {
+      const cachedUser = UserCache.get(normalizedId);
+      console.withSender("MISC").debug(`Direct user cache hit for ID ${cachedUser.id.id.toString()} (cached under key ${normalizedId})`);
+      return cachedUser;
+    }
+
+    for (const [key, cachedUser] of UserCache.entries()) {
+      if (cachedUser.twitch?.id.id.toString() === normalizedId || // TODO: Somehow modular? idk
+          cachedUser.discord?.id.id.toString() === normalizedId || // TODO: Somehow modular? idk
+          cachedUser.spotify?.id.id.toString() === normalizedId || // TODO: Somehow modular? idk
+          cachedUser.id.id.toString() === normalizedId) {
+        console.withSender("MISC").debug(`Nested user cache hit for ID ${cachedUser.id.id.toString()} while searching for ${normalizedId} (cached under key ${key})`);
+        return cachedUser;
+      }
+    }
+  }
+
+
+  try {
+    const res = await global.db.query(`SELECT * FROM users WHERE id = $uId OR twitch.id = $tId OR discord.id = $dId OR spotify.id = $sId LIMIT 1 FETCH discord, spotify, twitch`, {
+      uId: new RecordId("users", normalizedId),
+      tId: new RecordId("twitch_users", normalizedId), // TODO: Somehow modular? idk
+      dId: new RecordId("discord_users", normalizedId), // TODO: Somehow modular? idk
+      sId: new RecordId("spotify_users", normalizedId), // TODO: Somehow modular? idk
+    }).collect().then(a=>a[0][0]);
+
+    // TODO: Invalidate cache if the user has been updated in the database since it was cached (e.g live query, on update of user, find all cache entries for that user and delete)
+    UserCache.set(res.id.id.toString(), res, new Date(Date.now() + 60 * 60 * 1000)); // Cache for 1 hour
+    console.withSender("MISC").debug(`User cache set for ID ${res.id.id.toString()} (cached under key ${res.id.id.toString()})`);
+    return res;
+  } catch (error) {
+    console.withSender("MISC").warn("Error fetching user by ID:", error);
+    return null;
+  }
+}
+
+export async function hasTwitchTokenStored(anyId: string | RecordId) {
+  const user = await getUser(anyId);
+
+  const token = await global.db.query(`SELECT id FROM streamer_tokens WHERE type = 'twitch' AND streamer = $streamerId`, {
+    streamerId: new RecordId("users", user?.id.id.toString() || (anyId instanceof RecordId ? anyId.id.toString() : anyId))
+  }).collect().then(a=>a[0][0]);
+
+  return !!token;
+}
+
+export async function hasSpotifyTokenStored(anyId: string | RecordId) {
+  const user = await getUser(anyId);
+
+  const token = await global.db.query(`SELECT id FROM streamer_tokens WHERE type = 'spotify' AND streamer = $streamerId`, {
+    streamerId: new RecordId("users", user?.id.id.toString() || (anyId instanceof RecordId ? anyId.id.toString() : anyId))
+  }).collect().then(a=>a[0][0]);
+
+  return !!token;
+}

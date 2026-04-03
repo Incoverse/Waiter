@@ -83,8 +83,13 @@ const TWITCH_SCOPES = [
 ];
 
 export function generateAuthURL(
-  redirectURI: string,
   state: string,
 ) {
-  return `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${redirectURI}&response_type=code&scope=${TWITCH_SCOPES.join("+")}&state=${state}`;
+  return `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${getRedirectURI()}&response_type=code&scope=${TWITCH_SCOPES.join("+")}&state=${state}`;
+}
+
+
+export function getRedirectURI() {
+  return `${process.env.PUBLIC_URL}${global.config.twitch.authEndpoint}`
+    .replace("127.0.0.1", "localhost"); // Twitch doesn't accept "127.0.0.1" as a valid redirect URI, but "localhost" is accepted
 }

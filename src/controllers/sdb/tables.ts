@@ -5,49 +5,24 @@ import { registerMerger } from "./utils";
 export default class SDBDefinitions extends TableDefinition {
   public static override priority = 0; // Always load first
 
-  public static readonly TWITCH_USERS = `
-        DEFINE TABLE OVERWRITE twitch_users SCHEMALESS;
-
-        DEFINE FIELD OVERWRITE login ON twitch_users TYPE string;
-        DEFINE FIELD OVERWRITE display_name ON twitch_users TYPE string;
-    `.trim();
-
-  public static readonly DISCORD_USERS = `
-        DEFINE TABLE OVERWRITE discord_users SCHEMALESS;
-
-        DEFINE FIELD OVERWRITE username ON discord_users TYPE string;
-        DEFINE FIELD OVERWRITE display_name ON discord_users TYPE string;
-    `.trim();
-
   public static readonly USERS = `
-        DEFINE TABLE OVERWRITE users SCHEMALESS;
-
-        DEFINE FIELD OVERWRITE twitch ON users TYPE record<twitch_users> | null DEFAULT null;
-        DEFINE FIELD OVERWRITE discord ON users TYPE record<discord_users> | null DEFAULT null;
-
-        -- Only one user per twitch or discord account
-        DEFINE INDEX OVERWRITE unique_twitch ON TABLE users FIELDS twitch UNIQUE;
-        DEFINE INDEX OVERWRITE unique_discord ON TABLE users FIELDS discord UNIQUE;
-    `.trim();
+    DEFINE TABLE OVERWRITE users SCHEMALESS;
+  `.trim();
 
   public static readonly STREAMER_TOKENS = `
-        DEFINE TABLE OVERWRITE streamer_tokens SCHEMALESS;
+    DEFINE TABLE OVERWRITE streamer_tokens SCHEMALESS;
 
-        DEFINE FIELD OVERWRITE streamer ON streamer_tokens TYPE record<users>;
-        DEFINE FIELD OVERWRITE auth ON streamer_tokens TYPE string; -- Encrypted
-        DEFINE FIELD OVERWRITE type ON streamer_tokens TYPE "twitch" | "spotify";
+    DEFINE FIELD OVERWRITE streamer ON streamer_tokens TYPE record<users>;
+    DEFINE FIELD OVERWRITE auth ON streamer_tokens TYPE string; -- Encrypted
+    DEFINE FIELD OVERWRITE type ON streamer_tokens TYPE "twitch" | "spotify";
 
-        -- Only one token per streamer per type
-        DEFINE INDEX OVERWRITE unique_streamer_token ON TABLE streamer_tokens FIELDS streamer, type UNIQUE;
-    `.trim();
+    -- Only one token per streamer per type
+    DEFINE INDEX OVERWRITE unique_streamer_token ON TABLE streamer_tokens FIELDS streamer, type UNIQUE;
+  `.trim();
 
   public static readonly WAITER_DATA = `
-        DEFINE TABLE OVERWRITE waiter_data SCHEMALESS;
-    `.trim();
-
-
-
-
+    DEFINE TABLE OVERWRITE waiter_data SCHEMALESS;
+  `.trim();
 
   //? -- MERGERS --
   @registerMerger("streamer_tokens")
@@ -90,9 +65,11 @@ export default class SDBDefinitions extends TableDefinition {
 
   
     await transaction.delete(fromUser);
+    // TODO: Implement merger merging which allows for example the Discord module to merge its addons to "users", instead of having to hardcode them here.
     await transaction.update(toUser).merge({
       twitch: toUserData.twitch ?? fromUserData.twitch ?? null,
       discord: toUserData.discord ?? fromUserData.discord ?? null,
+      spotify: toUserData.spotify ?? fromUserData.spotify ?? null,
     });
   }
 }

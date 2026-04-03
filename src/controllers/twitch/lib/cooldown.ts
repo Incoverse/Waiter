@@ -170,18 +170,26 @@ export function CooldownWrapper() {
   ): PropertyDescriptor {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (streamer: TwitchClient, message: Message) {
+    descriptor.value = async function (source: TwitchClient, message: Message) {
       if (this.cooldown) {
         const cooldownResult = this.cooldown.process(message);
         if (!cooldownResult.valid) {
-          await this.bot.withChannel(streamer).sendMessage(cooldownResult.message, { replyTo: "message_id" in message ? message.message_id : null }).catch((err: Error) => {
-            this.logger.warn("Error sending cooldown message:", err);
-          });
+          const isChannelMessage = "chatter_user_id" in message;
+
+          if (isChannelMessage) { 
+            await this.bot.withChannel(source).sendMessage(cooldownResult.message, { replyTo: message.message_id }).catch((err: Error) => {
+              this.logger.warn("Error sending cooldown message:", err);
+            });
+          } else {
+            await this.bot.sendWhisper(message.from_user_id, cooldownResult.message).catch((err: Error) => {
+              this.logger.warn("Error sending cooldown whisper:", err);
+            });
+          }
           return;
         }
       }
 
-      return originalMethod.apply(this, [streamer, message]);
+      return originalMethod.apply(this, [source, message]);
     };
     
     return descriptor;

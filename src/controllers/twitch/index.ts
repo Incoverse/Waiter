@@ -1,10 +1,11 @@
 import { Controller } from "@/lib/base/controller";
 import Communication from "@/lib/communication";
 import { EncryptedField } from "@/lib/enc-field";
-import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
+import { extendsClass, findFiles, importLocalModule, invalidateCache } from "@/lib/misc";
 import chalk from "chalk";
 import crypto from "crypto";
 import { eq, RecordId, Table } from "surrealdb";
+import { z, type ZodType } from "zod";
 import TwitchClient from "./client";
 import WaiterEvent, { type EventInfo, type TwitchEventInfo } from "./lib/base/WaiterEvent";
 import { TwitchAuthDBSchema, type TwitchAuthDB } from "./types";
@@ -60,8 +61,19 @@ export default class TwitchController extends Controller {
     this.logger.log(`Connected to Twitch as ${chalk.yellow(this.client.IAM.display_name)} (ID: ${chalk.yellow(this.client.IAM.id)})`);
     this.logger.log(`Currently watching ${chalk.yellow(global.twitch.streamers.size)} streamer${global.twitch.streamers.size !== 1 ? "s" : ""}${global.twitch.streamers.size > 0 ? ":" : "."}`);
     for (const streamer of global.twitch.streamers.values()) {
-      this.logger.log(` - ${chalk.yellow(streamer.IAM.display_name)} (ID: ${chalk.yellow(streamer.IAM.id)})`);
+      this.logger.log(`  - ${chalk.yellow(streamer.IAM.display_name)} (ID: ${chalk.yellow(streamer.IAM.id)})`);
     }
+  }
+
+  public override registerConfig(): ZodType | void {
+    return z.object({
+      twitch: z.object({
+        authEndpoint: z.string()
+          .describe("The endpoint for Twitch authentication")
+          .default("/twitch/auth")
+          .refine((endpoint: string) => endpoint.startsWith("/"), "Auth endpoint must start with a slash"),
+      }).default({ authEndpoint: "/twitch/auth" }),
+    }) satisfies z.ZodType<Pick<WaiterConfig, "twitch">>;
   }
 
   public async exec() {
@@ -103,9 +115,20 @@ export default class TwitchController extends Controller {
     await this.registerTwitchEvents(instantiatedEvents);
 
 
-    const streamerTokensLive = await global.db.live(new Table("streamer_tokens")).where(eq("type", "twitch")).fetch("streamer", "streamer.twitch");
+    const streamerTokensLive = await global.db.live(new Table("streamer_tokens")).where(eq("type", "twitch")).fetch("streamer", "streamer.twitch", "streamer.discord", "streamer.spotify");
 
     streamerTokensLive.subscribe(async (event) => {
+      const displayName =
+        (event.value as any).streamer.twitch?.display_name ||
+        (event.value as any).streamer.discord?.display_name ||
+        (event.value as any).streamer.spotify?.display_name ||
+        "Unknown";
+
+      const id =
+        (event.value as any).streamer.twitch?.id.id.toString() ||
+        (event.value as any).streamer.discord?.id.id.toString() ||
+        (event.value as any).streamer.spotify?.id.id.toString() ||
+        "??????";
       if (event.action === "CREATE") {
         const encryptedAuth = EncryptedField.fromDB((event.value as any).auth);
 
@@ -113,7 +136,7 @@ export default class TwitchController extends Controller {
           return;
         }
 
-        console.info(`A streamer token was created for ${(event.value as any).streamer.twitch?.display_name} (ID: ${(event.value as any).streamer.twitch?.id.id.toString()}). Attempting to set up Twitch client for this streamer...`);
+        console.info(`A Twitch token was created for ${displayName} (ID: ${id}). Attempting to set up Twitch client for this streamer...`);
 
         let auth: TwitchAuthDB;
         
@@ -152,26 +175,27 @@ export default class TwitchController extends Controller {
         await this.registerTwitchEvents(instantiatedEvents);
 
 
-        await this.client.sendWhisper(newClient.IAM.id, `Welcome ${newClient.IAM.display_name}! This Twitch account has been successfully linked to Waiter. You can now use Twitch-related commands and features in your stream. If you have any questions or need assistance, feel free to ask!`);
+        await this.client.sendWhisper(newClient.IAM.id, `Welcome ${newClient.IAM.display_name}! This Twitch account has been successfully linked to Waiter. You can now use Twitch-related commands and features in your stream.`);
 
         this.logger.great(`New streamer added: ${chalk.yellow(newClient.IAM.display_name)} (ID: ${chalk.yellow(newClient.IAM.id)})`); 
+        await invalidateCache(newClient.IAM.id);
 
       } else if (event.action === "DELETE") {
         const deletedStreamerId = (event.value as any).streamer?.twitch?.id.id.toString();
 
         if (!deletedStreamerId) {
-          this.logger.warn("Received DELETE event for streamer token without streamer ID. Cannot determine which streamer was deleted. Ignoring.");
+          this.logger.warn("Received DELETE event for Twitch token without streamer ID. Cannot determine which streamer was deleted. Ignoring.");
           return;
         }
 
         const deletedStreamer = global.twitch.streamers.get(deletedStreamerId);
 
         if (!deletedStreamer) {
-          this.logger.warn(`Received DELETE event for streamer token with streamer ID ${deletedStreamerId}, but no active streamer instance was found for that ID. This likely means the token was deleted before the streamer was fully set up, or there is some other issue. Ignoring.`);
+          this.logger.warn(`Received DELETE event for Twitch token with streamer ID ${deletedStreamerId}, but no active streamer instance was found for that ID. This likely means the token was deleted before the streamer was fully set up, or there is some other issue. Ignoring.`);
           return;
         }
 
-        this.logger.warn(`Streamer token for ${deletedStreamer.IAM.display_name} (ID: ${deletedStreamer.IAM.id}) was deleted from database. We will disconnect from Twitch and stop watching this streamer.`);
+        this.logger.warn(`Twitch token for ${deletedStreamer.IAM.display_name} (ID: ${deletedStreamer.IAM.id}) was deleted from database. We will disconnect from Twitch and stop watching this streamer.`);
 
         if (deletedStreamer) {
           await deletedStreamer.cleanup();
@@ -180,14 +204,11 @@ export default class TwitchController extends Controller {
         global.twitch.streamers.delete(deletedStreamerId);
         delete global.twitch.streamerData[deletedStreamerId];
 
-        this.logger.log("Successfully cleaned up after deleted streamer token.");
+        await invalidateCache(deletedStreamerId);
+
+        this.logger.log("Successfully cleaned up after deleted Twitch token.");
       }
     })
-
-
-    // const code = await TwitchClient.generateCode("15m");
-    // const authURL = generateAuthURL(redirectURI, Buffer.from(code).toString("base64url"));
-    // console.log(`To authenticate a Twitch account, visit the following URL: ${authURL}`);
   }
 
   public registerOnStartEvents(events: WaiterEvent[], clients = [this.client, ...global.twitch.streamers.values()]) {
