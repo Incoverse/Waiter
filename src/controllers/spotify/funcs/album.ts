@@ -1,10 +1,10 @@
 import type SpotifyClient from "../client";
 import type {
-    AlbumTracksResponse,
-    GetAlbumResponse,
-    GetSeveralAlbumsResponse,
-    NewReleasesResponse,
-    SavedAlbumsResponse,
+  AlbumTracksResponse,
+  GetAlbumResponse,
+  GetSeveralAlbumsResponse,
+  NewReleasesResponse,
+  SavedAlbumsResponse,
 } from "../types";
 
 /** Get album information */

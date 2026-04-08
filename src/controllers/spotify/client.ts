@@ -349,166 +349,257 @@ export default class SpotifyClient {
 
   public get playback() {
     return {
+      /** Fetches the current playback information */
       get: this.bindChannelFn(Player.get),
+      /** Transfer playback to another device. If play is true, will also attempt to start playback on the new device. */
       transfer: this.bindChannelFn(Player.transfer),
+      /** Fetches the user's available devices */
       getDevices: this.bindChannelFn(Player.getDevices),
+      /** Get the currently playing track or episode. */
       getCurrentlyPlaying: this.bindChannelFn(Player.getCurrentlyPlaying),
+      /** Starts playback of a context or a list of tracks */
       play: this.bindChannelFn(Player.play),
+      /** Resumes playback */
       resume: this.bindChannelFn(Player.resume),
+      /** Pauses playback */
       pause: this.bindChannelFn(Player.pause),
+      /** Skips to the previous track */
       skipToPrevious: this.bindChannelFn(Player.skipToPrevious),
+      /** Skips to the next track */
       skipToNext: this.bindChannelFn(Player.skipToNext),
+      /** Seeks to a position in the currently playing track */
       seek: this.bindChannelFn(Player.seek),
+      /** Sets the repeat mode for the current playback context */
       setRepeatMode: this.bindChannelFn(Player.setRepeatMode),
+      /** Set volume for the current playback device. volumePercent must be between 0 and 100. */
       setVolume: this.bindChannelFn(Player.setVolume),
+      /** Get volume for the current playback device. */
       getVolume: this.bindChannelFn(Player.getVolume),
+      /** Toggles shuffle on or off for the current playback context */
       toggleShuffle: this.bindChannelFn(Player.toggleShuffle),
+      /** Get the current user's recently played tracks. */
       getRecentlyPlayed: this.bindChannelFn(Player.getRecentlyPlayed),
+      /** Get the user's queue */
       getQueue: this.bindChannelFn(Player.getQueue),
+      /** Add a track or episode to the end of the user's queue */
       addToQueue: this.bindChannelFn(Player.addToQueue),
     }
   }
 
   public get user() {
     return {
+      /** Get current user's (or specific user's) profile information */
       get: this.bindChannelFn(User.get),
+      /** Get the current user's top artists or tracks. Time range can be specified to get top items over different periods. */
       getTopItems: this.bindChannelFn(User.getTopItems),
+      /** Get the current user's followed artists. */
       getFollowedArtists: this.bindChannelFn(User.getFollowedArtists),
     }
   }
 
   public get album() {
     return {
+      /** Get album information */
       get: this.bindChannelFn(Album.get),
+      /** @deprecated Get Spotify catalog information for multiple albums identified by their Spotify IDs. */
       getSeveral: this.bindChannelFn(Album.getSeveral),
+      /** Get Spotify catalog information about an album's tracks. */
       getTracks: this.bindChannelFn(Album.getTracks),
+      /** Get a list of albums saved in the current Spotify user's library. */
       getSaved: this.bindChannelFn(Album.getSaved),
+      /** @deprecated Save one or more albums to the current Spotify user's library. */
       saveForCurrentUser: this.bindChannelFn(Album.saveForCurrentUser),
+      /** @deprecated Remove one or more albums from the current Spotify user's library. */
       removeForCurrentUser: this.bindChannelFn(Album.removeForCurrentUser),
+      /** @deprecated Check if one or more albums are already saved in the current Spotify user's library. */
       checkSavedForCurrentUser: this.bindChannelFn(Album.checkSavedForCurrentUser),
+      /** @deprecated Get featured new album releases from Spotify. */
       getNewReleases: this.bindChannelFn(Album.getNewReleases),
     }
   }
 
   public get artist() {
     return {
+      /** Get Spotify catalog information for a single artist identified by their Spotify ID. */
       get: this.bindChannelFn(Artist.get),
+      /** @deprecated Get Spotify catalog information for several artists based on their Spotify IDs. */
       getSeveral: this.bindChannelFn(Artist.getSeveral),
+      /** Get Spotify catalog information about an artist's albums. */
       getAlbums: this.bindChannelFn(Artist.getAlbums),
+      /** @deprecated Get Spotify catalog information about an artist's top tracks. */
       getTopTracks: this.bindChannelFn(Artist.getTopTracks),
+      /** @deprecated Get Spotify catalog information about artists similar to a given artist. */
       getRelatedArtists: this.bindChannelFn(Artist.getRelatedArtists),
     }
   }
 
   public get audiobook() {
     return {
+      /** Get Spotify catalog information for a single audiobook. */
       get: this.bindChannelFn(Audiobook.get),
+      /** @deprecated Get Spotify catalog information for several audiobooks identified by their Spotify IDs. */
       getSeveral: this.bindChannelFn(Audiobook.getSeveral),
+      /** Get Spotify catalog information about an audiobook's chapters. */
       getChapters: this.bindChannelFn(Audiobook.getChapters),
+      /** Get a list of audiobooks saved in the current Spotify user's library. */
       getSaved: this.bindChannelFn(Audiobook.getSaved),
+      /** @deprecated Save one or more audiobooks to the current Spotify user's library. */
       saveForCurrentUser: this.bindChannelFn(Audiobook.saveForCurrentUser),
+      /** @deprecated Remove one or more audiobooks from the current Spotify user's library. */
       removeForCurrentUser: this.bindChannelFn(Audiobook.removeForCurrentUser),
+      /** @deprecated Check if one or more audiobooks are already saved in the current Spotify user's library. */
       checkSavedForCurrentUser: this.bindChannelFn(Audiobook.checkSavedForCurrentUser),
     }
   }
 
   public get category() {
     return {
+      /** @deprecated Get a list of categories used to tag items in Spotify. */
       getSeveral: this.bindChannelFn(Category.getSeveral),
+      /** @deprecated Get a single category used to tag items in Spotify. */
       get: this.bindChannelFn(Category.get),
     }
   }
 
   public get chapter() {
     return {
+      /** Get Spotify catalog information for a single audiobook chapter. */
       get: this.bindChannelFn(Chapter.get),
+      /** @deprecated Get Spotify catalog information for several audiobook chapters identified by their Spotify IDs. */
       getSeveral: this.bindChannelFn(Chapter.getSeveral),
     }
   }
 
   public get episode() {
     return {
+      /** Get Spotify catalog information for a single episode identified by its Spotify ID. */
       get: this.bindChannelFn(Episode.get),
+      /** @deprecated Get Spotify catalog information for several episodes based on their Spotify IDs. */
       getSeveral: this.bindChannelFn(Episode.getSeveral),
+      /** Get a list of episodes saved in the current Spotify user's library. */
       getSaved: this.bindChannelFn(Episode.getSaved),
+      /** @deprecated Save one or more episodes to the current user's library. */
       saveForCurrentUser: this.bindChannelFn(Episode.saveForCurrentUser),
+      /** @deprecated Remove one or more episodes from the current user's library. */
       removeForCurrentUser: this.bindChannelFn(Episode.removeForCurrentUser),
+      /** @deprecated Check if one or more episodes are already saved in the current user's library. */
       checkSavedForCurrentUser: this.bindChannelFn(Episode.checkSavedForCurrentUser),
     }
   }
 
   public get genre() {
     return {
+      /** @deprecated Retrieve available genres that can be used as recommendation seeds. */
       getRecommendationSeeds: this.bindChannelFn(Genre.getRecommendationSeeds),
     }
   }
 
   public get library() {
     return {
+      /** Save one or more items to the current user's library using Spotify URIs. */
       saveItems: this.bindChannelFn(Library.saveItems),
+      /** Remove one or more items from the current user's library using Spotify URIs. */
       removeItems: this.bindChannelFn(Library.removeItems),
+      /** Check if one or more items are saved in the current user's library using Spotify URIs. */
       containsItems: this.bindChannelFn(Library.containsItems),
     }
   }
 
   public get market() {
     return {
+      /** @deprecated Get the list of markets where Spotify is available. */
       getAvailable: this.bindChannelFn(Market.getAvailable),
     }
   }
 
   public get playlist() {
     return {
+      /** Get a playlist owned by a Spotify user. */
       get: this.bindChannelFn(Playlist.get),
+      /** Change a playlist's details. */
       changeDetails: this.bindChannelFn(Playlist.changeDetails),
+      /** @deprecated Deprecated endpoint alias for getItems(). */
       getTracks: this.bindChannelFn(Playlist.getTracks),
+      /** @deprecated Deprecated endpoint alias for updateItems(). */
       updateTracks: this.bindChannelFn(Playlist.updateTracks),
+      /** @deprecated Deprecated endpoint alias for addItems(). */
       addTracks: this.bindChannelFn(Playlist.addTracks),
+      /** @deprecated Deprecated endpoint alias for removeItems(). */
       removeTracks: this.bindChannelFn(Playlist.removeTracks),
+      /** Get full details of the items of a playlist. */
       getItems: this.bindChannelFn(Playlist.getItems),
+      /** Update playlist items (replace or reorder). */
       updateItems: this.bindChannelFn(Playlist.updateItems),
+      /** Add items to a playlist. */
       addItems: this.bindChannelFn(Playlist.addItems),
+      /** Remove items from a playlist. */
       removeItems: this.bindChannelFn(Playlist.removeItems),
+      /** Get current user's playlists. */
       getCurrentUserPlaylists: this.bindChannelFn(Playlist.getCurrentUserPlaylists),
+      /** Create a playlist for the current user. */
       create: this.bindChannelFn(Playlist.create),
+      /** @deprecated Get a list of the playlists owned or followed by a Spotify user. */
       getUserPlaylists: this.bindChannelFn(Playlist.getUserPlaylists),
+      /** @deprecated Create a playlist for a specific Spotify user. */
       createForUser: this.bindChannelFn(Playlist.createForUser),
+      /** @deprecated Get Spotify featured playlists. */
       getFeatured: this.bindChannelFn(Playlist.getFeatured),
+      /** @deprecated Get playlists for a specific browse category. */
       getCategoryPlaylists: this.bindChannelFn(Playlist.getCategoryPlaylists),
+      /** Get playlist cover images. */
       getCover: this.bindChannelFn(Playlist.getCover),
+      /** Replace playlist cover image with base64 encoded JPEG data. */
       uploadCover: this.bindChannelFn(Playlist.uploadCover),
     }
   }
 
   public get search() {
     return {
+      /** Search Spotify catalog for matching items. */
       query: this.bindChannelFn(Search.query),
     }
   }
 
   public get show() {
     return {
+      /** Get Spotify catalog information for a single show identified by its Spotify ID. */
       get: this.bindChannelFn(Show.get),
+      /** @deprecated Get Spotify catalog information for several shows based on their Spotify IDs. */
       getSeveral: this.bindChannelFn(Show.getSeveral),
+      /** Get Spotify catalog information about a show's episodes. */
       getEpisodes: this.bindChannelFn(Show.getEpisodes),
+      /** Get a list of shows saved in the current Spotify user's library. */
       getSaved: this.bindChannelFn(Show.getSaved),
+      /** @deprecated Save one or more shows to the current Spotify user's library. */
       saveForCurrentUser: this.bindChannelFn(Show.saveForCurrentUser),
+      /** @deprecated Remove one or more shows from the current Spotify user's library. */
       removeForCurrentUser: this.bindChannelFn(Show.removeForCurrentUser),
+      /** @deprecated Check if one or more shows are already saved in the current Spotify user's library. */
       checkSavedForCurrentUser: this.bindChannelFn(Show.checkSavedForCurrentUser),
     }
   }
 
   public get track() {
     return {
+      /** Get Spotify catalog information for a single track identified by its Spotify ID. */
       get: this.bindChannelFn(Track.get),
+      /** @deprecated Get Spotify catalog information for several tracks based on their Spotify IDs. */
       getSeveral: this.bindChannelFn(Track.getSeveral),
+      /** Get a list of tracks saved in the current Spotify user's library. */
       getSaved: this.bindChannelFn(Track.getSaved),
+      /** @deprecated Save one or more tracks to the current user's library. */
       saveForCurrentUser: this.bindChannelFn(Track.saveForCurrentUser),
+      /** @deprecated Remove one or more tracks from the current user's library. */
       removeForCurrentUser: this.bindChannelFn(Track.removeForCurrentUser),
+      /** @deprecated Check if one or more tracks are already saved in the current user's library. */
       checkSavedForCurrentUser: this.bindChannelFn(Track.checkSavedForCurrentUser),
+      /** @deprecated Get audio features for multiple tracks based on their Spotify IDs. */
       getSeveralAudioFeatures: this.bindChannelFn(Track.getSeveralAudioFeatures),
+      /** @deprecated Get audio feature information for a single track identified by its Spotify ID. */
       getAudioFeatures: this.bindChannelFn(Track.getAudioFeatures),
+      /** @deprecated Get low-level audio analysis for a single track identified by its Spotify ID. */
       getAudioAnalysis: this.bindChannelFn(Track.getAudioAnalysis),
+      /** @deprecated Get recommendations based on seed artists, tracks, and genres. */
       getRecommendations: this.bindChannelFn(Track.getRecommendations),
     }
   }
