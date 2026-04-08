@@ -62,7 +62,7 @@ export function RequiresPermission(permission: TwitchPermissions | TwitchPermiss
                 console.withSender("PERM").withPrefix(`[${source.IAM.login}]`).warn(`Permission check failed for ${message.chatter_user_name} (ID: ${message.chatter_user_id}) in ${target.name ?? target.constructor.name}#${propertyKey}(). Required: ${requiredPermsText}, User's highest: ${userPerm}`);
 
                 if (!config.silent) {
-                    this.bot.withChannel(source).sendMessage(`@${message.chatter_user_name}, you do not have permission to use this command.`, {
+                    this.bot.channel(source).sendMessage(`@${message.chatter_user_name}, you do not have permission to use this command.`, {
                         replyTo: message.message_id,
                     });
                 }

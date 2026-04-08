@@ -29,7 +29,7 @@ export default class UnbypassCMD extends WaiterCommand {
 
     // needs to have type and scope
     if (!unbypassArgs.type) {
-      return this.bot.withChannel(channel).sendMessage("Invalid command format. Use: !unbypass type:<type> [scope:<scope>]", { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !unbypass type:<type> [scope:<scope>]", { replyTo: message.message_id });
     }
 
     unbypassArgs.scope = unbypassArgs.scope ?? channel.IAM.id;
@@ -59,9 +59,9 @@ export default class UnbypassCMD extends WaiterCommand {
     if (bypass) {
       global.twitch.bypasses.delete(bypass);
       this.logger.warn(`Bypass removed by ${message.chatter_user_name} (${message.chatter_user_id}): type="${unbypassArgs.type}"${unbypassArgs.scope ? `, scope="${unbypassArgs.scope}"` : ""}`);
-      return this.bot.withChannel(channel).sendMessage(removedBypassMessage, { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage(removedBypassMessage, { replyTo: message.message_id });
     } else {
-      return this.bot.withChannel(channel).sendMessage(noBypassMessage, { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage(noBypassMessage, { replyTo: message.message_id });
     }
 
   }

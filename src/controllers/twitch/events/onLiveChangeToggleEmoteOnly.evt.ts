@@ -34,17 +34,17 @@ export default class OLCTE extends WaiterEvent {
         return;
       }
 
-      const chatSettings = await this.bot.withChannel(streamer).getChatSettings();
+      const chatSettings = await this.bot.channel(streamer).getChatSettings();
       if (newStatus) {
         if (chatSettings?.emote_mode) {
           this.logger.debug(`[${streamer.IAM.login}] Disabling emote only mode due to stream going live.`);
-          await this.bot.withChannel(streamer).setEmoteOnly(false)
+          await this.bot.channel(streamer).setEmoteOnly(false)
         }
       } else {
         if (!chatSettings?.emote_mode) {
           this.logger.debug(`[${streamer.IAM.login}] Enabling emote only mode due to stream going offline.`);
 
-          await this.bot.withChannel(streamer).setEmoteOnly(true)
+          await this.bot.channel(streamer).setEmoteOnly(true)
         }
       }
     }

@@ -103,7 +103,7 @@ export default class OMCL extends WaiterEvent {
         const formattedMentions = mentionedLurks.length > 1 ? 
           mentionedLurks.slice(0, -1).join(", @") + ", and @" + mentionedLurks.slice(-1) : 
           mentionedLurks.join(", @");
-        await this.bot.withChannel(data.event.broadcaster_user_id).sendMessage(`@${formattedMentions} ${mentionedLurks.length == 1 ? "is" : "are"} currently lurking! They may not respond to your message.`, { replyTo: data.event.message_id});
+        await this.bot.channel(data.event.broadcaster_user_id).sendMessage(`@${formattedMentions} ${mentionedLurks.length == 1 ? "is" : "are"} currently lurking! They may not respond to your message.`, { replyTo: data.event.message_id});
       }
     } 
   }

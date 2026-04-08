@@ -352,3 +352,7 @@ export async function hasSpotifyTokenStored(anyId: string | RecordId) {
 
   return !!token;
 }
+
+
+export type OnlyOneOf<T, U> = (T & { [K in keyof U]?: never }) | (U & { [K in keyof T]?: never });
+

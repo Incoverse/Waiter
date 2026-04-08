@@ -133,7 +133,14 @@ if (!configFile) {
 
 const config = await importLocalModule(configFile)
   .then((mod) => mod.default)
-  .catch(() => ({}));
+  .catch(() => {
+    return "IMPORT_ERROR"
+  });
+
+if (config == "IMPORT_ERROR") {
+  console.fatal("An error occurred while importing the config file. Please make sure it is valid and does not contain any syntax errors.");
+  process.exit(1);
+}
 
 const parseResult = configSchema.safeParse(config);
 

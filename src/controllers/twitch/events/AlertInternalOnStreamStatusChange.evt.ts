@@ -66,7 +66,7 @@ export default class OSSC extends WaiterEvent {
 
         for (const streamer of streamers) {
           const isStreaming = await streamer.isStreaming();
-          const channelInfo = await this.bot.withChannel(streamer.IAM.id).getChannelInfo();
+          const channelInfo = await this.bot.channel(streamer.IAM.id).getChannelInfo();
           this.channelInformation.set(streamer.IAM.id, channelInfo);
 
           this.logger.log(`[${streamer.IAM.login}] Stream is currently ${isStreaming ? "online" : "offline"}`);

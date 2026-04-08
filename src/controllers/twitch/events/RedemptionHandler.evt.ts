@@ -70,7 +70,7 @@ export default class TRED extends WaiterEvent {
         const manageableRewards = await streamer.getRewards(undefined, true)
   
         const isStreamLive = await streamer.isStreaming();
-        const streamInformation = await streamer.withChannel().getChannelInfo() || null;
+        const streamInformation = await streamer.channel().getChannelInfo() || null;
 
 
           if (instantiatedTrigger.settings.type === "internal") {

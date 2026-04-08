@@ -16,6 +16,6 @@ export default class TestTrigger extends WaiterRedemptionTrigger {
   };
 
   public override async exec(streamer: TwitchClient, data: RedemptionInfo) {
-    await this.bot.withChannel(streamer).sendMessage(`Test trigger executed by @${data.redeemer.login} with input: ${data.redemption.user_input}`);
+    await this.bot.channel(streamer).sendMessage(`Test trigger executed by @${data.redeemer.login} with input: ${data.redemption.user_input}`);
   }
 }

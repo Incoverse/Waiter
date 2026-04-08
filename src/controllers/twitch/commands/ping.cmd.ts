@@ -16,7 +16,7 @@
  */
 
 import type TwitchClient from "@twitch/client";
-import WaiterCommand, { type ChannelMessage, type Message } from "@twitch/lib/base/WaiterCommand";
+import WaiterCommand, { type ChannelMessage } from "@twitch/lib/base/WaiterCommand";
 import CooldownSystem, { CooldownWrapper } from "../lib/cooldown";
 
 
@@ -30,7 +30,7 @@ export default class PingCMD extends WaiterCommand {
 
   @CooldownWrapper()
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
-    await this.bot.withChannel(channel).sendMessage(`Pong! I'm alive and well!`, { replyTo: message.message_id }).catch((err) => {
+    await this.bot.channel(channel).sendMessage(`Pong! I'm alive and well!`, { replyTo: message.message_id }).catch((err) => {
       this.logger.warn("Error sending ping response:", err);
     });
   }

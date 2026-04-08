@@ -11,7 +11,22 @@ import { registerRoute } from "../web";
 import { getRedirectURI } from "./lib/authentication";
 import type { SpotifyAuthDB } from "./types";
 
-import * as Playback from "./funcs/playback";
+import * as Album from "./funcs/album";
+import * as Artist from "./funcs/artist";
+import * as Audiobook from "./funcs/audiobook";
+import * as Category from "./funcs/category";
+import * as Chapter from "./funcs/chapter";
+import * as Episode from "./funcs/episode";
+import * as Genre from "./funcs/genre";
+import * as Library from "./funcs/library";
+import * as Market from "./funcs/market";
+import * as Player from "./funcs/player";
+import * as Playlist from "./funcs/playlist";
+import * as Search from "./funcs/search";
+import * as Show from "./funcs/show";
+import * as Track from "./funcs/track";
+import * as User from "./funcs/user";
+
 
 const SPOTSender = chalk.hex("#1DB954").bold("SPOT");
 export default class SpotifyClient {
@@ -334,7 +349,210 @@ export default class SpotifyClient {
 
   public get playback() {
     return {
-      get: this.bindChannelFn(Playback.get),
+      get: this.bindChannelFn(Player.get),
+      transfer: this.bindChannelFn(Player.transfer),
+      getDevices: this.bindChannelFn(Player.getDevices),
+      getCurrentlyPlaying: this.bindChannelFn(Player.getCurrentlyPlaying),
+      play: this.bindChannelFn(Player.play),
+      resume: this.bindChannelFn(Player.resume),
+      pause: this.bindChannelFn(Player.pause),
+      skipToPrevious: this.bindChannelFn(Player.skipToPrevious),
+      skipToNext: this.bindChannelFn(Player.skipToNext),
+      seek: this.bindChannelFn(Player.seek),
+      setRepeatMode: this.bindChannelFn(Player.setRepeatMode),
+      setVolume: this.bindChannelFn(Player.setVolume),
+      getVolume: this.bindChannelFn(Player.getVolume),
+      toggleShuffle: this.bindChannelFn(Player.toggleShuffle),
+      getRecentlyPlayed: this.bindChannelFn(Player.getRecentlyPlayed),
+      getQueue: this.bindChannelFn(Player.getQueue),
+      addToQueue: this.bindChannelFn(Player.addToQueue),
+    }
+  }
+
+  public get user() {
+    return {
+      get: this.bindChannelFn(User.get),
+      getTopItems: this.bindChannelFn(User.getTopItems),
+      getFollowedArtists: this.bindChannelFn(User.getFollowedArtists),
+    }
+  }
+
+  public get album() {
+    return {
+      get: this.bindChannelFn(Album.get),
+      getSeveral: this.bindChannelFn(Album.getSeveral),
+      getTracks: this.bindChannelFn(Album.getTracks),
+      getSaved: this.bindChannelFn(Album.getSaved),
+      saveForCurrentUser: this.bindChannelFn(Album.saveForCurrentUser),
+      removeForCurrentUser: this.bindChannelFn(Album.removeForCurrentUser),
+      checkSavedForCurrentUser: this.bindChannelFn(Album.checkSavedForCurrentUser),
+      getNewReleases: this.bindChannelFn(Album.getNewReleases),
+    }
+  }
+
+  public get artist() {
+    return {
+      get: this.bindChannelFn(Artist.get),
+      getSeveral: this.bindChannelFn(Artist.getSeveral),
+      getAlbums: this.bindChannelFn(Artist.getAlbums),
+      getTopTracks: this.bindChannelFn(Artist.getTopTracks),
+      getRelatedArtists: this.bindChannelFn(Artist.getRelatedArtists),
+    }
+  }
+
+  public get audiobook() {
+    return {
+      get: this.bindChannelFn(Audiobook.get),
+      getSeveral: this.bindChannelFn(Audiobook.getSeveral),
+      getChapters: this.bindChannelFn(Audiobook.getChapters),
+      getSaved: this.bindChannelFn(Audiobook.getSaved),
+      saveForCurrentUser: this.bindChannelFn(Audiobook.saveForCurrentUser),
+      removeForCurrentUser: this.bindChannelFn(Audiobook.removeForCurrentUser),
+      checkSavedForCurrentUser: this.bindChannelFn(Audiobook.checkSavedForCurrentUser),
+    }
+  }
+
+  public get category() {
+    return {
+      getSeveral: this.bindChannelFn(Category.getSeveral),
+      get: this.bindChannelFn(Category.get),
+    }
+  }
+
+  public get chapter() {
+    return {
+      get: this.bindChannelFn(Chapter.get),
+      getSeveral: this.bindChannelFn(Chapter.getSeveral),
+    }
+  }
+
+  public get episode() {
+    return {
+      get: this.bindChannelFn(Episode.get),
+      getSeveral: this.bindChannelFn(Episode.getSeveral),
+      getSaved: this.bindChannelFn(Episode.getSaved),
+      saveForCurrentUser: this.bindChannelFn(Episode.saveForCurrentUser),
+      removeForCurrentUser: this.bindChannelFn(Episode.removeForCurrentUser),
+      checkSavedForCurrentUser: this.bindChannelFn(Episode.checkSavedForCurrentUser),
+    }
+  }
+
+  public get genre() {
+    return {
+      getRecommendationSeeds: this.bindChannelFn(Genre.getRecommendationSeeds),
+    }
+  }
+
+  public get library() {
+    return {
+      saveItems: this.bindChannelFn(Library.saveItems),
+      removeItems: this.bindChannelFn(Library.removeItems),
+      containsItems: this.bindChannelFn(Library.containsItems),
+    }
+  }
+
+  public get market() {
+    return {
+      getAvailable: this.bindChannelFn(Market.getAvailable),
+    }
+  }
+
+  public get playlist() {
+    return {
+      get: this.bindChannelFn(Playlist.get),
+      changeDetails: this.bindChannelFn(Playlist.changeDetails),
+      getTracks: this.bindChannelFn(Playlist.getTracks),
+      updateTracks: this.bindChannelFn(Playlist.updateTracks),
+      addTracks: this.bindChannelFn(Playlist.addTracks),
+      removeTracks: this.bindChannelFn(Playlist.removeTracks),
+      getItems: this.bindChannelFn(Playlist.getItems),
+      updateItems: this.bindChannelFn(Playlist.updateItems),
+      addItems: this.bindChannelFn(Playlist.addItems),
+      removeItems: this.bindChannelFn(Playlist.removeItems),
+      getCurrentUserPlaylists: this.bindChannelFn(Playlist.getCurrentUserPlaylists),
+      create: this.bindChannelFn(Playlist.create),
+      getUserPlaylists: this.bindChannelFn(Playlist.getUserPlaylists),
+      createForUser: this.bindChannelFn(Playlist.createForUser),
+      getFeatured: this.bindChannelFn(Playlist.getFeatured),
+      getCategoryPlaylists: this.bindChannelFn(Playlist.getCategoryPlaylists),
+      getCover: this.bindChannelFn(Playlist.getCover),
+      uploadCover: this.bindChannelFn(Playlist.uploadCover),
+    }
+  }
+
+  public get search() {
+    return {
+      query: this.bindChannelFn(Search.query),
+    }
+  }
+
+  public get show() {
+    return {
+      get: this.bindChannelFn(Show.get),
+      getSeveral: this.bindChannelFn(Show.getSeveral),
+      getEpisodes: this.bindChannelFn(Show.getEpisodes),
+      getSaved: this.bindChannelFn(Show.getSaved),
+      saveForCurrentUser: this.bindChannelFn(Show.saveForCurrentUser),
+      removeForCurrentUser: this.bindChannelFn(Show.removeForCurrentUser),
+      checkSavedForCurrentUser: this.bindChannelFn(Show.checkSavedForCurrentUser),
+    }
+  }
+
+  public get track() {
+    return {
+      get: this.bindChannelFn(Track.get),
+      getSeveral: this.bindChannelFn(Track.getSeveral),
+      getSaved: this.bindChannelFn(Track.getSaved),
+      saveForCurrentUser: this.bindChannelFn(Track.saveForCurrentUser),
+      removeForCurrentUser: this.bindChannelFn(Track.removeForCurrentUser),
+      checkSavedForCurrentUser: this.bindChannelFn(Track.checkSavedForCurrentUser),
+      getSeveralAudioFeatures: this.bindChannelFn(Track.getSeveralAudioFeatures),
+      getAudioFeatures: this.bindChannelFn(Track.getAudioFeatures),
+      getAudioAnalysis: this.bindChannelFn(Track.getAudioAnalysis),
+      getRecommendations: this.bindChannelFn(Track.getRecommendations),
+    }
+  }
+
+  public get playable() {
+    return {
+      /**
+       * Resolves a Spotify URI (spotify:type:id) and fetches the referenced object.
+       *
+       * Example: spotify:album:2up3OPMp9Tb4dAKM2erWXQ
+       */
+      get: async (id: string) => {
+        const parts = id?.split(":");
+
+        if (!parts || parts.length < 3 || parts[0] !== "spotify") {
+          this.logger.warn("Invalid Spotify URI provided to playable.get():", id);
+          return null;
+        }
+
+        const type = parts[1];
+        const spotifyId = parts[2];
+
+        switch (type) {
+          case "album":
+            return this.album.get(spotifyId);
+          case "artist":
+            return this.artist.get(spotifyId);
+          case "audiobook":
+            return this.audiobook.get(spotifyId);
+          case "chapter":
+            return this.chapter.get(spotifyId);
+          case "episode":
+            return this.episode.get(spotifyId);
+          case "playlist":
+            return this.playlist.get(spotifyId);
+          case "show":
+            return this.show.get(spotifyId);
+          case "track":
+            return this.track.get(spotifyId);
+          default:
+            this.logger.warn(`Unsupported Spotify URI type for playable.get(): ${type}`);
+            return null;
+        }
+      }
     }
   }
 

@@ -3,12 +3,13 @@ import { DataFilter, type ChannelSpecificWrapper } from "@twitch/client";
 const MOD_RIGHTS_CACHE_TTL_MS = 30 * 1000;
 
 function getModRightsCacheKey(channelId: string, id: string): string {
-  return `mod-rights:${channelId}:${id}`;
+  return `mod-rights:c${channelId}:u${id}`;
 }
 
 
 export async function add(this: ChannelSpecificWrapper, id: string) {
-  return this.twcl.api.post(`/moderation/moderators`, {
+
+  return this.twcl.api.post(`/moderation/moderators`, null, {
     params: {
       user_id: id,
       broadcaster_id: this.channelId
@@ -16,7 +17,7 @@ export async function add(this: ChannelSpecificWrapper, id: string) {
   }).then((res) => {
     this.twcl.cache.set(getModRightsCacheKey(this.channelId, id), true, MOD_RIGHTS_CACHE_TTL_MS);
     return res;
-  }).catch(() => null);
+  });
 }
 
 export async function remove(this: ChannelSpecificWrapper, id: string) {
@@ -28,7 +29,7 @@ export async function remove(this: ChannelSpecificWrapper, id: string) {
   }).then((res) => {
     this.twcl.cache.set(getModRightsCacheKey(this.channelId, id), false, MOD_RIGHTS_CACHE_TTL_MS);
     return res;
-  }).catch(() => null);
+  });
 }
 
 export async function is(this: ChannelSpecificWrapper, id: string, forceFetch = false): Promise<boolean> {

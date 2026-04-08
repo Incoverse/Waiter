@@ -48,14 +48,14 @@ export default class CacheManager<K = string, V = any> {
     const entry = this.cache.get(key);
     if (!entry) {
       if (this.settings.loggingEnabled) {
-        this.settings.logger.warn(`[${this.settings.name}] Cache miss - ${String(key)} (not found)`);
+        this.settings.logger.debug(`[${this.settings.name}] Cache miss - ${String(key)} (not found)`);
       }
       return null;
     };
     if (this.isExpired(entry)) {
       this.cache.delete(key);
       if (this.settings.loggingEnabled) {
-        this.settings.logger.warn(`[${this.settings.name}] Cache miss - ${String(key)} (expired)`);
+        this.settings.logger.debug(`[${this.settings.name}] Cache miss - ${String(key)} (expired)`);
       }
       return null;
     }

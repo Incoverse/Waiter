@@ -16,6 +16,7 @@
  */
 
 import { getSpotifyClient } from "@/controllers/spotify/lib/misc";
+import { resolveId } from "@/controllers/spotify/misc";
 import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type ChannelMessage } from "@twitch/lib/base/WaiterCommand";
 import CooldownSystem, { CooldownWrapper } from "@twitch/lib/cooldown";
@@ -23,8 +24,8 @@ import { StreamerHasSpotifyLinked, StreamerIsLive } from "../../lib/conditions";
 import { RequiresPermission, TwitchPermissions } from "../../lib/misc";
 
 
-export default class SongCMD extends WaiterCommand {
-  public messageTrigger: RegExp = /^!song$/;
+export default class WhatIsCMD extends WaiterCommand {
+  public messageTrigger: RegExp = /^!whatis\s+(.*)$/;
 
   public override cooldown: CooldownSystem = new CooldownSystem({
     type: "user",
@@ -34,7 +35,7 @@ export default class SongCMD extends WaiterCommand {
   @RequiresPermission(TwitchPermissions.Developer) //? <-- User is a Waiter Developer (Temporarily require developer permissions while the command is being tested.)
   @StreamerIsLive() //? <-- Streamer must be live to use the command, since it doesn't make sense to check the currently playing song if the stream isn't live.
   @StreamerHasSpotifyLinked() //? <-- Streamer must have their Spotify account linked to use the command, since we need access to their Spotify data to get the currently playing song.
-  @CooldownWrapper() //? <-- Apply the cooldown to prevent spam, since fetching the currently playing song involves making requests to the Spotify API which could potentially be rate limited if abused.
+  @CooldownWrapper() //? <-- Apply the cooldown system to this command.
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
 
     const spotify = getSpotifyClient(channel.waiterUserId);
@@ -44,29 +45,27 @@ export default class SongCMD extends WaiterCommand {
       return;
     }
 
-    const song = await spotify.playback.get();
-
-    if (!song || !song.item || !song.is_playing) {
-      return this.bot.channel(channel).sendMessage(`No song is currently playing!`, { replyTo: message.message_id });
+    const arg1 = message.message.text.match(this.messageTrigger)?.[1].trim();
+    
+    if (!arg1) {
+      return this.bot.channel(channel).sendMessage(`Please provide a Spotify track, album, artist, or playlist URL or URI!`, { replyTo: message.message_id });
     }
 
-    if (song.item.type == "track") {
-      let artistsByName = song.item.artists.map((a: any) => a.name)
+    const sid = resolveId(arg1);
 
-      let artistString = "";
-      if (artistsByName.length > 2) {   
-        //? Artist A, Artist B, and Artist C
-        artistString = artistsByName.slice(0, -1).join(", ") + ", and " + artistsByName.slice(-1);
-      } else {
-        //? Artist A
-        //? Artist A and Artist B
-        artistString = artistsByName.join(" and ");
-      }
-
-      const songName = song.item.name;
-      const onDevice = song.device ? song.device.name : "an unknown device";
-
-      return this.bot.channel(channel).sendMessage(`Currently playing: "${songName}" by ${artistString} on ${onDevice}.`, { replyTo: message.message_id });
+    if (!sid) {
+      return this.bot.channel(channel).sendMessage(`Could not resolve a Spotify ID from your input.`, { replyTo: message.message_id });
     }
+
+    const thing = await spotify.playable.get(sid);
+
+    if (!thing) {
+      return this.bot.channel(channel).sendMessage(`Could not find any Spotify item with the provided ID.`, { replyTo: message.message_id });
+    }
+
+    return this.bot.channel(channel).sendMessage(`That is ${thing.type} "${thing.name}"`, { replyTo: message.message_id });
+
+
+
   }
 }

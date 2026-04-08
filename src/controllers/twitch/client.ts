@@ -788,7 +788,7 @@ export default class TwitchClient {
   }
   public getSubscriptions = () => this.api.get(`/eventsub/subscriptions`).then(ResData).catch(()=>null)
 
-  public withChannel = (channelId: string | TwitchClient = this) => new ChannelSpecificWrapper(this, channelId);
+  public channel = (channelId: string | TwitchClient = this) => new ChannelSpecificWrapper(this, channelId);
   public resolveUserId = async (user: UserResolvable): Promise<string | null> => {
     if (typeof user === "string") {
       if (/^\d+$/.test(user)) {

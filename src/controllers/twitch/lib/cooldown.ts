@@ -245,7 +245,7 @@ export function CooldownWrapper() {
 
           if (cooldownResult.message) {
             if (isChannelMessage) { 
-              await this.bot.withChannel(source).sendMessage(cooldownResult.message, { replyTo: message.message_id }).catch((err: Error) => {
+              await this.bot.channel(source).sendMessage(cooldownResult.message, { replyTo: message.message_id }).catch((err: Error) => {
                 this.logger.warn("Error sending cooldown message:", err);
               });
             } else {

@@ -24,7 +24,7 @@ export function StreamerIsLive(silent: boolean = false) {
 
         if (!liveBypassCheck(source)) { 
           if (!silent) {
-            await this.bot.withChannel(source).sendMessage(`This command can only be used while the stream is live!`, { replyTo: message.message_id });
+            await this.bot.channel(source).sendMessage(`This command can only be used while the stream is live!`, { replyTo: message.message_id });
           }
           return;
         }
@@ -53,7 +53,7 @@ export function UserIsRegisteredStreamer(silent: boolean = false) {
 
       if (!userId || !global.twitch.streamerData[userId]) {
         if (!silent) {
-          await this.bot.withChannel(source).sendMessage(`You must be a registered streamer to use this command!`, { replyTo: "message_id" in message ? message.message_id : undefined });
+          await this.bot.channel(source).sendMessage(`You must be a registered streamer to use this command!`, { replyTo: "message_id" in message ? message.message_id : undefined });
         }
         
         return;
@@ -79,7 +79,7 @@ export function StreamerHasDiscordLinked(silent: boolean = true) {
       const discordAcc = await getDiscord(source.IAM.id);
       if (!discordAcc) {
         if (!silent) {
-          await this.bot.withChannel(source).sendMessage(`${message.broadcaster_user_name} must link their Discord account to Waiter for this command to be available.`, { replyTo: message.message_id });
+          await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must link their Discord account to Waiter for this command to be available.`, { replyTo: message.message_id });
         }
         return;
       }
@@ -105,7 +105,7 @@ export function StreamerHasSpotifyLinked(silent: boolean = true) {
       const spotifyAcc = await getSpotifyClient(source.waiterUserId);
       if (!spotifyAcc) {
         if (!silent) {
-          await this.bot.withChannel(source).sendMessage(`${message.broadcaster_user_name} must link their Spotify account to Waiter for this command to be available.`, { replyTo: "message_id" in message ? message.message_id : undefined });
+          await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must link their Spotify account to Waiter for this command to be available.`, { replyTo: "message_id" in message ? message.message_id : undefined });
         }
         return;
       }

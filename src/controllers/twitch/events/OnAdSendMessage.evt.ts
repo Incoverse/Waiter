@@ -48,13 +48,13 @@ export default class OASIM extends WaiterEvent {
         .replace(/{{duration}}/g, formatDuration(data.event.duration_seconds * 1000));
 
       setTimeout(async () => {
-        await this.bot.withChannel(source).sendMessage(adEndNotification).catch((err) => {
+        await this.bot.channel(source).sendMessage(adEndNotification).catch((err) => {
           this.logger.warn("Error sending ad end message:", err);
         });
       }, data.event.duration_seconds * 1000);
 
 
-      await this.bot.withChannel(source).sendMessage(adStartNotification).catch((err) => {
+      await this.bot.channel(source).sendMessage(adStartNotification).catch((err) => {
         this.logger.warn("Error sending ad break message:", err);
       });
 
