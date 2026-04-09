@@ -243,6 +243,8 @@ export function CooldownWrapper() {
         if (!cooldownResult.valid) {
           const isChannelMessage = "chatter_user_id" in message;
 
+          this.logger.debug(`Cooldown check failed for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${"chatter_user_id" in message ? message.chatter_user_id : message.from_user_id}). Command execution blocked.`);
+
           if (cooldownResult.message) {
             if (isChannelMessage) { 
               await this.bot.channel(source).sendMessage(cooldownResult.message, { replyTo: message.message_id }).catch((err: Error) => {

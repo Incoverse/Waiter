@@ -26,7 +26,7 @@ export async function query(this: SpotifyClient, q: string, type: SearchItemType
 	}).then((res) => {
 		return res.data as SearchResponse;
 	}).catch((e) => {
-		this.logger.warn("Error searching Spotify catalog:", e.response?.data || e.message);
+		this.logger.warn("Error searching Spotify catalog:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }

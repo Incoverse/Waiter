@@ -23,13 +23,14 @@ export function StreamerIsLive(silent: boolean = false) {
       if (!global.twitch.streamerData[source.IAM.id]?.isStreaming) {
 
         if (!liveBypassCheck(source)) { 
+          this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) is not live.`);
           if (!silent) {
             await this.bot.channel(source).sendMessage(`This command can only be used while the stream is live!`, { replyTo: message.message_id });
           }
           return;
         }
 
-        this.logger.warn(`Streamer ${source.IAM.display_name} (${source.IAM.id}) is not live, but a bypass is allowing the command to execute.`);
+        this.logger.warn(`Streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) is not live, but a bypass is allowing the command to execute.`);
       }
 
       return originalMethod.apply(this, [source, message, ...args]);
@@ -52,6 +53,7 @@ export function UserIsRegisteredStreamer(silent: boolean = false) {
       const userId = "chatter_user_id" in message ? message.chatter_user_id : message.from_user_id;
 
       if (!userId || !global.twitch.streamerData[userId]) {
+        this.logger.debug(`Command is being blocked because user ${"chatter_user_name" in message ? message.chatter_user_name : "Unknown"} (ID: ${userId}) is not a registered streamer in Waiter.`);
         if (!silent) {
           await this.bot.channel(source).sendMessage(`You must be a registered streamer to use this command!`, { replyTo: "message_id" in message ? message.message_id : undefined });
         }
@@ -78,6 +80,7 @@ export function StreamerHasDiscordLinked(silent: boolean = true) {
     ) {
       const discordAcc = await getDiscord(source.IAM.id);
       if (!discordAcc) {
+        this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) does not have a linked Discord account.`);
         if (!silent) {
           await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must link their Discord account to Waiter for this command to be available.`, { replyTo: message.message_id });
         }
@@ -104,6 +107,7 @@ export function StreamerHasSpotifyLinked(silent: boolean = true) {
 
       const spotifyAcc = await getSpotifyClient(source.waiterUserId);
       if (!spotifyAcc) {
+        this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) does not have a linked Spotify account.`);
         if (!silent) {
           await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must link their Spotify account to Waiter for this command to be available.`, { replyTo: "message_id" in message ? message.message_id : undefined });
         }

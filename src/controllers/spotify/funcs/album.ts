@@ -12,7 +12,7 @@ export async function get(this: SpotifyClient, id: string): Promise<GetAlbumResp
   return this.api.get(`/albums/${id}`).then((res) => {
     return res.data as GetAlbumResponse;
   }).catch((e) => {
-    this.logger.warn("Error fetching album information:", e.response?.data || e.message);
+    this.logger.warn("Error fetching album information:", e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   })
 }
@@ -31,7 +31,7 @@ export async function getSeveral(this: SpotifyClient, ids: string[]): Promise<Ge
   }).then((res) => {
     return (res.data as GetSeveralAlbumsResponse).albums;
   }).catch((e) => {
-    this.logger.warn("Error fetching multiple albums:", e.response?.data || e.message);
+    this.logger.warn("Error fetching multiple albums:", e.response?.data?.error?.message || e.response?.data || e.message);
     return [];
   });
 }
@@ -46,7 +46,7 @@ export async function getTracks(this: SpotifyClient, id: string, options: {
   }).then((res) => {
     return res.data as AlbumTracksResponse;
   }).catch((e) => {
-    this.logger.warn("Error fetching album tracks:", e.response?.data || e.message);
+    this.logger.warn("Error fetching album tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   });
 }
@@ -61,7 +61,7 @@ export async function getSaved(this: SpotifyClient, options: {
   }).then((res) => {
     return res.data as SavedAlbumsResponse;
   }).catch((e) => {
-    this.logger.warn("Error fetching saved albums:", e.response?.data || e.message);
+    this.logger.warn("Error fetching saved albums:", e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   });
 }
@@ -80,7 +80,7 @@ export async function saveForCurrentUser(this: SpotifyClient, ids: string[]): Pr
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error saving albums for current user:", e.response?.data || e.message);
+    this.logger.warn("Error saving albums for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -99,7 +99,7 @@ export async function removeForCurrentUser(this: SpotifyClient, ids: string[]): 
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error removing saved albums for current user:", e.response?.data || e.message);
+    this.logger.warn("Error removing saved albums for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -118,7 +118,7 @@ export async function checkSavedForCurrentUser(this: SpotifyClient, ids: string[
   }).then((res) => {
     return res.data as boolean[];
   }).catch((e) => {
-    this.logger.warn("Error checking saved albums for current user:", e.response?.data || e.message);
+    this.logger.warn("Error checking saved albums for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
     return [];
   });
 }
@@ -134,7 +134,7 @@ export async function getNewReleases(this: SpotifyClient, options: {
   }).then((res) => {
     return res.data as NewReleasesResponse;
   }).catch((e) => {
-    this.logger.warn("Error fetching new releases:", e.response?.data || e.message);
+    this.logger.warn("Error fetching new releases:", e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   });
 }

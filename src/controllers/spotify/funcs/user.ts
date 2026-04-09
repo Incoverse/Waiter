@@ -9,7 +9,7 @@ export async function get(this: SpotifyClient, userId?: string): Promise<Current
   return await this.api.get(userId ? `/users/${userId}` : "/me").then((res) => {
     return res.data as CurrentUserProfile | UserProfile;
   }).catch((e) => {
-    this.logger.warn(`Error fetching user profile${userId ? ` (UID: ${userId})` : ""}:`, e.response?.data || e.message);
+    this.logger.warn(`Error fetching user profile${userId ? ` (UID: ${userId})` : ""}:`, e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   });
 }
@@ -33,7 +33,7 @@ export async function getTopItems(this: SpotifyClient, type: "artists" | "tracks
   }).then((res) => {
     return (res.data as TopItemsResponse).items;
   }).catch((e) => {
-    this.logger.warn(`Error fetching top ${type}:`, e.response?.data || e.message);
+    this.logger.warn(`Error fetching top ${type}:`, e.response?.data?.error?.message || e.response?.data || e.message);
     return [];
   });
 }
@@ -51,7 +51,7 @@ export async function getFollowedArtists(this: SpotifyClient, options: {
   }).then((res) => {
     return res.data.artists?.items as FollowedArtistsResponse["items"];
   }).catch((e) => {
-    this.logger.warn("Error fetching followed artists:", e.response?.data || e.message);
+    this.logger.warn("Error fetching followed artists:", e.response?.data?.error?.message || e.response?.data || e.message);
     return [];
   });
 }

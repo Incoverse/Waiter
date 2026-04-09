@@ -11,7 +11,7 @@ export async function get(this: SpotifyClient, id: string): Promise<AudiobookObj
 	return this.api.get(`/audiobooks/${id}`).then((res) => {
 		return res.data as AudiobookObject;
 	}).catch((e) => {
-		this.logger.warn("Error fetching audiobook information:", e.response?.data || e.message);
+		this.logger.warn("Error fetching audiobook information:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -30,7 +30,7 @@ export async function getSeveral(this: SpotifyClient, ids: string[]): Promise<Ge
 	}).then((res) => {
 		return (res.data as GetSeveralAudiobooksResponse).audiobooks;
 	}).catch((e) => {
-		this.logger.warn("Error fetching multiple audiobooks:", e.response?.data || e.message);
+		this.logger.warn("Error fetching multiple audiobooks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
@@ -45,7 +45,7 @@ export async function getChapters(this: SpotifyClient, id: string, options: {
 	}).then((res) => {
 		return res.data as AudiobookChaptersResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching audiobook chapters:", e.response?.data || e.message);
+		this.logger.warn("Error fetching audiobook chapters:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -60,7 +60,7 @@ export async function getSaved(this: SpotifyClient, options: {
 	}).then((res) => {
 		return res.data as SavedAudiobooksResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching saved audiobooks:", e.response?.data || e.message);
+		this.logger.warn("Error fetching saved audiobooks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -79,7 +79,7 @@ export async function saveForCurrentUser(this: SpotifyClient, ids: string[]): Pr
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error saving audiobooks for current user:", e.response?.data || e.message);
+		this.logger.warn("Error saving audiobooks for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -98,7 +98,7 @@ export async function removeForCurrentUser(this: SpotifyClient, ids: string[]): 
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error removing saved audiobooks for current user:", e.response?.data || e.message);
+		this.logger.warn("Error removing saved audiobooks for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -117,7 +117,7 @@ export async function checkSavedForCurrentUser(this: SpotifyClient, ids: string[
 	}).then((res) => {
 		return res.data as boolean[];
 	}).catch((e) => {
-		this.logger.warn("Error checking saved audiobooks for current user:", e.response?.data || e.message);
+		this.logger.warn("Error checking saved audiobooks for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }

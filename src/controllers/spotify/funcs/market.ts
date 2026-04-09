@@ -6,7 +6,7 @@ export async function getAvailable(this: SpotifyClient): Promise<AvailableMarket
 	return this.api.get("/markets").then((res) => {
 		return (res.data as AvailableMarketsResponse).markets;
 	}).catch((e) => {
-		this.logger.warn("Error fetching available markets:", e.response?.data || e.message);
+		this.logger.warn("Error fetching available markets:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }

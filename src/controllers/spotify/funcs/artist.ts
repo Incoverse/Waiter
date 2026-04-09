@@ -1,11 +1,11 @@
 import type SpotifyClient from "../client";
 import type {
-  ArtistAlbumsResponse,
-  ArtistObject,
-  ArtistTopTracksResponse,
-  GetSeveralArtistsResponse,
-  RelatedArtistsResponse,
-  TrackObject,
+    ArtistAlbumsResponse,
+    ArtistObject,
+    ArtistTopTracksResponse,
+    GetSeveralArtistsResponse,
+    RelatedArtistsResponse,
+    TrackObject,
 } from "../types";
 
 /** Get Spotify catalog information for a single artist identified by their Spotify ID. */
@@ -13,7 +13,7 @@ export async function get(this: SpotifyClient, id: string): Promise<ArtistObject
 	return this.api.get(`/artists/${id}`).then((res) => {
 		return res.data as ArtistObject;
 	}).catch((e) => {
-		this.logger.warn("Error fetching artist information:", e.response?.data || e.message);
+		this.logger.warn("Error fetching artist information:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -32,7 +32,7 @@ export async function getSeveral(this: SpotifyClient, ids: string[]): Promise<Ge
 	}).then((res) => {
 		return (res.data as GetSeveralArtistsResponse).artists;
 	}).catch((e) => {
-		this.logger.warn("Error fetching multiple artists:", e.response?.data || e.message);
+		this.logger.warn("Error fetching multiple artists:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
@@ -53,7 +53,7 @@ export async function getAlbums(this: SpotifyClient, id: string, options: {
 	}).then((res) => {
 		return res.data as ArtistAlbumsResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching artist albums:", e.response?.data || e.message);
+		this.logger.warn("Error fetching artist albums:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -63,7 +63,7 @@ export async function getTopTracks(this: SpotifyClient, id: string): Promise<Tra
 	return this.api.get(`/artists/${id}/top-tracks`).then((res) => {
 		return (res.data as ArtistTopTracksResponse).tracks;
 	}).catch((e) => {
-		this.logger.warn("Error fetching artist top tracks:", e.response?.data || e.message);
+		this.logger.warn("Error fetching artist top tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
@@ -73,7 +73,7 @@ export async function getRelatedArtists(this: SpotifyClient, id: string): Promis
 	return this.api.get(`/artists/${id}/related-artists`).then((res) => {
 		return (res.data as RelatedArtistsResponse).artists;
 	}).catch((e) => {
-		this.logger.warn("Error fetching related artists:", e.response?.data || e.message);
+		this.logger.warn("Error fetching related artists:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }

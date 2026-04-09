@@ -26,7 +26,7 @@ export async function get(this: SpotifyClient, playlistId: string, options: {
 	return this.api.get(`/playlists/${playlistId}`, { params: options }).then((res) => {
 		return res.data as PlaylistObject;
 	}).catch((e) => {
-		this.logger.warn("Error fetching playlist:", e.response?.data || e.message);
+		this.logger.warn("Error fetching playlist:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -41,7 +41,7 @@ export async function changeDetails(this: SpotifyClient, playlistId: string, det
 	return this.api.put(`/playlists/${playlistId}`, details).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error changing playlist details:", e.response?.data || e.message);
+		this.logger.warn("Error changing playlist details:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -56,7 +56,7 @@ export async function getItems(this: SpotifyClient, playlistId: string, options:
 	return this.api.get(`/playlists/${playlistId}/items`, { params: options }).then((res) => {
 		return res.data as PlaylistItemsResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching playlist items:", e.response?.data || e.message);
+		this.logger.warn("Error fetching playlist items:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -71,7 +71,7 @@ export async function getTracks(this: SpotifyClient, playlistId: string, options
 	return this.api.get(`/playlists/${playlistId}/tracks`, { params: options }).then((res) => {
 		return res.data as PlaylistItemsResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching playlist tracks:", e.response?.data || e.message);
+		this.logger.warn("Error fetching playlist tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -81,7 +81,7 @@ export async function updateItems(this: SpotifyClient, playlistId: string, body:
 	return this.api.put(`/playlists/${playlistId}/items`, body).then((res) => {
 		return (res.data as PlaylistSnapshotResponse).snapshot_id;
 	}).catch((e) => {
-		this.logger.warn("Error updating playlist items:", e.response?.data || e.message);
+		this.logger.warn("Error updating playlist items:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -91,7 +91,7 @@ export async function updateTracks(this: SpotifyClient, playlistId: string, body
 	return this.api.put(`/playlists/${playlistId}/tracks`, body).then((res) => {
 		return (res.data as PlaylistSnapshotResponse).snapshot_id;
 	}).catch((e) => {
-		this.logger.warn("Error updating playlist tracks:", e.response?.data || e.message);
+		this.logger.warn("Error updating playlist tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -109,7 +109,7 @@ export async function addItems(this: SpotifyClient, playlistId: string, uris: Pl
 	}).then((res) => {
 		return (res.data as PlaylistSnapshotResponse).snapshot_id;
 	}).catch((e) => {
-		this.logger.warn("Error adding playlist items:", e.response?.data || e.message);
+		this.logger.warn("Error adding playlist items:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -127,7 +127,7 @@ export async function addTracks(this: SpotifyClient, playlistId: string, uris: P
 	}).then((res) => {
 		return (res.data as PlaylistSnapshotResponse).snapshot_id;
 	}).catch((e) => {
-		this.logger.warn("Error adding playlist tracks:", e.response?.data || e.message);
+		this.logger.warn("Error adding playlist tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -147,7 +147,7 @@ export async function removeItems(this: SpotifyClient, playlistId: string, items
 	}).then((res) => {
 		return (res.data as PlaylistSnapshotResponse).snapshot_id;
 	}).catch((e) => {
-		this.logger.warn("Error removing playlist items:", e.response?.data || e.message);
+		this.logger.warn("Error removing playlist items:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -167,7 +167,7 @@ export async function removeTracks(this: SpotifyClient, playlistId: string, trac
 	}).then((res) => {
 		return (res.data as PlaylistSnapshotResponse).snapshot_id;
 	}).catch((e) => {
-		this.logger.warn("Error removing playlist tracks:", e.response?.data || e.message);
+		this.logger.warn("Error removing playlist tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -177,7 +177,7 @@ export async function getCurrentUserPlaylists(this: SpotifyClient, options: { li
 	return this.api.get("/me/playlists", { params: options }).then((res) => {
 		return res.data as PlaylistsPageResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching current user's playlists:", e.response?.data || e.message);
+		this.logger.warn("Error fetching current user's playlists:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -194,7 +194,7 @@ export async function create(this: SpotifyClient, name: string, options: {
 	}).then((res) => {
 		return res.data as PlaylistObject;
 	}).catch((e) => {
-		this.logger.warn("Error creating playlist:", e.response?.data || e.message);
+		this.logger.warn("Error creating playlist:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -204,7 +204,7 @@ export async function getUserPlaylists(this: SpotifyClient, userId: string, opti
 	return this.api.get(`/users/${userId}/playlists`, { params: options }).then((res) => {
 		return res.data as PlaylistsPageResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching user's playlists:", e.response?.data || e.message);
+		this.logger.warn("Error fetching user's playlists:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -221,7 +221,7 @@ export async function createForUser(this: SpotifyClient, userId: string, name: s
 	}).then((res) => {
 		return res.data as PlaylistObject;
 	}).catch((e) => {
-		this.logger.warn("Error creating playlist for user:", e.response?.data || e.message);
+		this.logger.warn("Error creating playlist for user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -237,7 +237,7 @@ export async function getFeatured(this: SpotifyClient, options: {
 	return this.api.get("/browse/featured-playlists", { params: options }).then((res) => {
 		return res.data as FeaturedPlaylistsResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching featured playlists:", e.response?.data || e.message);
+		this.logger.warn("Error fetching featured playlists:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -250,7 +250,7 @@ export async function getCategoryPlaylists(this: SpotifyClient, categoryId: stri
 	return this.api.get(`/browse/categories/${categoryId}/playlists`, { params: options }).then((res) => {
 		return res.data as FeaturedPlaylistsResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching category playlists:", e.response?.data || e.message);
+		this.logger.warn("Error fetching category playlists:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -260,7 +260,7 @@ export async function getCover(this: SpotifyClient, playlistId: string): Promise
 	return this.api.get(`/playlists/${playlistId}/images`).then((res) => {
 		return res.data as ImageObject[];
 	}).catch((e) => {
-		this.logger.warn("Error fetching playlist cover image:", e.response?.data || e.message);
+		this.logger.warn("Error fetching playlist cover image:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
@@ -274,7 +274,7 @@ export async function uploadCover(this: SpotifyClient, playlistId: string, base6
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error uploading playlist cover image:", e.response?.data || e.message);
+		this.logger.warn("Error uploading playlist cover image:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }

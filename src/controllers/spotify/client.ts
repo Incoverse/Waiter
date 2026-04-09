@@ -107,7 +107,7 @@ export default class SpotifyClient {
       },
       (error) => {
         if (error.response) {
-          this.logger.warn(` <-- ${error.response.status} ${error.config.url} | ${error.response.data?.message || error.message}`);
+          this.logger.warn(` <-- ${error.response.status} ${error.config.url} | ${error.response.data?.error?.message || error.message}`);
         } else {
           this.logger.error(` <-- ERROR ${error.config ? error.config.url : ""}`, error);
         }
@@ -211,7 +211,7 @@ export default class SpotifyClient {
         return res.data.expires_in;
       })
       .catch((err) => {
-        console.error(err);
+        this.logger.error("Error refreshing access token:", err.response?.data?.error?.message || err.response?.data || err.message);
       });
   }
     

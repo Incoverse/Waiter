@@ -14,7 +14,7 @@ export async function get(this: SpotifyClient): Promise<PlaybackInfo | null> {
     return res.data as PlaybackInfo;
   })
   .catch((e)=>{
-    this.logger.warn("Error fetching current playback:", e.response?.data || e.message);
+    this.logger.warn("Error fetching current playback:", e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   })
 }
@@ -27,7 +27,7 @@ export async function transfer(this: SpotifyClient, deviceId: string, play = fal
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error transferring playback:", e.response?.data || e.message);
+    this.logger.warn("Error transferring playback:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   })
 }
@@ -37,7 +37,7 @@ export async function getDevices(this: SpotifyClient): Promise<DeviceObject[]> {
   return this.api.get("/me/player/devices").then((res) => {
     return res.data.devices as DeviceObject[];
   }).catch((e) => {
-    this.logger.warn("Error fetching devices:", e.response?.data || e.message);
+    this.logger.warn("Error fetching devices:", e.response?.data?.error?.message || e.response?.data || e.message);
     return [];
   });
 }
@@ -51,7 +51,7 @@ export async function getCurrentlyPlaying(this: SpotifyClient): Promise<Playback
     if (res.status === 204) return null; // No content, treat as nothing currently playing
     return res.data as PlaybackInfo;
   }).catch((e) => {
-    this.logger.warn("Error fetching currently playing track:", e.response?.data || e.message);
+    this.logger.warn("Error fetching currently playing track:", e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   })
 }
@@ -85,7 +85,7 @@ export async function play(this: SpotifyClient, options: {
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error starting playback:", e.response?.data || e.message);
+    this.logger.warn("Error starting playback:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -97,7 +97,7 @@ export async function resume(this: SpotifyClient, deviceId?: string): Promise<bo
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error resuming playback:", e.response?.data || e.message);
+    this.logger.warn("Error resuming playback:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -109,7 +109,7 @@ export async function pause(this: SpotifyClient, deviceId?: string): Promise<boo
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error pausing playback:", e.response?.data || e.message);
+    this.logger.warn("Error pausing playback:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   })
 }
@@ -119,7 +119,7 @@ export async function skipToPrevious(this: SpotifyClient): Promise<boolean> {
   return this.api.post(`/me/player/previous`).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error skipping to previous track:", e.response?.data || e.message);
+    this.logger.warn("Error skipping to previous track:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -129,7 +129,7 @@ export async function skipToNext(this: SpotifyClient): Promise<boolean> {
   return this.api.post(`/me/player/next`).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error skipping to next track:", e.response?.data || e.message);
+    this.logger.warn("Error skipping to next track:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -152,7 +152,7 @@ export async function seek(this: SpotifyClient, positionMs: string | number, dev
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error seeking in track:", e.response?.data || e.message);
+    this.logger.warn("Error seeking in track:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -167,7 +167,7 @@ export async function setRepeatMode(this: SpotifyClient, mode: "off" | "track" |
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error setting repeat mode:", e.response?.data || e.message);
+    this.logger.warn("Error setting repeat mode:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -186,7 +186,7 @@ export async function setVolume(this: SpotifyClient, volumePercent: number, devi
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error setting volume:", e.response?.data || e.message);
+    this.logger.warn("Error setting volume:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -210,7 +210,7 @@ export async function toggleShuffle(this: SpotifyClient, shuffle: boolean, devic
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error toggling shuffle:", e.response?.data || e.message);
+    this.logger.warn("Error toggling shuffle:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }
@@ -233,7 +233,7 @@ export async function getRecentlyPlayed(this: SpotifyClient, options: RecentlyPl
   }).then((response) => {
     return response.data;
   }).catch((e) => {
-    this.logger.warn("Error fetching recently played tracks:", e.response?.data || e.message);
+    this.logger.warn("Error fetching recently played tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   });
 }
@@ -243,7 +243,7 @@ export async function getQueue(this: SpotifyClient) {
   return this.api.get(`/me/player/queue`).then((response) => {
     return response.data as QueueObject;
   }).catch((e) => {
-    this.logger.warn("Error fetching queue:", e.response?.data || e.message);
+    this.logger.warn("Error fetching queue:", e.response?.data?.error?.message || e.response?.data || e.message);
     return null;
   });
 }
@@ -258,7 +258,7 @@ export async function addToQueue(this: SpotifyClient, uri: string, deviceId?: st
   }).then(() => {
     return true;
   }).catch((e) => {
-    this.logger.warn("Error adding to queue:", e.response?.data || e.message);
+    this.logger.warn("Error adding to queue:", e.response?.data?.error?.message || e.response?.data || e.message);
     return false;
   });
 }

@@ -21,7 +21,7 @@ export async function get(this: SpotifyClient, id: string): Promise<TrackObject 
 	return this.api.get(`/tracks/${id}`).then((res) => {
 		return res.data as TrackObject;
 	}).catch((e) => {
-		this.logger.warn("Error fetching track information:", e.response?.data || e.message);
+		this.logger.warn("Error fetching track information:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -45,7 +45,7 @@ export async function getSeveral(this: SpotifyClient, ids: string[]): Promise<Ge
 	}).then((res) => {
 		return (res.data as GetSeveralTracksResponse).tracks;
 	}).catch((e) => {
-		this.logger.warn("Error fetching multiple tracks:", e.response?.data || e.message);
+		this.logger.warn("Error fetching multiple tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
@@ -60,7 +60,7 @@ export async function getSaved(this: SpotifyClient, options: {
 	}).then((res) => {
 		return res.data as SavedTracksResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching saved tracks:", e.response?.data || e.message);
+		this.logger.warn("Error fetching saved tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -82,7 +82,7 @@ export async function saveForCurrentUser(this: SpotifyClient, ids: string[]): Pr
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error saving tracks for current user:", e.response?.data || e.message);
+		this.logger.warn("Error saving tracks for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -106,7 +106,7 @@ export async function removeForCurrentUser(this: SpotifyClient, ids: string[]): 
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error removing saved tracks for current user:", e.response?.data || e.message);
+		this.logger.warn("Error removing saved tracks for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -130,7 +130,7 @@ export async function checkSavedForCurrentUser(this: SpotifyClient, ids: string[
 	}).then((res) => {
 		return res.data as boolean[];
 	}).catch((e) => {
-		this.logger.warn("Error checking saved tracks for current user:", e.response?.data || e.message);
+		this.logger.warn("Error checking saved tracks for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
@@ -154,7 +154,7 @@ export async function getSeveralAudioFeatures(this: SpotifyClient, ids: string[]
 	}).then((res) => {
 		return (res.data as GetSeveralAudioFeaturesResponse).audio_features;
 	}).catch((e) => {
-		this.logger.warn("Error fetching audio features for tracks:", e.response?.data || e.message);
+		this.logger.warn("Error fetching audio features for tracks:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
@@ -164,7 +164,7 @@ export async function getAudioFeatures(this: SpotifyClient, id: string): Promise
 	return this.api.get(`/audio-features/${id}`).then((res) => {
 		return res.data as AudioFeaturesObject;
 	}).catch((e) => {
-		this.logger.warn("Error fetching track audio features:", e.response?.data || e.message);
+		this.logger.warn("Error fetching track audio features:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -174,7 +174,7 @@ export async function getAudioAnalysis(this: SpotifyClient, id: string): Promise
 	return this.api.get(`/audio-analysis/${id}`).then((res) => {
 		return res.data as AudioAnalysisResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching track audio analysis:", e.response?.data || e.message);
+		this.logger.warn("Error fetching track audio analysis:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -218,7 +218,7 @@ export async function getRecommendations(this: SpotifyClient, seeds: Recommendat
 	return this.api.get("/recommendations", { params }).then((res) => {
 		return res.data as RecommendationsResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching recommendations:", e.response?.data || e.message);
+		this.logger.warn("Error fetching recommendations:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }

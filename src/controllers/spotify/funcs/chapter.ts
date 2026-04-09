@@ -6,7 +6,7 @@ export async function get(this: SpotifyClient, id: string): Promise<ChapterObjec
 	return this.api.get(`/chapters/${id}`).then((res) => {
 		return res.data as ChapterObject;
 	}).catch((e) => {
-		this.logger.warn("Error fetching chapter information:", e.response?.data || e.message);
+		this.logger.warn("Error fetching chapter information:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -25,7 +25,7 @@ export async function getSeveral(this: SpotifyClient, ids: string[]): Promise<Ge
 	}).then((res) => {
 		return (res.data as GetSeveralChaptersResponse).chapters;
 	}).catch((e) => {
-		this.logger.warn("Error fetching multiple chapters:", e.response?.data || e.message);
+		this.logger.warn("Error fetching multiple chapters:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }

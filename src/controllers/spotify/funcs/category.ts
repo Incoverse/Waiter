@@ -12,7 +12,7 @@ export async function getSeveral(this: SpotifyClient, options: {
 	}).then((res) => {
 		return (res.data as CategoriesResponse).categories;
 	}).catch((e) => {
-		this.logger.warn("Error fetching browse categories:", e.response?.data || e.message);
+		this.logger.warn("Error fetching browse categories:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -26,7 +26,7 @@ export async function get(this: SpotifyClient, categoryId: string, options: {
 	}).then((res) => {
 		return res.data as CategoryObject;
 	}).catch((e) => {
-		this.logger.warn("Error fetching browse category:", e.response?.data || e.message);
+		this.logger.warn("Error fetching browse category:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }

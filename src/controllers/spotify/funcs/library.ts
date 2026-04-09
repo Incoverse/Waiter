@@ -15,7 +15,7 @@ export async function saveItems(this: SpotifyClient, uris: LibraryItemUri[]): Pr
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error saving items to library:", e.response?.data || e.message);
+		this.logger.warn("Error saving items to library:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -34,7 +34,7 @@ export async function removeItems(this: SpotifyClient, uris: LibraryItemUri[]): 
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error removing items from library:", e.response?.data || e.message);
+		this.logger.warn("Error removing items from library:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -53,7 +53,7 @@ export async function containsItems(this: SpotifyClient, uris: LibraryItemUri[])
 	}).then((res) => {
 		return res.data as LibraryContainsResponse;
 	}).catch((e) => {
-		this.logger.warn("Error checking library item containment:", e.response?.data || e.message);
+		this.logger.warn("Error checking library item containment:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }

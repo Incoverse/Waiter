@@ -6,7 +6,7 @@ export async function get(this: SpotifyClient, id: string): Promise<EpisodeObjec
 	return this.api.get(`/episodes/${id}`).then((res) => {
 		return res.data as EpisodeObject;
 	}).catch((e) => {
-		this.logger.warn("Error fetching episode information:", e.response?.data || e.message);
+		this.logger.warn("Error fetching episode information:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -25,7 +25,7 @@ export async function getSeveral(this: SpotifyClient, ids: string[]): Promise<Ge
 	}).then((res) => {
 		return (res.data as GetSeveralEpisodesResponse).episodes;
 	}).catch((e) => {
-		this.logger.warn("Error fetching multiple episodes:", e.response?.data || e.message);
+		this.logger.warn("Error fetching multiple episodes:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
@@ -40,7 +40,7 @@ export async function getSaved(this: SpotifyClient, options: {
 	}).then((res) => {
 		return res.data as SavedEpisodesResponse;
 	}).catch((e) => {
-		this.logger.warn("Error fetching saved episodes:", e.response?.data || e.message);
+		this.logger.warn("Error fetching saved episodes:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return null;
 	});
 }
@@ -59,7 +59,7 @@ export async function saveForCurrentUser(this: SpotifyClient, ids: string[]): Pr
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error saving episodes for current user:", e.response?.data || e.message);
+		this.logger.warn("Error saving episodes for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -78,7 +78,7 @@ export async function removeForCurrentUser(this: SpotifyClient, ids: string[]): 
 	}).then(() => {
 		return true;
 	}).catch((e) => {
-		this.logger.warn("Error removing saved episodes for current user:", e.response?.data || e.message);
+		this.logger.warn("Error removing saved episodes for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return false;
 	});
 }
@@ -97,7 +97,7 @@ export async function checkSavedForCurrentUser(this: SpotifyClient, ids: string[
 	}).then((res) => {
 		return res.data as boolean[];
 	}).catch((e) => {
-		this.logger.warn("Error checking saved episodes for current user:", e.response?.data || e.message);
+		this.logger.warn("Error checking saved episodes for current user:", e.response?.data?.error?.message || e.response?.data || e.message);
 		return [];
 	});
 }
