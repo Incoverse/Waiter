@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-	<img src="https://skillicons.dev/icons?i=ts,nodejs,express,discord,github" alt="stack icons" />
+	<img src="https://skillicons.dev/icons?i=nodejs,bun,express,ts,discordjs,spotify,nextjs" alt="stack icons" />
 </p>
 
 > [!WARNING]
