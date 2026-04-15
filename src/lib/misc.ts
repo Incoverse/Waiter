@@ -357,7 +357,7 @@ export async function hasSpotifyTokenStored(anyId: string | RecordId) {
 
 
 export type OnlyOneOf<T, U> = (T & { [K in keyof U]?: never }) | (U & { [K in keyof T]?: never });
-type DeepRequired<T> =
+export type DeepRequired<T> =
   T extends Function
     ? T
     : T extends Array<infer U>

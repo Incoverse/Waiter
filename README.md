@@ -134,7 +134,6 @@ npm run start
 |---|---|---:|---|
 | Database | `ACTIVE_DB` | Yes | Target database name used by the SurrealDB controller |
 | Database | `SURREAL_JWT` | Yes | SurrealDB authentication token |
-| Public/Web | `PUBLIC_URL` | Recommended | Callback and short-link base URL |
 | Twitch | `TWITCH_CLIENT_ID` | Twitch only | OAuth app client ID |
 | Twitch | `TWITCH_CLIENT_SECRET` | Twitch only | OAuth app client secret |
 | Spotify | `SPOTIFY_CLIENT_ID` | Spotify only | OAuth app client ID |
@@ -157,6 +156,7 @@ Configuration is loaded from `src/config.ts` and validated using merged Zod sche
 
 ```ts
 const config: WaiterConfig = {
+	publicUrl: "http://localhost:9999",
 	discord: {
 		serverId: "123456789012345678"
 	},
@@ -175,6 +175,8 @@ const config: WaiterConfig = {
 		uri: "wss://your-surreal-host:13244"
 	}
 };
+
+export default config satisfies WaiterConfig;
 ```
 
 ## Scripts

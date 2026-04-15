@@ -24,6 +24,6 @@ export function generateAuthURL(
 }
 
 export function getRedirectURI() {
-  return `${process.env.PUBLIC_URL}${global.config.spotify.authEndpoint}`
+  return `${global.config.publicUrl}${global.config.spotify.authEndpoint}`
     .replace("localhost", "127.0.0.1"); // Spotify doesn't accept "localhost" as a valid redirect URI, but "127.0.0.1" is accepted
 }

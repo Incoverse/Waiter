@@ -78,8 +78,6 @@ export default class TwitchController extends Controller {
           .refine((duration: string) => {
             return !Number.isNaN(parseDuration(duration));
           }, "Generated code validity must be a valid duration string supported by parseDuration, such as '15m', '1h 30m', or '2mo'."),
-
-
         bot: z.object({
           showBotBadge: z.boolean()
             .describe("Whether or not to show the Chat Bot badge for Twitch messages sent by Waiter on it's account.")
@@ -131,6 +129,8 @@ export default class TwitchController extends Controller {
     this.registerOnStartEvents(instantiatedEvents);
 
     await this.registerTwitchEvents(instantiatedEvents);
+
+    
 
 
     const streamerTokensLive = await global.db.live(new Table("streamer_tokens")).where(eq("type", "twitch")).fetch("streamer", "streamer.twitch", "streamer.discord", "streamer.spotify");

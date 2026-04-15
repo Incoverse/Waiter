@@ -90,6 +90,6 @@ export function generateAuthURL(
 
 
 export function getRedirectURI() {
-  return `${process.env.PUBLIC_URL}${global.config.twitch.authEndpoint}`
+  return `${global.config.publicUrl}${global.config.twitch.authEndpoint}`
     .replace("127.0.0.1", "localhost"); // Twitch doesn't accept "127.0.0.1" as a valid redirect URI, but "localhost" is accepted
 }

@@ -142,7 +142,7 @@ export function shorten(url: string): string {
     id = crypto.randomBytes(6).toString("hex");
   }
   shortenCache.set(id, url, Date.now() + 1000 * 60 * 60 * 24); // Cache for 24 hours
-  return process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL}/s/${id}` : `/s/${id}`;
+  return `${global.config.publicUrl}/s/${id}`;
 }
 
 type HTTPMethod =

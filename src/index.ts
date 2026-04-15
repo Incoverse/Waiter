@@ -30,9 +30,9 @@ import {
 } from "obscenity";
 import prettyMilliseconds from "pretty-ms";
 import { fileURLToPath } from "url";
-import z, { ZodObject, type ZodRawShape } from "zod";
+import z, { ZodObject } from "zod";
 import { Controller } from "./lib/base/controller";
-import { deepMergeSchemas, extendsClass, findFiles, importLocalModule } from "./lib/misc";
+import { deepMergeSchemas, extendsClass, findFiles, importLocalModule, type DeepRequired } from "./lib/misc";
 const __filename = fileURLToPath(import.meta.url);
 
 global.controllers = new Map();
@@ -100,7 +100,10 @@ for (const controller of controllers) {
 }
 
 
-let configSchema: ZodObject<ZodRawShape> = z.object({});
+let configSchema = z.object({
+  publicUrl: z.url().default("http://localhost:9999")
+    .describe("The public URL for the application, used for OAuth callbacks and shortened URLs. Must be a valid URL."),
+});
 
 for (const controller of controllers) {
   const schema = controller.registerConfig();
@@ -108,6 +111,8 @@ for (const controller of controllers) {
     configSchema = deepMergeSchemas(configSchema, schema);
   }
 }
+
+configSchema = configSchema.default({ publicUrl: "http://localhost:9999" }) as any;
 
 
 
@@ -153,7 +158,7 @@ if (!parseResult.success) {
 }
 
 
-global.config = parseResult.data as unknown as WaiterConfig
+global.config = parseResult.data as unknown as DeepRequired<WaiterConfig>
 
 
 

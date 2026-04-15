@@ -176,7 +176,7 @@ export default class SurrealDBController extends Controller {
 
 const connectToDB = (db: Surreal) =>
   Promise.race([
-    db.connect("wss://inimicalpart.com:13244", {
+    db.connect(global.config.database.uri, {
       namespace: "Waiter",
       database: process.env.ACTIVE_DB,
       authentication: process.env.SURREAL_JWT,
