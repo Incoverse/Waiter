@@ -45,7 +45,7 @@ export default class PlayCMD extends WaiterCommand {
     }
 
 
-    const userInput = (await this.getArgs(message))!;
+    const userInput = this.getArgs(message)!;
 
     if (!userInput || userInput.trim() === "") {
       return this.bot.channel(channel).sendMessage(`Please provide a song name or Spotify track URL/URI to play!`, { replyTo: message.message_id });

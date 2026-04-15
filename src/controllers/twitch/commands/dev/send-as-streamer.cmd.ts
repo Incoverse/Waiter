@@ -25,7 +25,7 @@ export default class SendAsStreamerCMD extends WaiterCommand {
 
   @RequiresPermission(TwitchPermissions.Developer)
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
-    const commandArgs = parameterize((await this.getArgs(message))!, ["message"]);
+    const commandArgs = parameterize(this.getArgs(message)!, ["message"]);
     
     // needs to have message
     if (!commandArgs.message) {

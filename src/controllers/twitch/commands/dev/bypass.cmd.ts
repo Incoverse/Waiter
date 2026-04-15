@@ -25,7 +25,7 @@ export default class BypassCMD extends WaiterCommand {
 
   @RequiresPermission(TwitchPermissions.Developer)
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
-    const bypassArgs = parameterize((await this.getArgs(message))!, ["type", "scope"]);
+    const bypassArgs = parameterize(this.getArgs(message)!, ["type", "scope"]);
 
     // needs to have type and scope
     if (!bypassArgs.type) {

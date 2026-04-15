@@ -25,7 +25,7 @@ export default class UnbypassCMD extends WaiterCommand {
 
   @RequiresPermission(TwitchPermissions.Developer)
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
-    const unbypassArgs = parameterize((await this.getArgs(message))!, ["type", "scope"]);
+    const unbypassArgs = parameterize(this.getArgs(message)!, ["type", "scope"]);
 
     // needs to have type and scope
     if (!unbypassArgs.type) {
