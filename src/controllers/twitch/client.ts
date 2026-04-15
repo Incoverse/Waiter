@@ -1075,6 +1075,7 @@ export default class TwitchClient {
   }
   public getSubscriptions = () => this.api.get(`/eventsub/subscriptions`).then(ResData).catch(()=>null)
 
+  /** Target a specific channel for API calls. If no channel is specified, the account's channel is used. */
   public channel = (channelId: string | TwitchClient = this) => new ChannelSpecificWrapper(this, channelId);
   public resolveUserId = async (user: UserResolvable): Promise<string | null> => {
     if (typeof user === "string") {
@@ -1122,23 +1123,43 @@ export class ChannelSpecificWrapper {
   public isBroadcaster = (id = this.twcl.IAM.id) => this.channelId === id
   public hasModRights = async (id = this.twcl.IAM.id) => this.isBroadcaster(id) || await this.isMod(id);
 
+  /** Send a message to the channel. */
   public sendMessage = this.bindChannelFn(Chat.send)
+  /** Delete a message in the channel. Requires moderator or broadcaster rights. */
   public deleteMessage = this.bindChannelFn(Chat.remove)
+  /** Clear the chat. Requires moderator or broadcaster rights. */
   public clearChat = this.bindChannelFn(Chat.clear)
+  /** Set the chat delay. Requires moderator or broadcaster rights. */
   public setChatDelay = this.bindChannelFn(Chat.delay)
+  /** Set the emote-only mode. Requires moderator or broadcaster rights. */
   public setEmoteOnly = this.bindChannelFn(Chat.emoteOnly)
+  /** Set the followers-only mode. Requires moderator or broadcaster rights. */
   public setFollowersOnly = this.bindChannelFn(Chat.followersOnly)
+  /** Set the subscribers-only mode. Requires moderator or broadcaster rights. */
   public setSubscribersOnly = this.bindChannelFn(Chat.subOnly)
+  /** Set the slow mode. Requires moderator or broadcaster rights. */
   public setSlowMode = this.bindChannelFn(Chat.slowMode)
+  /** Set the unique mode. Requires moderator or broadcaster rights. */
   public setUniqueMode = this.bindChannelFn(Chat.uniqueMode)
+  /** Get the chat settings. */
   public getChatSettings = this.bindChannelFn(Chat.getSettings)
+  /** Get the list of chatters in the channel. */
   public getChatters = this.bindChannelFn(Chat.getChatters)
+  /** Shoutout a user in chat. Requires moderator or broadcaster rights. */
   public shoutout = this.bindChannelFn(Chat.shoutout)
+  /** Send an announcement in the channel. Requires moderator or broadcaster rights. */
+  public announce = this.bindChannelFn(Chat.announce)
 
+  /** Snooze an ad. Requires moderator or broadcaster rights. */
   public snoozeAd = this.bindChannelFn(Ads.snooze)
+  /** Get the ad schedule. */
   public getAdSchedule = this.bindChannelFn(Ads.getSchedule)
+  /** Run a commercial. Requires broadcaster rights. */
+  public runCommercial = this.bindChannelFn(Ads.run)
 
+  /** Get information about the channel. */
   public getChannelInfo = this.bindChannelFn(Channel.get)
+  /** Modify the channel's information. Requires broadcaster or editor rights. */
   public modifyChannelInfo = this.bindChannelFn(Channel.modify)
 
   public listen<Topic extends TopicWithBroadcasterCondition>(

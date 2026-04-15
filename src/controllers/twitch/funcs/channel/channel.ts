@@ -85,9 +85,6 @@ export async function updateColor(this: ChannelSpecificWrapper, color: string) {
   return await this.twcl.api.put(`/chat/color`, { background_color: color }, { params: { user_id: this.twcl.IAM.id, color } });
 }
 
-export async function sendChatAnnouncement(this: ChannelSpecificWrapper, message: string, color: string = "primary") {
-  return await this.twcl.api.post(`/chat/announcements`, { message, color }, { params: { broadcaster_id: this.channelId, moderator_id: this.twcl.IAM.id } });
-}
 
 export async function get(this: ChannelSpecificWrapper, broadcaster_id: string = this.channelId) {
   return await this.twcl.api.get(`/channels`, {

@@ -21,3 +21,12 @@ export async function snooze(this: ChannelSpecificWrapper) {
     },
   );
 }
+
+export async function run(this: ChannelSpecificWrapper, length: 30 | 60 | 90 | 120 | 150 | 180) {
+  return await this.twcl.api.post(`/channels/commercial`, {}, {
+    params: {
+      broadcaster_id: this.channelId,
+      length
+    }
+  }).then((res) => res?.data?.[0]?.message);
+}

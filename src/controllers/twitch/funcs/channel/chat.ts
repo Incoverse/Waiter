@@ -180,3 +180,15 @@ export async function shoutout(this: ChannelSpecificWrapper, id: UserResolvable)
     moderator_id: this.twcl.IAM.id
   });
 }
+
+export async function announce(this: ChannelSpecificWrapper, message: string, color: "blue" | "green" | "orange" | "purple" | "primary" = "primary") {
+  return await this.twcl.api.post(`/chat/announcements`, {
+    message,
+    color
+  }, {
+    params: {
+      broadcaster_id: this.channelId,
+      moderator_id: this.twcl.IAM.id
+    }
+  })
+}

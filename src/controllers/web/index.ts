@@ -222,37 +222,37 @@ export function fetchVariablesFromTemplate(templatePath: string) {
 const NO_TEMPLATE_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f8d7da;
-            color: #721c24;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            background-color: #f5c6cb;
-            padding: 20px 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            margin-top: 0;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8d7da;
+      color: #721c24;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background-color: #f5c6cb;
+      padding: 20px 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      margin-top: 0;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>{{ title }}</h1>
-        <p>{{ message }}</p>
-    </div>
+  <div class="container">
+    <h1>{{ title }}</h1>
+    <p>{{ message }}</p>
+  </div>
 </body>
 </html>`;
 
