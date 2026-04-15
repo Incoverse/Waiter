@@ -20,6 +20,8 @@ export default class TwitchDefinitions extends TableDefinition {
 
     DEFINE FIELD OVERWRITE login ON twitch_users TYPE string;
     DEFINE FIELD OVERWRITE display_name ON twitch_users TYPE string;
+
+    DEFINE FIELD OVERWRITE bot ON twitch_users TYPE bool DEFAULT false; -- Whether Waiter should use this Twitch account as it's main account
   `.trim();
   
   public static readonly USERS_ADDON_TWITCH = `

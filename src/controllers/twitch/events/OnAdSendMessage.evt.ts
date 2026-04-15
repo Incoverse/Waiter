@@ -30,7 +30,7 @@ export default class OASIM extends WaiterEvent {
           name: "channel.ad_break.begin",
           version: 1,
           condition: {
-            "broadcaster_user_id": broadcaster?.IAM?.id,
+            "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
           }
         }
     })

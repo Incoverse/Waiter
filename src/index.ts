@@ -49,10 +49,9 @@ const censor = new TextCensor();
 censor.setStrategy(keepStartCensorStrategy(keepEndCensorStrategy(asteriskCensorStrategy())));
 
 global.contentFilter = (message: string) => {
-    if (!message) return null
-    const matches = matcher.getAllMatches(message);
+  const matches = matcher.getAllMatches(message);
 
-    return censor.applyTo(message, matches);    
+  return censor.applyTo(message, matches);    
 }
 
 process.on("warning", (warning) => {
@@ -169,15 +168,22 @@ for (const controller of controllers) {
 async function runController(controller: Controller) {
   const controllerName = controller.constructor.name;
   console.debug(`Starting controller: ${controllerName} (${controller.abbr})`);
+  let failed = false;
   try {
     performance.mark(`${controllerName}_start`);
     await controller.exec();
-    performance.mark(`${controllerName}_end`);
-    const duration = performance.measure(`${controllerName}_duration`, `${controllerName}_start`, `${controllerName}_end`).duration;
-    console.debug(`Controller ${controllerName} (${controller.abbr}) started successfully in ${chalk.bold(prettyMilliseconds(duration))}.`);
   } catch (err) {
     console.error(`Error starting controller ${controllerName} (${controller.abbr}):`, err);
+    failed = true;
   }
+  performance.mark(`${controllerName}_end`);
+  const duration = performance.measure(`${controllerName}_duration`, `${controllerName}_start`, `${controllerName}_end`).duration;
+  if (failed) {
+    console.error(`Controller ${controllerName} (${controller.abbr}) failed to start after ${chalk.redBright.bold(prettyMilliseconds(duration))}.`);
+  } else {
+    console.debug(`Controller ${controllerName} (${controller.abbr}) started successfully in ${chalk.greenBright.bold(prettyMilliseconds(duration))}.`);
+  }
+
 }
 
 await Promise.all(preControllers.map(runController));

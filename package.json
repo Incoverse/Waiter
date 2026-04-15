@@ -26,6 +26,7 @@
     "pretty-ms": "^9.3.0",
     "resolve-tspaths": "^0.8.23",
     "surrealdb": "^2.0.2",
+    "to-words": "^5.4.0",
     "varlock": "^0.6.3",
     "ws": "^8.19.0",
     "zod": "^4.3.6"

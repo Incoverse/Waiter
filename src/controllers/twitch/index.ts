@@ -6,7 +6,7 @@ import chalk from "chalk";
 import crypto from "crypto";
 import { eq, RecordId, Table } from "surrealdb";
 import { z, type ZodType } from "zod";
-import TwitchClient from "./client";
+import TwitchClient, { TwitchAppAuth } from "./client";
 import WaiterEvent, { type EventInfo, type TwitchEventInfo } from "./lib/base/WaiterEvent";
 import { TwitchAuthDBSchema, type TwitchAuthDB } from "./types";
 
@@ -77,8 +77,18 @@ export default class TwitchController extends Controller {
           .default("15m")
           .refine((duration: string) => {
             return !Number.isNaN(parseDuration(duration));
-          }, "Generated code validity must be a valid duration string supported by parseDuration, such as '15m', '1h 30m', or '2mo'.")
-      }).default({ authEndpoint: "/twitch/auth", generatedCodeValidity: "15m" }),
+          }, "Generated code validity must be a valid duration string supported by parseDuration, such as '15m', '1h 30m', or '2mo'."),
+
+
+        bot: z.object({
+          showBotBadge: z.boolean()
+            .describe("Whether or not to show the Chat Bot badge for Twitch messages sent by Waiter on it's account.")
+            .default(true),
+        })
+          .describe("Twitch bot configurations")
+          .default({ showBotBadge: true }),
+
+      }).default({ authEndpoint: "/twitch/auth", generatedCodeValidity: "15m", bot: { showBotBadge: true } })
     }) satisfies z.ZodType<Pick<WaiterConfig, "twitch">>;
   }
 
@@ -88,8 +98,10 @@ export default class TwitchController extends Controller {
       controller: this,
       communication: new Communication(),
       streamers: new Map(),
+      bot: await this.createBot(),
       streamerData: {},
       bypasses: new Set(),
+      appAuth: await TwitchAppAuth.create(),
     };
 
     const events = (await Promise.all(
@@ -99,7 +111,6 @@ export default class TwitchController extends Controller {
       .map((mod) => mod.default)
       .filter((mod) => extendsClass(mod, WaiterEvent)) as (new (bot: TwitchClient) => WaiterEvent)[];
 
-    await this.createBot();
     await this.createStreamers(this.streamerInit.bind(this));
 
     let instantiatedEvents = events.map((EventClass) => new EventClass(this.client));
@@ -176,9 +187,9 @@ export default class TwitchController extends Controller {
         });
         
         for (const event of instantiatedEvents) {
-          event.setup([global.twitch.streamers.get(newClient.IAM.id)]);
+          event.setup([global.twitch.streamers.get(newClient.IAM.id)!]);
         }
-        this.registerOnStartEvents(instantiatedEvents, [global.twitch.streamers.get(newClient.IAM.id)]);
+        this.registerOnStartEvents(instantiatedEvents, [global.twitch.streamers.get(newClient.IAM.id)!]);
         await this.registerTwitchEvents(instantiatedEvents);
 
 
@@ -220,11 +231,9 @@ export default class TwitchController extends Controller {
 
   public registerOnStartEvents(events: WaiterEvent[], clients = [this.client, ...global.twitch.streamers.values()]) {
     for (const event of events) {
-      const trigger = event.eventTrigger({broadcaster: null, sender: null});
+      const trigger = event.eventTrigger({ broadcaster: null, sender: null });
 
-      if (trigger.type === "Waiter:start") {
-        event.exec(clients);
-      }
+      if (trigger.type === "Waiter:start") event.exec(clients);
     }
   }
 
@@ -253,7 +262,7 @@ export default class TwitchController extends Controller {
       toRegister = toRegister
         .filter((info) => info.type === "Twitch:event")
         .filter((info) => {
-          if (info.event.condition.hasOwnProperty("broadcaster_user_id") && [null, undefined].includes((info.event.condition as { broadcaster_user_id: string }).broadcaster_user_id)) {
+          if (!("broadcaster_user_id" in info.event.condition)) {
             return false;
           }
           return true;
@@ -307,7 +316,7 @@ export default class TwitchController extends Controller {
   }
 
   public async createStreamers(streamerInit = async (client: TwitchClient) => true) {
-    const storedTokens: StoredToken[] = (await global.db.query("SELECT streamer, auth FROM streamer_tokens WHERE type = 'twitch' FETCH streamer, streamer.twitch").collect().then((res)=>res[0] as StoredToken[]))
+    const storedTokens: StoredToken[] = (await global.db.query("SELECT streamer, auth FROM streamer_tokens WHERE type = 'twitch' AND streamer.twitch.bot != true FETCH streamer, streamer.twitch").collect().then((res)=>res[0] as StoredToken[]))
       .filter(token => !global.twitch.streamers.has(token.streamer.twitch.id.id.toString())); // Only attempt to create streamers for tokens that don't already have a streamer instance
 
 
@@ -315,7 +324,7 @@ export default class TwitchController extends Controller {
       this.logger.debug(`Found stored token for streamer: ${tokenRecord.streamer.twitch?.display_name} (${tokenRecord.streamer.twitch?.login})`);
       
       const encryptedAuth = EncryptedField.fromDB(tokenRecord.auth);
-      let auth: TwitchAuthDB;
+      let auth: TwitchAuthDB | null = null;
 
       if (encryptedAuth.isSet()) {
         try {

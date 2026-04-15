@@ -16,7 +16,7 @@ const defaultSettings: Partial<CooldownSettings> = {
 }
 
 export default class CooldownSystem {
-  private settings: CooldownSettings = null;
+  private settings: CooldownSettings = defaultSettings as CooldownSettings;
   private cache: CacheManager = new CacheManager({
     name: "CooldownCache",
   });
@@ -38,7 +38,8 @@ export default class CooldownSystem {
       })
     }
 
-    this.cache.setLogger(this.settings.logger);
+    if (this.settings.logger)
+      this.cache.setLogger(this.settings.logger);
   }
 
 
@@ -117,7 +118,7 @@ export default class CooldownSystem {
 
   public process(message: Message): {
     valid: boolean,
-    message?: string
+    message?: string | null
   } {
 
     const broadcasterId = "broadcaster_user_id" in message ? message.broadcaster_user_id : message.to_user_id;
@@ -129,13 +130,13 @@ export default class CooldownSystem {
         try {
           const isImmune = this.settings.immunityCheck(message);
           if (isImmune) {
-            this.settings.logger.debug(`Cooldown immunity check passed for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}). Cooldown bypassed.`);
+            this.settings.logger?.debug(`Cooldown immunity check passed for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}). Cooldown bypassed.`);
             return {
               valid: true
             }
           }
         } catch (err) {
-          this.settings.logger.error("Error in cooldown immunity check:", err);
+          this.settings.logger?.error("Error in cooldown immunity check:", err);
         }
       }
           
@@ -143,9 +144,9 @@ export default class CooldownSystem {
       const msLeft = this.getMsLeft(broadcasterId, userId);
       if (msLeft != null) {
         const timeLeft = formatDuration(msLeft, true, true);
-        this.settings.logger.log(`Cooldown is active for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}). Time left: ${timeLeft}.`);
+        this.settings.logger?.log(`Cooldown is active for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}). Time left: ${timeLeft}.`);
       } else {
-        this.settings.logger.log(`Cooldown is active for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}).`);
+        this.settings.logger?.log(`Cooldown is active for user ${"chatter_user_name" in message ? message.chatter_user_name : message.from_user_name} (ID: ${userId}).`);
       }
       return {
         valid: false,
@@ -170,7 +171,7 @@ export default class CooldownSystem {
 
 
   private getCooldownMessage(prefix:string, identifier: string, message: Message): string {
-    let messageBase = this.settings.cooldownActiveMessage;
+    let messageBase = this.settings.cooldownActiveMessage ?? defaultSettings.cooldownActiveMessage!;
     const msLeft = this.getMsLeft(prefix, identifier);
     const timeReplacement = msLeft == null ? "active" : formatDuration(msLeft, true, true);
 

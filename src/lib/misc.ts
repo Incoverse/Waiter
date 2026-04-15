@@ -132,8 +132,10 @@ export function parseDuration(durationStr: string): number {
   for (const match of normalized.matchAll(tokenRegex)) {
     const value = Number(match[1]);
     const unit = match[2];
-    total += value * units[unit];
-    consumedLength += match[0].length;
+    if (unit && units[unit]) {
+      total += value * units[unit];
+      consumedLength += match[0].length;
+    }
   }
 
   // Reject malformed strings (e.g. "3mx" or "abc").
@@ -322,7 +324,7 @@ export async function getUser(anyId: string | RecordId, forceFetch = false): Pro
       tId: new RecordId("twitch_users", normalizedId), // TODO: Somehow modular? idk
       dId: new RecordId("discord_users", normalizedId), // TODO: Somehow modular? idk
       sId: new RecordId("spotify_users", normalizedId), // TODO: Somehow modular? idk
-    }).collect().then(a=>a[0][0]);
+    }).collect().then(a=>a[0]![0]);
 
     // TODO: Invalidate cache if the user has been updated in the database since it was cached (e.g live query, on update of user, find all cache entries for that user and delete)
     UserCache.set(res.id.id.toString(), res, new Date(Date.now() + 60 * 60 * 1000)); // Cache for 1 hour
@@ -338,7 +340,7 @@ export async function hasTwitchTokenStored(anyId: string | RecordId) {
 
   const token = await global.db.query(`SELECT id FROM streamer_tokens WHERE type = 'twitch' AND streamer = $streamerId`, {
     streamerId: new RecordId("users", user?.id.id.toString() || (anyId instanceof RecordId ? anyId.id.toString() : anyId))
-  }).collect().then(a=>a[0][0]);
+  }).collect().then(a=>a[0]![0]);
 
   return !!token;
 }
@@ -348,11 +350,37 @@ export async function hasSpotifyTokenStored(anyId: string | RecordId) {
 
   const token = await global.db.query(`SELECT id FROM streamer_tokens WHERE type = 'spotify' AND streamer = $streamerId`, {
     streamerId: new RecordId("users", user?.id.id.toString() || (anyId instanceof RecordId ? anyId.id.toString() : anyId))
-  }).collect().then(a=>a[0][0]);
+  }).collect().then(a=>a[0]![0]);
 
   return !!token;
 }
 
 
 export type OnlyOneOf<T, U> = (T & { [K in keyof U]?: never }) | (U & { [K in keyof T]?: never });
+type DeepRequired<T> =
+  T extends Function
+    ? T
+    : T extends Array<infer U>
+      ? Array<DeepRequired<U>>
+      : T extends object
+        ? { [K in keyof T]-?: DeepRequired<T[K]> }
+        : T;
 
+import { ToWords } from 'to-words';
+export function chooseArticle(word: string | number): string {
+  if (typeof word === "number") word = new ToWords().convert(word)
+
+  const vowels = "aeiou";
+  word = word.toLowerCase();
+
+  if (vowels.includes(word[0] ?? "")) {
+    return "an";
+  } else if (word[0] === 'h' && !word.startsWith("ho") && !word.startsWith("ha")) {
+    // Simple check for silent 'h' cases
+    return "an";
+  } else if (word[0] === 'x' && (word.startsWith("x-ray") || word.startsWith("xylophone"))) {
+    return "an";
+  } else {
+    return "a";
+  }
+}

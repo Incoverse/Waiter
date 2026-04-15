@@ -21,11 +21,11 @@ import { parameterize, RequiresPermission, TwitchPermissions } from "../../lib/m
 
 
 export default class BypassCMD extends WaiterCommand {
-  public messageTrigger: RegExp = /^!bypass\s+(.*)/;
+  public messageTrigger: RegExp = /^!bypass\s+(?<args>.*)/;
 
   @RequiresPermission(TwitchPermissions.Developer)
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
-    const bypassArgs = parameterize(message.message.text.match(this.messageTrigger)?.[1], ["type", "scope"]);
+    const bypassArgs = parameterize((await this.getArgs(message))!, ["type", "scope"]);
 
     // needs to have type and scope
     if (!bypassArgs.type) {

@@ -25,7 +25,7 @@ export async function cancelRedemption(this: TwitchClient, redemption_id: string
   });
 }
 
-export async function getRewards(this: TwitchClient, id=null, only_manageable = false): Promise<TwitchRedemption[]> {
+export async function getRewards(this: TwitchClient, id: string | null = null, only_manageable: boolean = false): Promise<TwitchRedemption[]> {
   return await this.api.get(`/channel_points/custom_rewards`, {
     params: {
       broadcaster_id: this.IAM.id,

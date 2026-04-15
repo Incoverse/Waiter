@@ -149,7 +149,7 @@ export default class SpotifyController extends Controller {
 
     public async createAccounts(accountInit = async (client: SpotifyClient) => true) {
       const storedTokens: StoredToken[] = (await global.db.query("SELECT streamer, auth FROM streamer_tokens WHERE type = 'spotify' FETCH streamer, streamer.spotify").collect().then((res)=>res[0] as StoredToken[]))
-        .filter(token => !global.spotify.clients.has(token.streamer.spotify.id.id.toString())); // Only attempt to create streamers for tokens that don't already have a streamer instance
+        .filter(token => !global.spotify.clients.has(token.streamer.spotify!.id.id.toString())); // Only attempt to create streamers for tokens that don't already have a streamer instance
   
   
       for (const tokenRecord of storedTokens) {
@@ -161,8 +161,8 @@ export default class SpotifyController extends Controller {
         this.logger.debug(`Found stored spotify token for streamer: ${displayName} (${login})`);
         
         const encryptedAuth = EncryptedField.fromDB(tokenRecord.auth);
-        let auth: SpotifyAuthDB;
-  
+        let auth: SpotifyAuthDB | null = null;
+        
         if (encryptedAuth.isSet()) {
           try {
             if (!encryptedAuth.validate()) {

@@ -57,11 +57,11 @@ export default class SDBDefinitions extends TableDefinition {
     const fromUserData = await global.db.query(
       `SELECT * FROM $fromUser`,
       { fromUser },
-    ).collect().then(a=>a[0][0]) as any;
+    ).collect().then(a=>a[0]![0]) as any;
     const toUserData = await global.db.query(
       `SELECT * FROM $toUser`,
       { toUser },
-    ).collect().then(a=>a[0][0]) as any;  
+    ).collect().then(a=>a[0]![0]) as any;  
 
   
     await transaction.delete(fromUser);

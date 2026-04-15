@@ -6,8 +6,12 @@ declare global {
   var twitch: {
     /** The Twitch controller instance. */
     controller: TwitchController;
+    /** The authentication to Twitch's API using an app access token, which is used for sending messages so we get the chat bot badge. */
+    appAuth: TwitchAppAuth;
     /** The communication module for Twitch-related interactions. */
     communication: Communication;
+    /** The Twitch bot client instance. */
+    bot: TwitchClient;
     /** A map of Twitch clients, keyed by streamer ID. */
     streamers: Map<string, TwitchClient>;
     /** A volatile memory for storing Twitch-related data, such as streamer statuses and lurker information. */

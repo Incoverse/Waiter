@@ -11,7 +11,7 @@ export default class TCMD extends WaiterEvent {
       as: "sender",
       name: "channel.chat.message",
       version: 1,
-      condition: { "user_id": sender?.IAM?.id, broadcaster_user_id: broadcaster?.IAM?.id },
+      condition: { "user_id": sender?.IAM?.id ?? "NONE", broadcaster_user_id: broadcaster?.IAM?.id ?? "NONE" },
     },
   });
 
@@ -21,7 +21,7 @@ export default class TCMD extends WaiterEvent {
         as: "sender",
         name: "user.whisper.message",
         version: 1,
-        condition: { "user_id": sender?.IAM?.id },
+        condition: { "user_id": sender?.IAM?.id ?? "NONE" },
       }
     ]
   }
@@ -75,16 +75,15 @@ export default class TCMD extends WaiterEvent {
           this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
           command.exec(streamer, data.event);
         } else if (typeof command.messageTrigger === "function") {
-          command.messageTrigger(data.event).then((result) => {
-            if (data.event.chatter_user_id === source.IAM.id && !command.settings.allowSelf) {
-              return;
-            }
+          const result = command.messageTrigger(data.event)
+          if (data.event.chatter_user_id === source.IAM.id && !command.settings.allowSelf) {
+            return;
+          }
 
-            if (result) {
-              this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
-              command.exec(streamer, data.event);
-            }
-          })
+          if (result) {
+            this.logger.withPrefix(`[${streamer.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.chatter_user_name} with message: "${data.event.message.text}"`);
+            command.exec(streamer, data.event);
+          }
         }
       }
     } else {
@@ -96,16 +95,15 @@ export default class TCMD extends WaiterEvent {
           this.logger.withPrefix(`[WHISPER - ${source.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.from_user_name} with message: "${data.event.whisper.text}"`);
           command.exec(source, data.event);
         } else if (typeof command.messageTrigger === "function") {
-          command.messageTrigger(data.event).then((result) => {
-            if (data.event.from_user_id === source.IAM.id && !command.settings.allowSelf) {
-              return;
-            }
+          const result = command.messageTrigger(data.event);
+          if (data.event.from_user_id === source.IAM.id && !command.settings.allowSelf) {
+            return;
+          }
 
-            if (result) {
-              this.logger.withPrefix(`[WHISPER - ${source.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.from_user_name} with message: "${data.event.whisper.text}"`);
-              command.exec(source, data.event);
-            }
-          })
+          if (result) {
+            this.logger.withPrefix(`[WHISPER - ${source.IAM.login} - ${command.constructor.name}]`).log(`Command was triggered by ${data.event.from_user_name} with message: "${data.event.whisper.text}"`);
+            command.exec(source, data.event);
+          }
         }
       }
     }

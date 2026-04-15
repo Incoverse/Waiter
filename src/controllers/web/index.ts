@@ -48,6 +48,12 @@ export default class WebController extends Controller {
   @registerRoute("GET", "/s/:id")
   protected ShortenerRouteHandler(req: express.Request, res: express.Response) {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+    if (!id) {
+      res.status(400).send("Bad Request: No ID provided.");
+      return;
+    }
+
     const url = shortenCache.get(id);
     if (url) {
       res.redirect(url);
@@ -203,11 +209,11 @@ export function fetchVariablesFromTemplate(templatePath: string) {
 
   const contents = readFileSync(templatePath, "utf-8");
 
-  const variableRegex = /{{\s*([\w]+)\s*}}/g;
-  const variables = []
+  const variableRegex = /{{\s*(?<variable>[\w]+)\s*}}/g;
+  const variables: string[] = [];
   let match;
   while ((match = variableRegex.exec(contents)) !== null) {
-    variables.push(match[1]);
+    variables.push(match.groups.variable);
   }
 
   return variables;

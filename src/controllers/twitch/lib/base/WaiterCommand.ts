@@ -58,7 +58,26 @@ export default abstract class WaiterCommand {
       if (this.cooldown) this.cooldown.setLogger(this.logger);
     }
 
-    public abstract messageTrigger: RegExp | ((event: Message) => Promise<boolean>); //! Trigger on message that matches this regex
+    public abstract messageTrigger: RegExp | ((event: Message) => boolean | { [key: string]: string }); //! Trigger on message that matches this regex
+
+    public getArgs(event: Message, name: string = "args"): string | null {
+      if (this.messageTrigger instanceof RegExp) {
+        const content = "broadcaster_user_login" in event ? event.message.text : event.whisper.text;
+        const match = content.match(this.messageTrigger);
+
+        if (!match) return null;
+        
+        if (match.groups && name in match.groups) {
+          return match.groups[name] as string;
+        }
+      } else if (typeof this.messageTrigger === "function") {
+        const result = this.messageTrigger(event);
+        if (typeof result === "object" && name in result) {
+          return result[name] as string;;
+        }
+      }
+      return null;
+    }
 
 
     /**

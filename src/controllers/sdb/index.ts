@@ -192,7 +192,7 @@ const connectToDB = (db: Surreal) =>
 //? Quick Reference Handbook (QRH) for SurrealDB queries. Use this to avoid having to write the same queries multiple times across the codebase. Add any commonly used queries here for easy access.
 export const qrh = {
   getSessionInfo: async (): Promise<SessionInfo> =>
-    ((await global.db.query("$session").collect()) as SessionInfo[])[0],
+    ((await global.db.query("$session").collect()) as SessionInfo[])[0]!,
   getVersion: async (): Promise<string> =>
     await global.db.version().then((res) => res.version),
 };

@@ -45,11 +45,11 @@ export abstract class WaiterCommand {
   constructor(client: Discord.Client, filename?: string) {
     this.client = client;
     this._fullPath = decodeURIComponent(
-      new Error().stack
-        .split("\n")[2]
+      (new Error().stack!
+        .split("\n")[2] ?? "???")
         .replace(/.*file:\/\//, "")
         .replace(/:[0-9]+:[0-9]+.*/g, "")
-        .replace(/^\//, process.platform === "win32" ? "" : "/"),
+        .replace(/^\//, process.platform === "win32" ? "" : "/") 
     );
     if (filename) this._filename = filename;
     else {

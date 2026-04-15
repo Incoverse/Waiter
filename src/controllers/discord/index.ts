@@ -39,49 +39,47 @@ export default class DiscordController extends Controller {
     if (!global.discord) {
       global.discord = {
         controller: this,
-        client: null,
+        client: new Client({
+          intents: [
+            GatewayIntentBits.AutoModerationConfiguration,
+            GatewayIntentBits.AutoModerationExecution,
+            GatewayIntentBits.DirectMessagePolls,
+            GatewayIntentBits.DirectMessageReactions,
+            GatewayIntentBits.DirectMessages,
+            GatewayIntentBits.DirectMessageTyping,
+            GatewayIntentBits.GuildExpressions,
+            GatewayIntentBits.GuildIntegrations,
+            GatewayIntentBits.GuildInvites,
+            GatewayIntentBits.GuildMembers,
+            GatewayIntentBits.GuildMessagePolls,
+            GatewayIntentBits.GuildMessageReactions,
+            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.GuildMessageTyping,
+            GatewayIntentBits.GuildModeration,
+            GatewayIntentBits.GuildPresences,
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildScheduledEvents,
+            GatewayIntentBits.GuildVoiceStates,
+            GatewayIntentBits.GuildWebhooks,
+            GatewayIntentBits.MessageContent,
+          ],
+          partials: [
+            Partials.Channel,
+            Partials.GuildMember,
+            Partials.GuildScheduledEvent,
+            Partials.Message,
+            Partials.Poll,
+            Partials.PollAnswer,
+            Partials.Reaction,
+            Partials.SoundboardSound,
+            Partials.ThreadMember,
+            Partials.User,
+          ],
+        }),
       };
     }
 
-    const client = new Client({
-      intents: [
-        GatewayIntentBits.AutoModerationConfiguration,
-        GatewayIntentBits.AutoModerationExecution,
-        GatewayIntentBits.DirectMessagePolls,
-        GatewayIntentBits.DirectMessageReactions,
-        GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.DirectMessageTyping,
-        GatewayIntentBits.GuildExpressions,
-        GatewayIntentBits.GuildIntegrations,
-        GatewayIntentBits.GuildInvites,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessagePolls,
-        GatewayIntentBits.GuildMessageReactions,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMessageTyping,
-        GatewayIntentBits.GuildModeration,
-        GatewayIntentBits.GuildPresences,
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildScheduledEvents,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildWebhooks,
-        GatewayIntentBits.MessageContent,
-      ],
-      partials: [
-        Partials.Channel,
-        Partials.GuildMember,
-        Partials.GuildScheduledEvent,
-        Partials.Message,
-        Partials.Poll,
-        Partials.PollAnswer,
-        Partials.Reaction,
-        Partials.SoundboardSound,
-        Partials.ThreadMember,
-        Partials.User,
-      ],
-    });
-
-    global.discord.client = client;
+    const client = global.discord.client;
 
     client.on(Events.ClientReady, () => {
       this.logger.perf(`Successfully logged in to Discord as ${client.user?.tag}!`);

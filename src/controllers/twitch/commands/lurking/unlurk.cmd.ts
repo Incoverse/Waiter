@@ -26,8 +26,11 @@ export default class UnlurkCMD extends WaiterCommand {
     const streamers = clients.filter((client) => !client.isBot);
 
     for (const streamer of streamers) {
-      if (!global.twitch.streamerData[streamer.IAM.id].lurkedUsers)
-        global.twitch.streamerData[streamer.IAM.id].lurkedUsers = [];
+      if (!global.twitch.streamerData[streamer.IAM.id]?.lurkedUsers)
+        global.twitch.streamerData[streamer.IAM.id] = {
+          ...global.twitch.streamerData[streamer.IAM.id],
+          lurkedUsers: []
+        };
     }
 
     return super.setup(clients);
@@ -41,7 +44,7 @@ export default class UnlurkCMD extends WaiterCommand {
       return await this.bot.channel(channel).sendMessage("I couldn't find your user information. Please try again.", { replyTo: message.message_id});
     }
 
-    if (!global.twitch.streamerData[channel.IAM.id].lurkedUsers?.some((u) => u.id === user.id)) {
+    if (!global.twitch.streamerData[channel.IAM.id]!.lurkedUsers?.some((u) => u.id === user.id)) {
       return await this.bot.channel(channel).sendMessage("You are not lurking!", { replyTo: message.message_id });
     }
 
@@ -149,9 +152,9 @@ export default class UnlurkCMD extends WaiterCommand {
     ]
 
 
-    let msg = messages[Math.floor(Math.random() * messages.length)].replace(/\[Username\]/g, "@" + user.display_name);
+    let msg = messages[Math.floor(Math.random() * messages.length)]!.replace(/\[Username\]/g, "@" + user.display_name);
     
-    global.twitch.streamerData[channel.IAM.id].lurkedUsers = global.twitch.streamerData[channel.IAM.id].lurkedUsers?.filter(u => u.id !== user.id);
+    global.twitch.streamerData[channel.IAM.id]!.lurkedUsers = global.twitch.streamerData[channel.IAM.id]!.lurkedUsers?.filter(u => u.id !== user.id);
     
     await this.bot.channel(channel).sendMessage(msg);
 

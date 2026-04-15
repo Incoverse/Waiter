@@ -17,8 +17,8 @@
 
 import CacheManager from "@/lib/cache";
 import type TwitchClient from "@twitch/client";
-import type { CoercedNumber, EventCondition, EventVersion, ValidTopics } from "../../types";
 import chalk from "chalk";
+import type { CoercedNumber, EventCondition, EventVersion, ValidTopics } from "../../types";
 
 
 export default abstract class WaiterEvent {
@@ -89,4 +89,4 @@ export type TwitchEventInfo = {
   }
 }[ValidTopics];
 
-export type BroadcasterSender = { broadcaster?: TwitchClient; sender?: TwitchClient };
+export type BroadcasterSender = { broadcaster: TwitchClient | null; sender: TwitchClient | null };

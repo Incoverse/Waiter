@@ -77,6 +77,236 @@ const UserCache = new CacheManager({
   name: "TwitchUserCache",
   logger: console.withSender(TWCHSender),
 });
+
+
+export class TwitchAppAuth {
+  public auth: Omit<TwitchAuthDB, "refreshToken">
+  private tokenRefresher: CronJob;
+  public logger: Console;
+  private api: AxiosInstance;
+
+  private cID: string;
+  private cS: string;
+
+  private constructor(cID: string, cS: string) {
+    this.cID = cID;
+    this.cS = cS;
+    this.logger = console.withSender(TWCHSender).withPrefix("[APP_AUTH]");
+
+    this.api = axios.create({
+      baseURL: "https://api.twitch.tv/helix",
+      timeout: 10000,
+    });
+
+
+    this.api.interceptors.request.use(
+      (config) => {
+        if (this.auth.accessToken) {
+          config.headers['Authorization'] = `Bearer ${this.auth.accessToken}`;
+        }
+        if (this.auth.clientId) {
+          config.headers['Client-Id'] = this.auth.clientId;
+        }
+
+        let onBehalfOf: string | null = null;
+
+        try {
+          let senderId = config.data?.sender_id;
+          
+          if (senderId) {
+            onBehalfOf =
+              [
+                global.twitch.bot,
+                ...global.twitch.streamers.values()
+              ].find((client) => client.IAM?.id === senderId)?.IAM.login || null
+          }
+        } catch (e) {}
+
+
+        this.logger.withPrefix(
+          onBehalfOf ? `[APP (as ${onBehalfOf})]` : "[APP_AUTH]"
+        ).debug(` --> ${config.method!.toUpperCase()} ${config.url}`);
+
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    this.api.interceptors.response.use(
+      (response) => {
+
+        let onBehalfOf: string | null = null;
+
+        try {
+          let senderId = JSON.parse(response.config?.data)?.sender_id;
+          
+          if (senderId) {
+            onBehalfOf =
+              [
+                global.twitch.bot,
+                ...global.twitch.streamers.values()
+              ].find((client) => client.IAM?.id === senderId)?.IAM.login || null
+          }
+        } catch (e) {}
+
+        this.logger.withPrefix(
+          onBehalfOf ? `[APP (as ${onBehalfOf})]` : "[APP_AUTH]"
+        ).debug(` <-- ${response.status} ${response.config.url}`);
+        return response;
+      },
+      (error) => {
+        if (error.response) {
+          this.logger.warn(` <-- ${error.response.status} ${error.config.url} | ${error.response.data?.message || error.message}`);
+        } else {
+          this.logger.error(` <-- ERROR ${error.config ? error.config.url : ""}`, error);
+        }
+        return Promise.reject(error);
+      }
+    ); 
+
+  }
+
+  public static async create(cID: string = process.env.TWITCH_CLIENT_ID, cS: string = process.env.TWITCH_CLIENT_SECRET): Promise<TwitchAppAuth> {
+    if (!cID || !cS) {
+      throw new Error("Twitch Client ID and Client Secret must be provided either through environment variables or as arguments.");
+    }
+    const instance = new TwitchAppAuth(cID, cS);
+    await instance.initialize();
+    return instance;
+  }
+
+
+  private initialize() {
+    return new Promise<void>(async (resolve, reject) => {
+
+      // Try to fetch existing valid token from database, otherwise get a new one and save it to the database
+
+      const authFromDB = await global.db.query("SELECT twitch_auth FROM waiter_data:root").collect().then(res => (res[0] as any[])[0]?.twitch_auth).catch(() => null);
+      let expiresIn = 0;
+
+      if (!authFromDB) {
+        this.logger.debug("No existing Twitch app auth found in database. Fetching new token...");
+        expiresIn = await this.refreshToken();
+      } else {
+
+        const auth = EncryptedField.fromDB(authFromDB);
+
+        this.auth = auth.get() as TwitchAuthDB; // TODO: Blind trust, fix it?
+
+        this.logger.debug("Validating App Access Token...");
+        expiresIn = await this.validateToken();
+        if (!expiresIn) {
+          this.logger.debug("App Access Token is invalid. Refreshing...");
+          expiresIn = await this.refreshToken();
+        } else {
+          this.logger.debug("App Access Token is valid. Expires in: " + expiresIn + ` seconds (${prettyMilliseconds(expiresIn*1000)})`);
+        }
+        
+        if (expiresIn < 60) {
+          this.logger.debug("App Access Token is expiring soon. Refreshing...");
+          expiresIn = await this.refreshToken();
+          this.logger.debug("App Access Token refreshed. Expires in: " + expiresIn + ` seconds (${prettyMilliseconds(expiresIn*1000)})`);
+        }
+      }
+
+      await this.setupRefresher((!expiresIn || expiresIn < 60) ? 0 : expiresIn);
+      this.logger.info("Token Refresher initialized for Twitch App Access Token");
+
+      
+      this.logger.perf(`Twitch App Authentication initialized. Token expires in ${expiresIn} seconds (${prettyMilliseconds(expiresIn*1000)})`);
+      resolve();
+    })
+  }
+
+  private async validateToken() {
+    if (!this.auth.accessToken) return 0
+
+    return await axios.get(`https://id.twitch.tv/oauth2/validate`, {
+      headers: {
+        'Authorization': `OAuth ${this.auth.accessToken}`
+      }
+    }).then((res) => {
+      return res.data.expires_in || 0;
+    }).catch(()=>{
+      return 0;
+    })
+  }
+  
+  private async setupRefresher(expiresIn: number) {
+    if (this.tokenRefresher) {
+      this.tokenRefresher.stop();
+    }
+    this.tokenRefresher = new CronJob(expiresIn >= 60 ? new Date(Date.now() + (expiresIn*1000) - 30000) : new Date(Date.now() + 300000), async () => {
+      this.logger.warn("Refreshing App Access Token...");
+      const newExpires = await this.refreshToken();
+      this.logger.success("App Access Token refreshed. Expires in: " + newExpires + ` seconds (${prettyMilliseconds(newExpires*1000)})`);
+
+      
+      this.tokenRefresher.setTime(new CronTime(new Date(Date.now() + (newExpires*1000) - 30000)));
+      this.tokenRefresher.start();
+    }) 
+
+    if (!expiresIn) {
+      await this.tokenRefresher.fireOnTick();            
+    } else {
+      this.tokenRefresher.start();
+    }
+
+    return this.tokenRefresher;
+  }
+
+  private static async getClientCredentials(clientId: string, clientSecret: string): Promise<{ accessToken: string; expiresIn: number }> {
+    return await axios.post(`https://id.twitch.tv/oauth2/token`, null, {
+      params: {
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "client_credentials"
+      }
+    }).then((response) => {
+      return {
+        accessToken: response.data.access_token,
+        expiresIn: response.data.expires_in
+      };
+    });
+  }
+
+  private async refreshToken() {
+    return await axios.post(`https://id.twitch.tv/oauth2/token`, null, {
+      params: {
+        client_id: this.auth?.clientId || this.cID,
+        client_secret: this.auth?.clientSecret || this.cS,
+        grant_type: "client_credentials"
+      }
+    })
+      .then(async (res) => {
+        this.auth = {
+          ...this.auth,
+          clientId: this.auth?.clientId || this.cID,
+          clientSecret: this.auth?.clientSecret || this.cS,
+          accessToken: res.data.access_token,
+          expires: new Date(Date.now() + res.data.expires_in * 1000)
+        }
+
+        const encryptedAuth = new EncryptedField(this.auth);
+
+          await global.db.query(
+            "UPSERT waiter_data:root MERGE { twitch_auth: $encryptedAuth }",
+            {
+              encryptedAuth: encryptedAuth.toDB(),
+            },
+          );
+        this.logger.great("Twitch app auth credentials refreshed and updated along with the new access token");
+        
+        return res.data.expires_in;
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  }
+}
+
 export default class TwitchClient {
   public api: AxiosInstance;
   public isBot: boolean = false;
@@ -87,7 +317,7 @@ export default class TwitchClient {
   private tokenRefresher: CronJob;
   public logger: Console;
 
-  private eventsubWS: WebSocket;
+  private eventsubWS: WebSocket | null = null;
   private ESKATimeout: number;
   private ESKATimer: NodeJS.Timeout;
   private lastEventMessage: Date;
@@ -123,7 +353,9 @@ export default class TwitchClient {
         'Authorization': `Bearer ${accessToken}`,
         'Client-Id': process.env.TWITCH_CLIENT_ID
       }
-    }).then(ResDataData0);
+    }).then(ResDataData0).catch((err) => {
+      return null;
+    })
   }
   
   public static async generateCode(expiresIn: string) {
@@ -181,7 +413,7 @@ export default class TwitchClient {
 
   }
 
-  private constructor(auth: TwitchAuthDB, wuId: string = null, connectToEventSub = true, bot = false) {
+  private constructor(auth: TwitchAuthDB, wuId: string, connectToEventSub = true, bot = false) {
     this.isBot = bot
     this.waiterUserId = wuId;
     this.logger = console.withSender(TWCHSender).withPrefix(
@@ -205,7 +437,7 @@ export default class TwitchClient {
           config.headers['Client-Id'] = this.auth.clientId;
         }
 
-        this.logger.debug(` --> ${config.method.toUpperCase()} ${config.url}`);
+        this.logger.debug(` --> ${config.method!.toUpperCase()} ${config.url}`);
 
         return config;
       },
@@ -261,7 +493,7 @@ export default class TwitchClient {
 
       if (!this.IAM) {
         this.logger.debug("Fetching information about the authenticated user...");
-        this.IAM = await this.fetchUser();
+        this.IAM = (await this.fetchUser())!;
         this.logger = this.logger.withPrefix(`[${this.IAM.login}]`);
         this.cache.setLogger(this.logger);
       }
@@ -277,14 +509,14 @@ export default class TwitchClient {
     })
   }
   
-  
+
 
   public static async createBot(connectToEventSub = true, waitForInit = true): Promise<TwitchClient> {
-    const auth = await this.loadAndReturnBotAuth().catch((err) => {
+    const {auth, wuId} = await this.loadAndReturnBotAuth().catch((err) => {
       throw err;
     });
 
-    const cli = new TwitchClient(auth, null, connectToEventSub, true);
+    const cli = new TwitchClient(auth, wuId, connectToEventSub, true);
     if (waitForInit) {
       await cli.initialize()
       await cli.awaitConnection();
@@ -293,7 +525,7 @@ export default class TwitchClient {
     return cli;
   }
 
-  public static async createStreamer(auth: TwitchAuthDB, wuId: string = null, connectToEventSub = true, waitForInit = true): Promise<TwitchClient> {
+  public static async createStreamer(auth: TwitchAuthDB, wuId: string, connectToEventSub = true, waitForInit = true): Promise<TwitchClient> {
     const cli = new TwitchClient(auth, wuId, connectToEventSub, false);
     if (waitForInit) {
       await cli.initialize()
@@ -329,9 +561,9 @@ export default class TwitchClient {
 
           this.ESKATimer = setInterval(() => {
             if (new Date().getTime() - this.lastEventMessage.getTime() > (this.ESKATimeout + 4000)) {
-            this.logger.warn("No keep-alive message received. Reconnecting...");
-            clearInterval(this.ESKATimer);
-            this.eventsubWS.close(3177, "No keep-alive message received");
+              this.logger.warn("No keep-alive message received. Reconnecting...");
+              clearInterval(this.ESKATimer);
+              this.eventsubWS?.close(3177, "No keep-alive message received");
             }
           }, 500);
 
@@ -356,8 +588,8 @@ export default class TwitchClient {
           this.eventsubConnected = false;
           this.connect();
           this.events.once("welcomed", (client, data) => {
-            old.removeAllListeners();
-            old.close(1000, "Reconnecting");
+            old?.removeAllListeners();
+            old?.close(1000, "Reconnecting");
             eventSubConnURL = originalURL;
             this.logger.success("Reconnect complete");
           })
@@ -370,7 +602,7 @@ export default class TwitchClient {
       this.eventsubWS.onclose = (c) => {
         this.logger.warn(`Disconnected from Twitch EventSub - (${c.code}) ${c.reason}`);
         this.eventsubConnected = false;
-        this.eventsubWS.removeAllListeners();
+        this.eventsubWS?.removeAllListeners();
         
         if (this.connectEventSub) {
           this.logger.log("Attempting to reconnect to Twitch EventSub...");
@@ -524,32 +756,24 @@ export default class TwitchClient {
 
         const encryptedAuth = new EncryptedField(this.auth);
 
-        if (this.isBot) { 
-          await global.db.query(
-            "UPSERT waiter_data:root MERGE { twitch_auth: $encryptedAuth }",
-            {
-              encryptedAuth: encryptedAuth.toDB(),
-            },
-          );
-        } else {
-          if (!this.IAM?.id) {
-            this.IAM = await this.fetchUser();
-            this.logger = this.logger.withPrefix(`[${this.IAM.login}]`);
-          }
-
-          const user = (await global.db.query(
-            `SELECT id FROM users WHERE twitch = $twitchId`,
-            { twitchId: new RecordId("twitch_users", this.IAM.id) },
-          ).collect().then(res => (res[0] as any[])[0]) as {id: RecordId}).id;
-
-          await global.db.query(
-            "UPDATE streamer_tokens SET auth = $encryptedAuth WHERE streamer.id = $streamerId AND type = 'twitch'",
-            {
-              encryptedAuth: encryptedAuth.toDB(),
-              streamerId: user,
-            },
-          );
+        if (!this.IAM?.id) {
+          this.IAM = (await this.fetchUser())!;
+          this.logger = this.logger.withPrefix(`[${this.IAM.login}]`);
         }
+
+        const user = (await global.db.query(
+          `SELECT id FROM users WHERE twitch = $twitchId`,
+          { twitchId: new RecordId("twitch_users", this.IAM.id) },
+        ).collect().then(res => (res[0] as any[])[0]) as {id: RecordId}).id;
+
+        await global.db.query(
+          "UPDATE streamer_tokens SET auth = $encryptedAuth WHERE streamer.id = $streamerId AND type = 'twitch'",
+          {
+            encryptedAuth: encryptedAuth.toDB(),
+            streamerId: user,
+          },
+        );
+      
         this.logger.great("Twitch auth credentials refreshed and updated in database.");
         
         return res.data.expires_in;
@@ -573,20 +797,35 @@ export default class TwitchClient {
     })
   }
 
-  private static async loadAndReturnBotAuth(): Promise<TwitchAuthDB> {
-    const result = await global.db
-      .query("SELECT twitch_auth FROM ONLY waiter_data:root")
+  private static async loadAndReturnBotAuth(): Promise<{
+    auth: TwitchAuthDB;
+    wuId: string;
+  }> {
+
+    const botTwitchUser: {
+      id: RecordId;
+      twitch: {
+        id: RecordId;
+        login: string;
+        display_name: string;
+        bot: boolean;
+      };
+    } = await global.db.query("SELECT id, twitch FROM users WHERE twitch.bot = true").collect().then(res => (res[0] as any[])[0]);
+
+    const result = botTwitchUser ? (await global.db
+      .query("SELECT auth as twitch_auth FROM streamer_tokens WHERE type = 'twitch' AND streamer = $botId", { botId: botTwitchUser.id })
       .collect<
       [
         {
           twitch_auth: string;
         },
       ]
-      >();
+      >().then(res => res[0])) : [];
 
     const encryptedAuth = EncryptedField.fromDB<TwitchAuthDB>(result[0]?.twitch_auth ?? null);
 
-    let auth: TwitchAuthDB;
+    let wuId: string;
+    let auth: TwitchAuthDB | null = null;
 
     if (encryptedAuth.isSet()) {
       try {
@@ -599,7 +838,7 @@ export default class TwitchClient {
       } catch (error) {
         console.withSender(TWCHSender).error("Error parsing stored Twitch auth:", error);
         console.withSender(TWCHSender).debug("Clearing invalid Twitch auth from database.");
-        await global.db.query('UPSERT waiter_data:root PATCH { "op": "remove", "path": "twitch_auth" }');
+        await global.db.query('DELETE FROM streamer_tokens WHERE type = \'twitch\' AND streamer.id = $botId', { botId: botTwitchUser.id });
       }
 
       console.withSender(TWCHSender).great("Twitch auth loaded from database.");
@@ -613,14 +852,6 @@ export default class TwitchClient {
           "Missing Twitch Client ID or Client Secret in environment variables. Please set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET.",
         );
       }
-
-      auth = {
-        clientId: CID,
-        clientSecret: CS,
-        accessToken: null,
-        refreshToken: null,
-        expires: null,
-      };
 
       const authURL = generateAuthURL(Buffer.from("HEAD_WAITER_BOT").toString("base64"));
 
@@ -640,20 +871,76 @@ export default class TwitchClient {
         "Received Twitch auth credentials from web interface."
       );
 
-      auth = { ...auth, ...creds[0] };
+
+
+      auth = { ...{
+        clientId: CID,
+        clientSecret: CS,
+      }, ...creds[0] };
+
+      if (!auth) {
+        throw new Error("Failed to retrieve Twitch auth credentials after authentication. Please ensure the authentication process completed successfully.");
+      }
+
+      const tokenOwner = await TwitchClient.getUserInfo(auth.accessToken)
+
+      if (!tokenOwner) {
+        throw new Error("Failed to fetch user info for Twitch bot after authentication. Please ensure the provided credentials are correct and have the necessary permissions.");
+      }
+
+      if (botTwitchUser && tokenOwner.id !== botTwitchUser.twitch.id.id.toString()) {
+        console.withSender(TWCHSender).warn(`Authenticated Twitch user (${tokenOwner.login}) does not match the previously authenticated bot user (${botTwitchUser.twitch.login}). Setting new Twitch user as the bot user in the database.`);
+        
+        const transaction = await global.db.beginTransaction();
+        
+        // set old user's bot field to false (or unset it). 
+        await transaction.query("UPDATE twitch_users SET bot = false WHERE id = $oldId", { oldId: botTwitchUser.twitch.id });
+        
+        // Ensure the new user exists in the twitch_users table and set bot = true. use upsert to create the user if it doesn't exist.
+        await transaction.query("UPSERT $twitchUser SET login = $login, display_name = $display_name, bot = true", {
+          twitchUser: new RecordId("twitch_users", tokenOwner.id),
+          login: tokenOwner.login,
+          display_name: tokenOwner.display_name
+        });
+        
+        // Ensure there is a waiter user ("users" table) with the twitch field set to the new twitch user id
+        await transaction.query("UPSERT ONLY users SET twitch = $twitchId WHERE twitch = $twitchId", {
+          twitchId: new RecordId("twitch_users", tokenOwner.id)
+        });
+        
+        await transaction.commit();
+      } 
+      // User is the same as before, or one isn't defined, so ensure the user exists and has bot = true
+      await global.db.query("UPSERT $twitchUser SET login = $login, display_name = $display_name, bot = true", {
+        twitchUser: new RecordId("twitch_users", tokenOwner.id),
+        login: tokenOwner.login,
+        display_name: tokenOwner.display_name
+      });
 
       const encryptedAuth = new EncryptedField(auth);
+    
+      wuId = await global.db.query(
+        "SELECT id FROM users WHERE twitch = $twitchId",
+        { twitchId: new RecordId("twitch_users", tokenOwner.id) },
+      ).collect().then(res => (res[0] as any[])[0]?.id);
+
+      if (!wuId) {
+        throw new Error("Failed to find or create a Waiter user associated with the authenticated Twitch bot user. Please ensure the database is functioning correctly.");
+      }
 
       await global.db.query(
-        "UPSERT waiter_data:root MERGE { twitch_auth: $encryptedAuth }",
+        "UPSERT streamer_tokens SET auth = $encryptedAuth, type = 'twitch', streamer = $streamerId WHERE streamer = $streamerId AND type = 'twitch'",
         {
           encryptedAuth: encryptedAuth.toDB(),
+          streamerId: wuId
         },
       );
       console.withSender(TWCHSender).great("Twitch auth credentials saved to database.");
+    } else {
+      wuId = botTwitchUser.id.id.toString();
     }
 
-    return auth;
+    return {auth, wuId};
   }
   
 
@@ -774,7 +1061,7 @@ export default class TwitchClient {
   public deleteReward = this.bindChannelFn(Rewards.deleteReward)
 
 
-  public fetchUser = (idLogin?: string): Promise<TwitchUser> => {
+  public fetchUser = (idLogin?: string): Promise<TwitchUser | null> => {
 
     if (idLogin || this.IAM?.id) {
       const cached = UserCache.get(idLogin ?? this.IAM?.id);

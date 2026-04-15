@@ -1,8 +1,8 @@
 import CacheManager from "@/lib/cache";
 import { parseDuration } from "@/lib/misc";
+import chalk from "chalk";
 import type TwitchClient from "../../client";
 import type { CustomRewardRedemptionAdd, TwitchRedemption } from "../../types";
-import chalk from "chalk";
 
 const defaultSettings: Omit<RewardSettings, 'name' | 'price'> = {
     enabledByDefault: true,
@@ -94,7 +94,7 @@ export default class WaiterReward {
                 }
             }
 
-            if (!data.beforeStart && this.settings.priceIncrease.consistency === "stream") {
+            if (!data.beforeStart && this.settings.priceIncrease?.consistency === "stream") {
                 await this.modifyPrice(streamer, this.settings.price);
             }
         });
@@ -121,11 +121,11 @@ export default class WaiterReward {
                     // check if the new game matches the category condition, if both id and name are provided, check both, else only the one that is provided
                     const matches = categories.some((cat) => {
                         if (cat.id && cat.name) {
-                            return (cat.id === changes.game_id.new || cat.name === changes.game_name.new);
+                            return (cat.id === changes.game_id!.new || cat.name === changes.game_name!.new);
                         } else if (cat.id) {
-                            return cat.id === changes.game_id.new;
+                            return cat.id === changes.game_id!.new;
                         } else if (cat.name) {
-                            return cat.name === changes.game_name.new;
+                            return cat.name === changes.game_name!.new;
                         }
                         return false;
                     });
@@ -133,11 +133,11 @@ export default class WaiterReward {
                     this.logger.debug(`Automatic toggle condition for category matched: ${matches}`);
 
                     if (matches) {
-                        if (!this.enabled) {
+                        if (!(await this.enabled(streamer))) {
                             await this.enable(streamer);
                         }
                     } else {
-                        if (this.enabled) {
+                        if (await this.enabled(streamer)) {
                             await this.disable(streamer);
                         }
                     }
@@ -160,11 +160,11 @@ export default class WaiterReward {
                         this.logger.debug(`Automatic toggle condition for title matched: ${matches}`);
 
                         if (matches) {
-                            if (!this.enabled) {
+                            if (!(await this.enabled(streamer))) {
                                 await this.enable(streamer);
                             }
                         } else {
-                            if (this.enabled) {
+                            if (await this.enabled(streamer)) {
                                 await this.disable(streamer);
                             }
                         }
@@ -186,7 +186,7 @@ export default class WaiterReward {
                 ...r,
                 manageable: manageableRewards.some((m) => m.id === r.id)
             }
-        }).find((r) => r.title.toLowerCase() === this.settings.name.toLowerCase() || r.prompt.toLowerCase() === this.settings.description.toLowerCase())
+        }).find((r) => r.title.toLowerCase() === this.settings.name.toLowerCase() || !this.settings.description || r.prompt.toLowerCase() === this.settings.description.toLowerCase())
 
         if (existing) {
             if (existing.manageable) {
@@ -271,7 +271,7 @@ export default class WaiterReward {
             }
         }
 
-        const hasCooldown = this.settings.cooldown != null
+        const hasCooldown = !!this.settings.cooldown
         return await streamer.createReward({
             title: this.settings.name,
             cost: this.settings.price,
@@ -280,9 +280,9 @@ export default class WaiterReward {
             background_color: this.settings.backgroundColor || undefined,
             is_user_input_required: this.settings.inputRequired,
             is_global_cooldown_enabled: hasCooldown,
-            global_cooldown_seconds: hasCooldown ? Math.floor(parseDuration(this.settings.cooldown) / 1000) : null,
-            max_per_stream: this.settings.redemptionLimit?.perStream || null,
-            max_per_user_per_stream: this.settings.redemptionLimit?.perUser || null,
+            global_cooldown_seconds: hasCooldown ? Math.floor(parseDuration(this.settings.cooldown!) / 1000) : undefined,
+            max_per_stream: this.settings.redemptionLimit?.perStream || undefined,
+            max_per_user_per_stream: this.settings.redemptionLimit?.perUser || undefined,
         }).then((reward) => {
             this.logger.debug(`Reward "${this.settings.name}" registered with ID: ${reward.id}`);
             this.id = reward.id;
@@ -309,13 +309,13 @@ export default class WaiterReward {
             return false;
         });
     }
-    public enable(streamer) {
+    public async enable(streamer: TwitchClient) {
         if (!this.id) {
             this.logger.error(`Cannot enable reward "${this.settings.name}" because it has no ID`);
             return false;
         }
 
-        if (this.enabled) {
+        if (await this.enabled(streamer)) {
             this.logger.debug(`Reward "${this.settings.name}" is already enabled`);
             return true; // Already enabled, no action needed
         }
@@ -329,13 +329,13 @@ export default class WaiterReward {
             return false;
         });
     }
-    public disable(streamer) {
+    public async disable(streamer: TwitchClient) {
         if (!this.id) {
             this.logger.error(`Cannot disable reward "${this.settings.name}" because it has no ID`);
             return false;
         }
 
-        if (!this.enabled) {
+        if (!(await this.enabled(streamer))) {
             this.logger.debug(`Reward "${this.settings.name}" is already disabled`);
             return true; // Already disabled, no action needed
         }

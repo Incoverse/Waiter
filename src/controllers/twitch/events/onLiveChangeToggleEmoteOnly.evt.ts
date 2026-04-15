@@ -9,7 +9,7 @@ export default class OLCTE extends WaiterEvent {
         name: "stream.online",
         version: 1,
         condition: {
-          "broadcaster_user_id": broadcaster?.IAM?.id,
+          "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
         }
       }
     })
@@ -21,7 +21,7 @@ export default class OLCTE extends WaiterEvent {
           name: "stream.offline",
           version: 1,
           condition: {
-            "broadcaster_user_id": broadcaster?.IAM?.id,
+            "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
           }
         }
       ]

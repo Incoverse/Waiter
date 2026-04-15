@@ -44,7 +44,7 @@ export type LoggedConsole = {
   includeSender: boolean; // If true, includes the sender in the log output
   rootSender: string; // The root sender name to use if includeSender is true and no sender is provided
 
-  prefix: string; // Prefix to include in log messages (e.g. [MyApp])
+  prefix: string | null; // Prefix to include in log messages (e.g. [MyApp])
 
   line: (...args: any[]) => void;
   debug: (...args: any[]) => void;
@@ -144,7 +144,7 @@ export default class WaiterLog {
     saveFormatted?: boolean;
     maxLogs?: number;
     logPrefix?: string;
-    prefix?: string;
+    prefix?: string | null;
     includeSender?: boolean;
     rootSender?: string;
   }) {
@@ -189,18 +189,20 @@ export default class WaiterLog {
       } else {
         const logFiles = readdirSync("./logs");
         // Delete oldest logs if there are more than maxLogs
-        if (config.maxLogs > 0 && logFiles.length > config.maxLogs - 1) {
-          while (logFiles.length > config.maxLogs - 1) {
+        if (config.maxLogs! > 0 && logFiles.length > config.maxLogs! - 1) {
+          while (logFiles.length > config.maxLogs! - 1) {
             const oldestLog = logFiles.sort((a, b) => {
               return (
-                parseInt(a.split("-")[1].split(".")[0]) -
-                parseInt(b.split("-")[1].split(".")[0])
+                parseInt(a.split("-")[1]!.split(".")[0]!) -
+                parseInt(b.split("-")[1]!.split(".")[0]!)
               );
             })[0];
 
-            logFiles.splice(logFiles.indexOf(oldestLog), 1);
+            if (oldestLog) {
+              logFiles.splice(logFiles.indexOf(oldestLog), 1);
 
-            unlinkSync(`./logs/${oldestLog}`);
+              unlinkSync(`./logs/${oldestLog}`);
+            }
           }
         }
       }

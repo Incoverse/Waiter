@@ -20,6 +20,7 @@ export const IEM = {
     for (const line of lines) {
       if (line.trim().startsWith("#")) continue;
       const [k, ...rest] = line.split("=");
+      if (!k) continue;
       if (k.trim() === key.trim()) {
         let value = rest.join("=");
         // Remove surrounding quotes if present
@@ -38,11 +39,12 @@ export const IEM = {
       data = fs.readFileSync(IEM_FILE, "utf-8");
       const lines = data.split("\n");
       let found = false;
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim().startsWith("#") || !lines[i].trim()) continue;
-        const [k] = lines[i].split("=");
+      for (let line of lines) {
+        if (line.trim().startsWith("#") || !line.trim()) continue;
+        const [k] = line.split("=");
+        if (!k) continue;
         if (k.trim() === key.trim()) {
-          lines[i] = `${key.trim()}="${value}"`;
+          line = `${key.trim()}="${value}"`;
           found = true;
           break;
         }
@@ -65,6 +67,7 @@ export const IEM = {
     const newLines = lines.filter((line) => {
       if (line.trim().startsWith("#") || !line.trim()) return true;
       const [k] = line.split("=");
+      if (!k) return true;
       return !keys.includes(k.trim());
     });
     data = newLines.join("\n");

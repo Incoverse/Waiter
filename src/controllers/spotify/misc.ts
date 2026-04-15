@@ -10,7 +10,7 @@ export function queryize(obj: Record<string, any>): string {
   return "?" + q.toString();
 }
 
-export function resolveId(idOrUri: string): string {
+export function resolveId(idOrUri: string): string | null {
   // e.g https://open.spotify.com/playlist/37i9dQZF1Fx2BDqE9gjFJU?si=0a4cd7ef90574346&pt=431cfcf3029e6c44b38fb13d5442797a
   // e.g spotify:playlist:37i9dQZF1Fx2BDqE9gjFJU
   // should return spotify:playlist:37i9dQZF1Fx2BDqE9gjFJU

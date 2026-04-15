@@ -195,8 +195,8 @@ export function parameterize(CMD: string, assume?: (string | number)[]) {
   let assumeIndex = 0;
   for (let i = 0; i < parts.length; i++) {
     // Handle key=value or key:value pattern
-    if (parts[i].includes("=") || parts[i].includes(":")) {
-      const [key, ...rest] = parts[i].split(/[:=]/);
+    if (parts[i]!.includes("=") || parts[i]!.includes(":")) {
+      const [key, ...rest] = parts[i]!.split(/[:=]/);
       let value: any = rest.join("=");
       if (value.startsWith('"') && value.endsWith('"')) {
         value = value.slice(1, -1);
@@ -205,23 +205,23 @@ export function parameterize(CMD: string, assume?: (string | number)[]) {
       } else if (value === "false") {
         value = false;
       }
-      obj[key] = value;
-    } else if (parts[i].startsWith('"') && parts[i].endsWith('"')) {
+      obj[key!] = value;
+    } else if (parts[i]!.startsWith('"') && parts[i]!.endsWith('"')) {
       const key = assume && assumeIndex < assume.length ? assume[assumeIndex++] : parts[i - 1];
-      obj[key] = parts[i].slice(1, -1);
+      obj[key!] = parts[i]!.slice(1, -1);
     } else if (parts[i] === "true") {
       const key = assume && assumeIndex < assume.length ? assume[assumeIndex++] : parts[i - 1];
-      obj[key] = true;
+      obj[key!] = true;
     } else if (parts[i] === "false") {
       const key = assume && assumeIndex < assume.length ? assume[assumeIndex++] : parts[i - 1];
-      obj[key] = false;
-    } else if (!parts[i].startsWith('"')) {
+      obj[key!] = false;
+    } else if (!parts[i]!.startsWith('"')) {
       if (assume && assumeIndex < assume.length) {
         const key = assume[assumeIndex++];
-        obj[key] = parts[i];
+        obj[key!] = parts[i]!;
       } else {
         const key = parts[i];
-        obj[key] = parts[i + 1] && parts[i + 1].startsWith('"') ? parts[i + 1].slice(1, -1) : parts[i + 1];
+        obj[key!] = parts[i + 1] && parts[i + 1]!.startsWith('"') ? parts[i + 1]!.slice(1, -1) : parts[i + 1];
         i++;
       }
     }

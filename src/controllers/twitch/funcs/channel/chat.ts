@@ -3,7 +3,17 @@ import { paginateData, ResDataData0, type ChannelSpecificWrapper } from "@twitch
 import type { UserResolvable } from "../../types";
 
 export async function send(this: ChannelSpecificWrapper, message: string, {replyTo}: {replyTo?: string} = {}) {
-  return await this.twcl.api.post(`/chat/messages`, {
+
+
+  let api = this.twcl.api;
+
+  if (
+    //? Is bot, and config says that bots should have the badge
+    (this.twcl.isBot && global.config.twitch!.bot!.showBotBadge)
+  ) api = global.twitch.appAuth.api; // Use app auth so that the chat bot badge shows up.
+
+
+  return await api.post(`/chat/messages`, {
     message: message.trim(),
     broadcaster_id: this.channelId,
     sender_id: this.twcl.IAM.id,

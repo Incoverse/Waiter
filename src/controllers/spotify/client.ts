@@ -73,7 +73,7 @@ export default class SpotifyClient {
     }
   }
   
-  private constructor(auth: SpotifyAuthDB, wuId: string = null) {
+  private constructor(auth: SpotifyAuthDB, wuId: string) {
     this.auth = auth;
     this.waiterUserId = wuId;
     this.logger = console.withSender(SPOTSender).withPrefix(
@@ -91,7 +91,7 @@ export default class SpotifyClient {
           config.headers['Authorization'] = `Bearer ${this.auth.accessToken}`;
         }
         
-        this.logger.debug(` --> ${config.method.toUpperCase()} ${config.url}`);
+        this.logger.debug(` --> ${config.method!.toUpperCase()} ${config.url}`);
         
         return config;
       },
@@ -619,8 +619,8 @@ export default class SpotifyClient {
           return null;
         }
 
-        const type = parts[1];
-        const spotifyId = parts[2];
+        const type = parts[1]!;
+        const spotifyId = parts[2]!;
 
         switch (type) {
           case "album":

@@ -55,10 +55,10 @@ if (directRun) {
 
   try {
     if (action === "encrypt") {
-      const encrypted = encrypt(input);
+      const encrypted = encrypt(input!);
       console.log(encrypted);
     } else if (action === "decrypt") {
-      const decrypted = decrypt(input);
+      const decrypted = decrypt(input!);
       console.log(decrypted);
     } else if (action === "vk") {
       console.log(global.encryptionKey ?? IEM.get("ENCRYPTION_KEY")!);

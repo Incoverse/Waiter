@@ -28,8 +28,8 @@ export default class OMCL extends WaiterEvent {
         name: "channel.chat.message",
         version: 1,
         condition: {
-          "broadcaster_user_id": broadcaster?.IAM?.id,
-          "user_id": sender?.IAM?.id
+          "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
+          "user_id": sender?.IAM?.id ?? "NONE"
         }
       }
   })
@@ -41,7 +41,7 @@ export default class OMCL extends WaiterEvent {
         name: "stream.offline",
         version: 1,
         condition: {
-          "broadcaster_user_id": broadcaster?.IAM?.id
+          "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE"
         }
       }
     ]
@@ -51,8 +51,11 @@ export default class OMCL extends WaiterEvent {
     const streamers = clients.filter((client) => !client.isBot);
 
     for (const streamer of streamers) {
-      if (!global.twitch.streamerData[streamer.IAM.id].lurkedUsers)
-        global.twitch.streamerData[streamer.IAM.id].lurkedUsers = [];
+      if (!global.twitch.streamerData[streamer.IAM.id]?.lurkedUsers)
+        global.twitch.streamerData[streamer.IAM.id] = {
+          ...global.twitch.streamerData[streamer.IAM.id],
+          lurkedUsers: []
+        };
     }
 
     return super.setup(clients);
@@ -63,9 +66,9 @@ export default class OMCL extends WaiterEvent {
   public override async exec(source: TwitchClient, data: ChannelChatMessage | StreamOffline): Promise<void> {
 
     if (data.subscription.type === "stream.offline") {
-      if (global.twitch.streamerData[data.event.broadcaster_user_id].lurkedUsers?.length) {
+      if (global.twitch.streamerData[data.event.broadcaster_user_id]?.lurkedUsers?.length) {
         this.logger.debug(`[${data.event.broadcaster_user_login}] Clearing lurked users due to stream going offline.`);
-        global.twitch.streamerData[data.event.broadcaster_user_id].lurkedUsers = [];
+        global.twitch.streamerData[data.event.broadcaster_user_id]!.lurkedUsers = [];
       }
       
       return
@@ -84,13 +87,15 @@ export default class OMCL extends WaiterEvent {
         mentions = mentions.filter((v, i, a) => a.findIndex(t => (t.toLowerCase() === v.toLowerCase())) === i);
       }
 
-      let mentionedLurks = [];
+      let mentionedLurks: string[] = [];
 
-      for (let i = 0; i < mentions.length; i++) {
-        const mention = mentions[i].replace(/^@/, "");
+      for (let mention of mentions) {
+        mention = mention.replace(/^@/, "");
 
-        if (global.twitch.streamerData[data.event.broadcaster_user_id].lurkedUsers.some(u => u.login === mention.toLowerCase())) {
-          mentionedLurks.push(global.twitch.streamerData[data.event.broadcaster_user_id].lurkedUsers.find(u => u.login === mention.toLowerCase()).display_name);
+        const lurkedMention = global.twitch.streamerData[data.event.broadcaster_user_id]!.lurkedUsers!.find(u => u.login === mention.toLowerCase())
+
+        if (lurkedMention) {
+          mentionedLurks.push(lurkedMention.display_name);
         }
       }
 

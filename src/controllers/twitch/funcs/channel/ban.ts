@@ -34,7 +34,7 @@ export async function denyUnbanRequest(this: ChannelSpecificWrapper, id: string)
 }
 
 export async function ban(this: ChannelSpecificWrapper, id: string, reason?: string) {
-  if (reason.length > 500) {
+  if (reason && reason.length > 500) {
     throw new Error('Reason must be less than 500 characters');
   }
   return this.twcl.api.post(`/moderation/bans?broadcaster_id=${this.channelId}&moderator_id=${this.twcl.IAM.id}`, {

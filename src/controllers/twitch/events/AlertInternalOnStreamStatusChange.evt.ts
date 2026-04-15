@@ -33,7 +33,7 @@ export default class OSSC extends WaiterEvent {
           name: "stream.online",
           version: 1,
           condition: {
-              "broadcaster_user_id": broadcaster?.IAM?.id,
+              "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
           }
         },
         {
@@ -41,7 +41,7 @@ export default class OSSC extends WaiterEvent {
           name: "stream.offline",
           version: 1,
           condition: {
-              "broadcaster_user_id": broadcaster?.IAM?.id,
+              "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
           }
         },
         {
@@ -49,7 +49,7 @@ export default class OSSC extends WaiterEvent {
           name: "channel.update",
           version: 2,
           condition: {
-              "broadcaster_user_id": broadcaster?.IAM?.id,
+              "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
           }
         }
       ]
@@ -70,7 +70,7 @@ export default class OSSC extends WaiterEvent {
           this.channelInformation.set(streamer.IAM.id, channelInfo);
 
           this.logger.log(`[${streamer.IAM.login}] Stream is currently ${isStreaming ? "online" : "offline"}`);
-          global.twitch.streamerData[streamer.IAM.id].isStreaming = isStreaming;
+          global.twitch.streamerData[streamer.IAM.id]!.isStreaming = isStreaming;
 
           if (isStreaming) {
             global.twitch.communication.emit("stream.online", streamer, { beforeStart: true });
@@ -79,27 +79,27 @@ export default class OSSC extends WaiterEvent {
           }
         }
       } else {
-        if (isStreamOnline(data)) {
+        if (isStreamOnline(data!)) {
           const streamer = global.twitch.streamers.get(data.event.broadcaster_user_id);
           if (!streamer) {
             this.logger.warn(`Received stream.online event for unregistered streamer with ID ${data.event.broadcaster_user_id}. Ignoring.`);
             return;
           }
 
-          global.twitch.streamerData[streamer.IAM.id].isStreaming = true;
+          global.twitch.streamerData[streamer.IAM.id]!.isStreaming = true;
           this.logger.log(`[${streamer.IAM.login}] Stream is now online`);
           global.twitch.communication.emit("stream.online", streamer, data.event);
-        } else if (isStreamOffline(data)) {
+        } else if (isStreamOffline(data!)) {
           const streamer = global.twitch.streamers.get(data.event.broadcaster_user_id);
 
           if (!streamer) {
             this.logger.warn(`Received stream.offline event for unregistered streamer with ID ${data.event.broadcaster_user_id}. Ignoring.`);
             return;
           }
-          global.twitch.streamerData[streamer.IAM.id].isStreaming = false;
+          global.twitch.streamerData[streamer.IAM.id]!.isStreaming = false;
           this.logger.log(`[${streamer.IAM.login}] Stream is now offline`);
           global.twitch.communication.emit("stream.offline", streamer, data.event);
-        } else if (isChannelUpdate(data)) {
+        } else if (isChannelUpdate(data!)) {
             const prevInfo = this.channelInformation.get(source.IAM.id) || null;
             const newInfo = {
                 ...prevInfo,
@@ -153,6 +153,6 @@ export type ChannelInformation = {
   game_id: string;
   game_name: string;
   title: string;
-  tags: string[];
+  tags?: string[];
   content_classification_labels: string[];
 };

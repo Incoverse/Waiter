@@ -1,7 +1,7 @@
 import { decrypt, encrypt } from "./encryption";
 
 export class EncryptedField<T = string> {
-  private encrypted?: string = null;
+  private encrypted: string | null = null;
 
   constructor(value?: T | string) {
     if (typeof value === "string" && this.isEncrypted(value)) {
@@ -20,7 +20,7 @@ export class EncryptedField<T = string> {
     this.encrypted = encrypt(str);
   }
 
-  get(): T | undefined {
+  get(): T | null {
     if (!this.encrypted) return null;
       
     const decrypted = decrypt(this.encrypted);

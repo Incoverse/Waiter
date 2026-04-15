@@ -4,12 +4,12 @@ import { RequiresPermission, TwitchPermissions } from "@/controllers/twitch/lib/
 
 
 export default class ModCMD extends WaiterCommand {
-  public messageTrigger: RegExp = /^!mod\s+(\w+)$/;
+  public messageTrigger: RegExp = /^!mod\s+(?<username>\w+)$/;
 
 
   @RequiresPermission(TwitchPermissions.Broadcaster)
   public async exec(streamer: TwitchClient, message: ChannelMessage): Promise<any> {
-    const username = message.message.text.match(this.messageTrigger)[1];
+    const username = this.getArgs(message, "username")!;
     const user = await this.bot.fetchUser(username);
 
     if (!user) {

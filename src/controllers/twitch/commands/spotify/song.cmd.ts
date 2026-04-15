@@ -20,7 +20,6 @@ import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type ChannelMessage } from "@twitch/lib/base/WaiterCommand";
 import CooldownSystem, { CooldownWrapper } from "@twitch/lib/cooldown";
 import { StreamerHasSpotifyLinked, StreamerIsLive } from "../../lib/conditions";
-import { RequiresPermission, TwitchPermissions } from "../../lib/misc";
 
 
 export default class SongCMD extends WaiterCommand {
@@ -31,7 +30,6 @@ export default class SongCMD extends WaiterCommand {
     cooldownTime: "30s",
   });
 
-  @RequiresPermission(TwitchPermissions.Developer) //? <-- User is a Waiter Developer (Temporarily require developer permissions while the command is being tested.)
   @StreamerIsLive() //? <-- Streamer must be live to use the command, since it doesn't make sense to check the currently playing song if the stream isn't live.
   @StreamerHasSpotifyLinked() //? <-- Streamer must have their Spotify account linked to use the command, since we need access to their Spotify data to get the currently playing song.
   @CooldownWrapper() //? <-- Apply the cooldown to prevent spam, since fetching the currently playing song involves making requests to the Spotify API which could potentially be rate limited if abused.
@@ -64,9 +62,13 @@ export default class SongCMD extends WaiterCommand {
       }
 
       const songName = song.item.name;
-      const onDevice = song.device ? song.device.name : "an unknown device";
 
-      return this.bot.channel(channel).sendMessage(`Currently playing: "${songName}" by ${artistString} on ${onDevice}.`, { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage(`Currently playing: "${songName}" by ${artistString}.`, { replyTo: message.message_id });
+    } else if (song.item.type == "episode") {
+      const episodeName = song.item.name;
+      const showName = song.item.show.name;
+
+      return this.bot.channel(channel).sendMessage(`Currently playing: "${episodeName}" from the show "${showName}".`, { replyTo: message.message_id });
     }
   }
 }
