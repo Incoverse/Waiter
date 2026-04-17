@@ -103,7 +103,7 @@ export default class TwitchController extends Controller {
     };
 
     const events = (await Promise.all(
-      findFiles(global.isCompiled ? "dist" : "src", /\/twitch\/.*\.evt\..s$/)
+      findFiles(global.isCompiled ? "dist" : "src", /[\\/]twitch[\\/].*\.evt\..s$/)
         .map(importLocalModule)        
     ))
       .map((mod) => mod.default)

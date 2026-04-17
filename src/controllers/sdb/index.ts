@@ -20,6 +20,13 @@ type SessionInfo = {
   tk: { AC: string; NS: string; RL: any[]; exp: number };
 };
 
+
+function defaultDBName() {
+  const username = process.env.USER || process.env.USERNAME || "user";
+  console.warn("No database name was configured. Using the default username-based database name instead:", `${username}-test`);
+  return `${username}-test`;
+}
+
 export default class SurrealDBController extends Controller {
 
   public override priority: number = Number.MIN_SAFE_INTEGER; //? Ensure this controller always loads first, so that the database connection is established before any other controllers try to use it.
@@ -33,7 +40,8 @@ export default class SurrealDBController extends Controller {
     return z.object({
       database: z.object({
         uri: z.url().describe("The URI of the SurrealDB server").default("wss://inimicalpart.com:13244"),
-      }).default({ uri: "wss://inimicalpart.com:13244" }),
+        db: z.string().describe("Active database for SurrealDB. Uses the logged in user's username + '-test'. This should be changed to 'main' when running production").default(defaultDBName),
+      }).default(() => ({ uri: "wss://inimicalpart.com:13244", db: defaultDBName() })),
     }) satisfies z.ZodType<Pick<WaiterConfig, "database">>;
   }
 
@@ -44,7 +52,7 @@ export default class SurrealDBController extends Controller {
       const exp = await qrh.getSessionInfo().then((info) => info.tk.exp);
       const expTime = prettyMs(exp * 1000 - Date.now(), { compact: true, verbose: true });
       this.logger.log(`Connected to SurrealDB at ${chalk.yellow(URI)} as ${chalk.yellow(as)}. Token expires in ${chalk.red(expTime)}.`);
-      this.logger.log(`Using DB: ${chalk.yellow(process.env.ACTIVE_DB)}`);
+      this.logger.log(`Using DB: ${chalk.yellow(global.config.database.db)}.`);
 
     }
   }
@@ -134,10 +142,12 @@ export default class SurrealDBController extends Controller {
       }
     }, 500);
 
-    await db.query(`DEFINE DATABASE IF NOT EXISTS "${process.env.ACTIVE_DB}";`);
+    await db.query(`DEFINE DATABASE IF NOT EXISTS $dbName;`, {
+      dbName: global.config.database.db,
+    });
 
     await db.use({
-      database: process.env.ACTIVE_DB,
+      database: global.config.database.db,
       namespace: "Waiter",
     });
 
@@ -178,7 +188,7 @@ const connectToDB = (db: Surreal) =>
   Promise.race([
     db.connect(global.config.database.uri, {
       namespace: "Waiter",
-      database: process.env.ACTIVE_DB,
+      database: global.config.database.db,
       authentication: process.env.SURREAL_JWT,
     }),
     new Promise((_, reject) =>

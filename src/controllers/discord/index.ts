@@ -96,7 +96,7 @@ export default class DiscordController extends Controller {
       return;
     }
 
-    const commandPaths = await findFiles(global.isCompiled ? "dist" : "src", /\/discord\/.*\.cmd\..s$/);
+    const commandPaths = await findFiles(global.isCompiled ? "dist" : "src", /[\\/]discord[\\/].*\.cmd\..s$/);
     const importedModules = await Promise.all(
       commandPaths.map(importLocalModule),
     );

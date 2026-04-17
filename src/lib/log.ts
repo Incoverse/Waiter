@@ -181,37 +181,6 @@ export default class WaiterLog {
       error: console.error,
     };
 
-    if (console.saveToFile) {
-      if (existsSync("./logs/current.log")) unlinkSync(`./logs/current.log`);
-      console.logName = `${config.logPrefix}-${new Date().getTime()}.log`;
-      if (!existsSync("./logs")) {
-        mkdirSync("./logs");
-      } else {
-        const logFiles = readdirSync("./logs");
-        // Delete oldest logs if there are more than maxLogs
-        if (config.maxLogs! > 0 && logFiles.length > config.maxLogs! - 1) {
-          while (logFiles.length > config.maxLogs! - 1) {
-            const oldestLog = logFiles.sort((a, b) => {
-              return (
-                parseInt(a.split("-")[1]!.split(".")[0]!) -
-                parseInt(b.split("-")[1]!.split(".")[0]!)
-              );
-            })[0];
-
-            if (oldestLog) {
-              logFiles.splice(logFiles.indexOf(oldestLog), 1);
-
-              unlinkSync(`./logs/${oldestLog}`);
-            }
-          }
-        }
-      }
-      console.saveStream = createWriteStream(`./logs/${console.logName}`);
-      if (config.makeCurrentLog) {
-        symlinkSync(`${console.logName}`, `./logs/current.log`, "file");
-      }
-    }
-
     const logger = this;
 
     console.withSender = function (this: Console, name: string) {
@@ -319,6 +288,42 @@ export default class WaiterLog {
         );
       }
     };
+
+        if (console.saveToFile) {
+      if (existsSync("./logs/current.log")) unlinkSync(`./logs/current.log`);
+      console.logName = `${config.logPrefix}-${new Date().getTime()}.log`;
+      if (!existsSync("./logs")) {
+        mkdirSync("./logs");
+      } else {
+        const logFiles = readdirSync("./logs");
+        // Delete oldest logs if there are more than maxLogs
+        if (config.maxLogs! > 0 && logFiles.length > config.maxLogs! - 1) {
+          while (logFiles.length > config.maxLogs! - 1) {
+            const oldestLog = logFiles.sort((a, b) => {
+              return (
+                parseInt(a?.split("-")[1]?.split(".")[0] ?? "0") -
+                parseInt(b?.split("-")[1]?.split(".")[0] ?? "0")
+              );
+            })[0];
+
+            if (oldestLog) {
+              logFiles.splice(logFiles.indexOf(oldestLog), 1);
+
+              unlinkSync(`./logs/${oldestLog}`);
+            }
+          }
+        }
+      }
+      console.saveStream = createWriteStream(`./logs/${console.logName}`);
+      if (config.makeCurrentLog) {
+        try {
+          symlinkSync(`${console.logName}`, `./logs/current.log`, "file");
+        } catch (err) {
+          console.warn("Could not create symlink for current.log, continuing without it.");
+          console.debug("Symlink error details:", err.toString());
+        }
+      }
+    }
   }
 
   private fmt(logConsole: Console, lvl: LOGLEVEL, sender?: string): any[] {

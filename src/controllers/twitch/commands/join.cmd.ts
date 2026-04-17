@@ -24,7 +24,7 @@ import CooldownSystem, { CooldownWrapper } from "../lib/cooldown";
 
 
 export default class JoinCMD extends WaiterCommand {
-  public messageTrigger: RegExp = /^!join\s+(\w+)$/;
+  public messageTrigger: RegExp = /^!join\s+(?<code>.*)$/;
 
   public override cooldown: CooldownSystem = new CooldownSystem({
     type: "user",
@@ -42,7 +42,7 @@ export default class JoinCMD extends WaiterCommand {
       return recipient.sendWhisper(message.from_user_id, "You are already a streamer in the system.");
     }
 
-    const code = message.whisper.text.match(this.messageTrigger)?.[1];
+    const code = this.getArgs(message, "code")?.trim();
 
     if (!code) {
       return recipient.sendWhisper(message.from_user_id, "Invalid command format. Use: !join <code>");

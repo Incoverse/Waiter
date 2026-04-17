@@ -947,7 +947,7 @@ export default class TwitchClient {
   // TODO: Move this out of client.ts and place it in index.ts (TwitchController)
   @registerRoute("GET", () => global.config.twitch.authEndpoint)
   private static async handleAuthRoute(req: Request, res: Response) {
-    const errorTemplate = findFiles(global.isCompiled ? "dist" : "src", /\/twitch\/templates\/error\.html$/)?.shift();
+    const errorTemplate = findFiles(global.isCompiled ? "dist" : "src", /[\\/]twitch[\\/]templates[\\/]error\.html$/)?.shift();
     let state = req.query.state?.toString();
 
     if (state) {
@@ -1041,7 +1041,7 @@ export default class TwitchClient {
       // Delete the code from the database to prevent reuse
       await global.db.query("DELETE FROM twitch_auth_codes WHERE code = $code", { code: authCode });
 
-      const successfulAuthTemplate = findFiles(global.isCompiled ? "dist" : "src", /\/twitch\/templates\/successful_auth\.html$/)?.shift();
+      const successfulAuthTemplate = findFiles(global.isCompiled ? "dist" : "src", /[\\/]twitch[\\/]templates[\\/]successful_auth\.html$/)?.shift();
       return res.template(successfulAuthTemplate)
     }
   }

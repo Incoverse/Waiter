@@ -41,7 +41,7 @@ export default class WebController extends Controller {
 
   @registerRoute("GET", "/")
   protected HomeRouteHandler(req: express.Request, res: express.Response) {
-    const HomeTemplate = findFiles(global.isCompiled ? "dist" : "src", /web\/templates\/home\.html$/)?.shift();
+    const HomeTemplate = findFiles(global.isCompiled ? "dist" : "src", /web[\\/]templates[\\/]home\.html$/)?.shift();
     res.template(HomeTemplate);
   }
 
@@ -108,7 +108,7 @@ export default class WebController extends Controller {
       app.use(async (req, res) => {
         this.logger.warn(`No route found for ${req.method} ${req.path}`);
 
-        const NotFoundTemplate = findFiles(global.isCompiled ? "dist" : "src", /web\/templates\/404\.html$/)?.shift();
+        const NotFoundTemplate = findFiles(global.isCompiled ? "dist" : "src", /web[\\/]templates[\\/]404\.html$/)?.shift();
         res.status(404).template(NotFoundTemplate);
       })
     })

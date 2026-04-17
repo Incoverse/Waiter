@@ -26,7 +26,6 @@ It combines Twitch, Spotify, Discord, web routes, and SurrealDB into one modular
 - [Feature Matrix](#feature-matrix)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
-- [Environment Variables](#environment-variables)
 - [Configuration](#configuration)
 - [Scripts](#scripts)
 - [Development Workflow](#development-workflow)
@@ -101,50 +100,29 @@ Stage execution is a strict barrier model: the `pre` stage must fully complete b
 npm install
 ```
 
-### 2) Create environment file
-
-```bash
-cp .env.example .env
-```
-
-### 3) Configure runtime
+### 2) Configure runtime
 
 - Edit `src/config.ts` if present
 - If missing, run once and Waiter will copy from `src/default.config.ts`
 
-### 4) Run development loop
+### 3) Run development loop
 
 ```bash
 npm run dev
 ```
 
-### 5) Build and start compiled output
+### 4) Build and start compiled output
 
 ```bash
 npm run build
 npm run start
 ```
 
-## Environment Variables
-
-> [!TIP]
-> Only configure what you use. If a controller is disabled or unused, its related credentials are not required.
-
-| Group | Variable | Required | Purpose |
-|---|---|---:|---|
-| Database | `ACTIVE_DB` | Yes | Target database name used by the SurrealDB controller |
-| Database | `SURREAL_JWT` | Yes | SurrealDB authentication token |
-| Twitch | `TWITCH_CLIENT_ID` | Twitch only | OAuth app client ID |
-| Twitch | `TWITCH_CLIENT_SECRET` | Twitch only | OAuth app client secret |
-| Spotify | `SPOTIFY_CLIENT_ID` | Spotify only | OAuth app client ID |
-| Spotify | `SPOTIFY_CLIENT_SECRET` | Spotify only | OAuth app client secret |
-| Discord | `DISCORD_TOKEN` | Discord only | Bot token |
-| Discord | `DISCORD_CLIENT_ID` | Discord only | Application client ID |
-| Discord | `DISCORD_CLIENT_SECRET` | Discord only | Application client secret |
-
 ## Configuration
 
 Configuration is loaded from `src/config.ts` and validated using merged Zod schemas from all controllers.
+
+Waiter also creates and uses `.env.internal` for internal runtime state. That file stores the encryption key used to encrypt and decrypt sensitive database values such as auth tokens.
 
 | Behavior | Description |
 |---|---|

@@ -78,7 +78,7 @@ if (!storedKey) {
 }
 
 
-const controllers: Controller[] = (await Promise.all(findFiles(global.isCompiled ? "dist" : "src", /controllers\/.*?\/index\..s$/).map(importLocalModule)))
+const controllers: Controller[] = (await Promise.all(findFiles(global.isCompiled ? "dist" : "src", /[\\/]controllers[\\/].*?[\\/](index\..s)$/).map(importLocalModule)))
   .map((mod) => mod.default)
   .filter((cls) => !!cls)
   .filter((cls) => extendsClass(cls, Controller))
@@ -116,10 +116,10 @@ configSchema = configSchema.default({ publicUrl: "http://localhost:9999" }) as a
 
 
 
-let configFile = findFiles(global.isCompiled ? "dist" : "src", /\/config\..s$/)?.shift();
+let configFile = findFiles(global.isCompiled ? "dist" : "src", /[\\/]config\..s$/)?.shift();
 
 if (!configFile) {
-  let defaultConfigPath = findFiles(global.isCompiled ? "dist" : "src", /\/default\.config\..s$/)?.shift();
+  let defaultConfigPath = findFiles(global.isCompiled ? "dist" : "src", /[\\/]default\.config\..s$/)?.shift();
   if (!defaultConfigPath) {
     console.fatal("No config file was found. We tried to make one using the default config template, but it seems like that template is missing as well. Please copy over the default config template from the repository and restart the application.");
     process.exit(1);

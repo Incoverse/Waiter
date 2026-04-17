@@ -26,6 +26,7 @@ export function findFiles(
   const settings = { ignoreNodeModules: true, absolute: false, ...options };
 
   const files: any[] = [];
+  // console.debug(`Searching for files in ${path.resolve(dir)} with filter ${filter} (ignoreNodeModules=${settings.ignoreNodeModules}, absolute=${settings.absolute})`);
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
   for (const entry of entries) {
