@@ -124,6 +124,12 @@ Configuration is loaded from `src/config.ts` and validated using merged Zod sche
 
 Waiter also creates and uses `.env.internal` for internal runtime state. That file stores the encryption key used to encrypt and decrypt sensitive database values such as auth tokens.
 
+Waiter resolves a machine identity at startup for database ownership safety:
+
+- Real machines: an OS machine identifier is used (hardware/OS-backed source)
+- Docker containers: a container runtime identifier is used (stable for stop/start of the same container, changes when recreated/rebuilt)
+- Fallback: if no trusted source is available, Waiter reuses or generates `MACHINE_ID` in `.env.internal`
+
 | Behavior | Description |
 |---|---|
 | Missing config file | `src/default.config.ts` is copied to `src/config.ts`, then process exits so you can edit it |

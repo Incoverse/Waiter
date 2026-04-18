@@ -39,12 +39,14 @@ export const IEM = {
       data = fs.readFileSync(IEM_FILE, "utf-8");
       const lines = data.split("\n");
       let found = false;
-      for (let line of lines) {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line) continue;
         if (line.trim().startsWith("#") || !line.trim()) continue;
         const [k] = line.split("=");
         if (!k) continue;
         if (k.trim() === key.trim()) {
-          line = `${key.trim()}="${value}"`;
+          lines[i] = `${key.trim()}="${value}"`;
           found = true;
           break;
         }

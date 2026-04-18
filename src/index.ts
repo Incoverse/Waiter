@@ -17,6 +17,7 @@ import dotenv from "dotenv";
 import fs from "fs/promises";
 import path from "path";
 import { IEM } from "./lib/iem";
+import { resolveTrustedRuntimeIdentity } from "./lib/runtime-identity";
 
 import chalk from "chalk";
 import {
@@ -77,8 +78,24 @@ if (!storedKey) {
   console.info("Encryption key loaded from internal environment.");
 }
 
+const runtimeIdentity = resolveTrustedRuntimeIdentity();
+global.machineId = runtimeIdentity.id;
 
-const controllers: Controller[] = (await Promise.all(findFiles(global.isCompiled ? "dist" : "src", /[\\/]controllers[\\/].*?[\\/](index\..s)$/).map(importLocalModule)))
+if (runtimeIdentity.trusted) {
+  console.info(`Machine ID loaded from trusted source (${runtimeIdentity.source}).`);
+} else {
+  console.warn(
+    "Could not resolve trusted machine identity sources (1: docker runtime, 2: host machine ID). Using fallback source (3: generated runtime ID).",
+  );
+}
+
+
+console.debug("Finding controllers...");
+const controllerPaths = findFiles(global.isCompiled ? "dist" : "src", /[\\/]controllers[\\/].*?[\\/](index\..s)$/)
+console.debug(`Found ${controllerPaths.length} controller${controllerPaths.length !== 1 ? "s" : ""}. Importing...`);
+const importedControllers = (await Promise.all(controllerPaths.map(importLocalModule)))
+console.debug("Controllers imported. Filtering, instantiating, and sorting by stage and priority...");
+const controllers: Controller[] = importedControllers 
   .map((mod) => mod.default)
   .filter((cls) => !!cls)
   .filter((cls) => extendsClass(cls, Controller))
@@ -92,9 +109,9 @@ const controllers: Controller[] = (await Promise.all(findFiles(global.isCompiled
 
     return a.priority - b.priority;
   })
-  
 
-console.debug(`Found ${controllers.length} controller(s):`);
+
+console.debug(`${controllers.length} controller${controllers.length !== 1 ? "s" : ""} ready to be executed:`);
 for (const controller of controllers) {
   console.debug(`  - ${controller.constructor.name} (${controller.abbr}), stage: ${controller.stage}, priority: ${controller.priority}`);
 }
@@ -179,6 +196,8 @@ async function runController(controller: Controller) {
     await controller.exec();
   } catch (err) {
     console.error(`Error starting controller ${controllerName} (${controller.abbr}):`, err);
+    global.controllers.delete(controller.abbr);
+    controllers.splice(controllers.indexOf(controller), 1);
     failed = true;
   }
   performance.mark(`${controllerName}_end`);
@@ -215,9 +234,7 @@ for (const controller of controllers) {
 console.log("---------------------------------")
 console.info("Waiter", chalk.cyanBright(`v${waiterInfo.version}`), "is up and running!");
 console.log()
-
 for (const controller of controllers) {
   await controller.statuses();
 }
-
 console.log("---------------------------------")

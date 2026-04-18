@@ -23,8 +23,13 @@ export class EncryptedField<T = string> {
   get(): T | null {
     if (!this.encrypted) return null;
       
-    const decrypted = decrypt(this.encrypted);
-    return JSON.parse(decrypted);
+    try {
+      const decrypted = decrypt(this.encrypted);
+      return JSON.parse(decrypted);
+    } catch (e) {
+      console.error("An error occurred while retrieving an EncryptedField value.", e);
+      return null;
+    }
   }
 
   validate() {
@@ -34,6 +39,7 @@ export class EncryptedField<T = string> {
       JSON.parse(decrypted);
       return true;
     } catch (e) {
+      console.error("An error occurred while validating an EncryptedField. The value may be corrupted or the encryption key may have changed.", e);
       return false;
     }
   }

@@ -1,15 +1,15 @@
 import { Controller } from "@/lib/base/controller";
 import TableDefinition from "@/lib/base/tableDefinition";
 import {
-  extendsClass,
-  findFiles,
-  getStaticProps,
-  importLocalModule
+    extendsClass,
+    findFiles,
+    getStaticProps,
+    importLocalModule
 } from "@/lib/misc";
 import chalk from "chalk";
 import ping from "ping";
 import prettyMs from "pretty-ms";
-import { Surreal } from "surrealdb";
+import { RecordId, Surreal } from "surrealdb";
 import z, { ZodType } from "zod";
 
 type SessionInfo = {
@@ -19,6 +19,8 @@ type SessionInfo = {
   exp: number;
   tk: { AC: string; NS: string; RL: any[]; exp: number };
 };
+
+type OwnerVerificationResult = "verified" | "mismatch" | "needs-claim";
 
 
 function defaultDBName() {
@@ -41,7 +43,8 @@ export default class SurrealDBController extends Controller {
       database: z.object({
         uri: z.url().describe("The URI of the SurrealDB server").default("wss://inimicalpart.com:13244"),
         db: z.string().describe("Active database for SurrealDB. Uses the logged in user's username + '-test'. This should be changed to 'main' when running production").default(defaultDBName),
-      }).default(() => ({ uri: "wss://inimicalpart.com:13244", db: defaultDBName() })),
+        ignoreOwnerMismatch: z.boolean().describe("Whether or not to ignore machine ID mismatches in the database. If this is true, the application will skip checking the machine ID in the database and overwrite it. If false, the application will refuse to operate on the database").default(false),
+      }).default(() => ({ uri: "wss://inimicalpart.com:13244", db: defaultDBName(), ignoreOwnerMismatch: false })),
     }) satisfies z.ZodType<Pick<WaiterConfig, "database">>;
   }
 
@@ -53,7 +56,6 @@ export default class SurrealDBController extends Controller {
       const expTime = prettyMs(exp * 1000 - Date.now(), { compact: true, verbose: true });
       this.logger.log(`Connected to SurrealDB at ${chalk.yellow(URI)} as ${chalk.yellow(as)}. Token expires in ${chalk.red(expTime)}.`);
       this.logger.log(`Using DB: ${chalk.yellow(global.config.database.db)}.`);
-
     }
   }
 
@@ -105,6 +107,28 @@ export default class SurrealDBController extends Controller {
       `Connected to database ${chalk.yellow(dbLoc)} as ${chalk.yellow(dbUser)}. Token expires in: ${chalk.red(tokenExp)}`,
     );
 
+    await db.query(`DEFINE DATABASE IF NOT EXISTS $dbName;`, {
+      dbName: global.config.database.db,
+    });
+
+    await db.use({
+      database: global.config.database.db,
+      namespace: "Waiter",
+    });
+
+    const ownerVerificationResult = await this.verifyOwner({
+      deferClaimWhenOwnerMissing: true,
+    });
+
+    if (ownerVerificationResult === "mismatch") {
+      this.logger.fatal(
+        chalk.red(
+          "Database owner mismatch detected. Refusing to operate on database to prevent potential conflicts. If you want to ignore owner mismatches, set database.ignoreOwnerMismatch to true in the configuration. Beware that doing so may cause conflicts/corruption if multiple instances of Waiter are running on the same database.",
+        ),
+      );
+      process.exit(1);
+    }
+
     this.logger.debug(`SurrealDB version: ${chalk.yellow(dbVersion)}.`);
 
     let attemptingToReconnect = false;
@@ -131,9 +155,19 @@ export default class SurrealDBController extends Controller {
         }
 
         await connectToDB(db)
-          .then(() => {
+          .then(async () => {
             hasInternet = true;
             this.logger.great("Reconnected to database.");
+
+            const ownerVerified = await this.verifyOwner();
+            if (!ownerVerified) {
+              this.logger.fatal(
+                chalk.red(
+                  "Database owner mismatch detected. Refusing to operate on database to prevent potential conflicts. If you want to ignore owner mismatches, set database.ignoreOwnerMismatch to true in the configuration. Beware that doing so may cause conflicts/corruption if multiple instances of Waiter are running on the same database.",
+                ),
+              );
+              process.exit(1);
+            }
           })
           .catch((err) => {
             this.logger.error("Error reconnecting to database:", err);
@@ -141,15 +175,6 @@ export default class SurrealDBController extends Controller {
         attemptingToReconnect = false;
       }
     }, 500);
-
-    await db.query(`DEFINE DATABASE IF NOT EXISTS $dbName;`, {
-      dbName: global.config.database.db,
-    });
-
-    await db.use({
-      database: global.config.database.db,
-      namespace: "Waiter",
-    });
 
     const tableDefinitions = (
       await Promise.all(
@@ -181,8 +206,93 @@ export default class SurrealDBController extends Controller {
         });
       }
     }
+
+    if (ownerVerificationResult === "needs-claim") {
+      await this.claimOwner();
+    }
+  }
+
+  /** 
+   * Verifies the owner of the database.
+   * 
+   * If ``ignoreOwnerMismatch`` is true, this function will overwrite the owner of the database with the current machine ID if there is a mismatch, and log a warning. If false, it will return false if there is a mismatch, causing the application to refuse to operate on the database.
+   * 
+   * This is to prevent multiple instances of Waiter from running on the same database and causing conflicts.
+   */
+  private async verifyOwner({
+    deferClaimWhenOwnerMissing = false,
+  }: {
+    deferClaimWhenOwnerMissing?: boolean;
+  } = {}): Promise<OwnerVerificationResult> {
+    const machineId = global.machineId;
+    let dbOwnerData: { machine_id: string } | undefined;
+
+    try {
+      dbOwnerData = await global.db.query(
+        `SELECT machine_id FROM waiter_data:root`,
+      ).collect().then((res) => res[0]?.[0]) as { machine_id: string } | undefined;
+    } catch {
+      if (deferClaimWhenOwnerMissing) {
+        this.logger.warn(
+          chalk.yellow(
+            "Database owner metadata is not available yet. Deferring owner claim until table definitions are loaded.",
+          ),
+        );
+        return "needs-claim";
+      }
+
+      await this.claimOwner();
+      return "verified";
+    }
+
+    if (dbOwnerData) {
+      if (dbOwnerData.machine_id !== machineId && !!(dbOwnerData.machine_id?.trim())) {
+        if (global.config.database.ignoreOwnerMismatch) {
+          this.logger.warn(
+            chalk.yellow(
+              "Database owner mismatch detected, but ignoreOwnerMismatch is true. Making this instance the new owner of the database.",
+            ),
+          );
+          await this.claimOwner();
+          return "verified";
+        }
+        return "mismatch";
+      }
+
+      if (!dbOwnerData.machine_id?.trim()) {
+        if (deferClaimWhenOwnerMissing) {
+          return "needs-claim";
+        }
+
+        await this.claimOwner();
+      }
+
+      console.success("Database owner verified - Owner UMID:", chalk.yellow(dbOwnerData.machine_id));
+      return "verified";
+    }
+
+    if (deferClaimWhenOwnerMissing) {
+      return "needs-claim";
+    }
+
+    await this.claimOwner();
+    return "verified";
+  }
+
+  private async claimOwner() {
+    const machineId = global.machineId;
+    this.logger.warn(
+      chalk.yellow(
+        "Database has no owner yet. Claiming ownership for the current machine.",
+      ),
+    );
+    await global.db.upsert(new RecordId("waiter_data", "root")).merge({
+      machine_id: machineId,
+    });
+    console.success("Database owner set - Owner UMID:", chalk.yellow(machineId));
   }
 }
+
 
 const connectToDB = (db: Surreal) =>
   Promise.race([

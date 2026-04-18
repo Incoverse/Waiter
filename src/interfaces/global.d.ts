@@ -11,6 +11,9 @@ declare global {
   var config: DeepRequired<WaiterConfig>;
   /** Filters content for profanity and other unwanted words */
   var contentFilter: (message: string) => string;
+
+  /** The machine's unique identifier. Used to make sure 2 instances don't start acting on the same database */
+  var machineId: string;
 }
 
 export { };

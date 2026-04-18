@@ -58,11 +58,13 @@ export default class TwitchController extends Controller {
   }
 
   public override async statuses(): Promise<void> {
-    this.logger.log(`Currently connected to ${chalk.yellow(global.twitch.streamers.size)} Twitch account${global.twitch.streamers.size !== 1 ? "s" : ""}${global.twitch.streamers.size > 0 ? ":" : "."}`);
-    for (const streamer of global.twitch.streamers.values()) {
-      this.logger.log(`  - ${chalk.yellow(streamer.IAM.display_name)} ${chalk.dim(`(ID: ${chalk.yellow(streamer.IAM.id)})`)}`);
+    if (global.twitch) { 
+      this.logger.log(`Currently connected to ${chalk.yellow(global.twitch.streamers.size)} Twitch account${global.twitch.streamers.size !== 1 ? "s" : ""}${global.twitch.streamers.size > 0 ? ":" : "."}`);
+      for (const streamer of global.twitch.streamers.values()) {
+        this.logger.log(`  - ${chalk.yellow(streamer.IAM.display_name)} ${chalk.dim(`(ID: ${chalk.yellow(streamer.IAM.id)})`)}`);
+      }
+      this.logger.log(`Connected to Twitch as ${chalk.yellow(this.client.IAM.display_name)} ${chalk.dim(`(ID: ${chalk.yellow(this.client.IAM.id)})`)} for bot operations.`);
     }
-    this.logger.log(`Connected to Twitch as ${chalk.yellow(this.client.IAM.display_name)} ${chalk.dim(`(ID: ${chalk.yellow(this.client.IAM.id)})`)} for bot operations.`);
   }
 
   public override registerConfig(): ZodType | void {

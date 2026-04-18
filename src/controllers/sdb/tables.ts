@@ -22,6 +22,8 @@ export default class SDBDefinitions extends TableDefinition {
 
   public static readonly WAITER_DATA = `
     DEFINE TABLE OVERWRITE waiter_data SCHEMALESS;
+
+    DEFINE FIELD OVERWRITE machine_id ON waiter_data TYPE string; -- Unique identifier for the machine, used to make sure a Waiter instance doesn't collide with another in a DB
   `.trim();
 
   //? -- MERGERS --
@@ -30,14 +32,11 @@ export default class SDBDefinitions extends TableDefinition {
     const logger = console.withSender("MERGE").withPrefix(`[streamer_tokens]`);
     //! If there are tokens for fromUser, check if toUser already has tokens of the same type. If so, delete the fromUser tokens. If not, transfer the fromUser tokens to toUser by updating the streamer field to reference toUser instead of fromUser.
     
-    const fromTokens = await global.db.query(
-      `SELECT * FROM streamer_tokens WHERE streamer = $fromUser`,
-      { fromUser },
-    ).collect().then(a=>a[0]) as any[];
-    const toTokens = await global.db.query(
-      `SELECT * FROM streamer_tokens WHERE streamer = $toUser`,
-      { toUser },
-    ).collect().then(a=>a[0]) as any[];
+    const [fromTokens, toTokens] = await global.db.query(
+      `SELECT * FROM streamer_tokens WHERE streamer = $fromUser;
+       SELECT * FROM streamer_tokens WHERE streamer = $toUser;  `,
+      { fromUser, toUser },
+    ).collect() as any[];
 
     for (const fromToken of fromTokens) {
       const conflictingToToken = toTokens.find((t) => t.type === fromToken.type);

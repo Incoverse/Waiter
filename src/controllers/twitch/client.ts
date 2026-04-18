@@ -859,7 +859,7 @@ export default class TwitchClient {
       console.withSender(TWCHSender).info(authURL);
 
       console.withSender(TWCHSender).log("Waiting for authentication... (This will time out after 5 minutes)")
-      const creds = await comm.waitFor(`auth-HEAD_WAITER_BOT`, 300000); // Wait for 5 minutes
+      const creds = await comm.waitFor(`auth-HEAD_WAITER_BOT`, 300000).catch(() => null); // Wait for 5 minutes
 
       if (!creds) {
         throw new Error(
