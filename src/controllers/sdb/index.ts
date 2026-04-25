@@ -25,7 +25,7 @@ type OwnerVerificationResult = "verified" | "mismatch" | "needs-claim";
 
 function defaultDBName() {
   const username = process.env.USER || process.env.USERNAME || "user";
-  console.warn("No database name was configured. Using the default username-based database name instead:", `${username}-test`);
+  console.warn("No database name was configured. Using a default username-based database name.");
   return `${username}-test`;
 }
 
