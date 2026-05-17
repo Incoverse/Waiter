@@ -54,7 +54,7 @@ Instead of maintaining separate bots/services for chat commands, account linking
 
 The initial purpose was to manage all four channels from one automation runtime while still giving each streamer room for custom behavior.
 
-Per-streamer customization is planned so every channel can run features exactly the way that streamer wants, while still participating in a shared community stack.
+Per-streamer customization is already implemented for Twitch commands and redemption triggers through config-backed enable/install flags, and broader per-streamer behavior is still planned for other parts of the stack.
 
 Waiter also bridges each streamer back to the shared Discord server, helping unify announcements, interactions, and tooling.
 
@@ -64,7 +64,7 @@ The long-term goal is ambitious automation across as many repetitive stream/comm
 
 | Domain | What Waiter provides | Current state |
 |---|---|---|
-| Twitch | Streamer clients, events, permission decorators, command execution | Active |
+| Twitch | Streamer clients, events, permission decorators, command execution, config-backed command and redemption trigger gating | Active |
 | Spotify | OAuth account linking, token refresh, typed API wrappers, playback/library tools | Active |
 | Discord | Slash command registration + interaction handling | Active |
 | Web | Express routes, HTML template rendering, URL shortener helper | Active |
@@ -90,7 +90,7 @@ Stage execution is a strict barrier model: the `pre` stage must fully complete b
 | Shared Discord bridge | Twitch and Spotify actions can be surfaced into a shared Discord experience |
 | Reliability and startup safety | Config validation occurs before platform controllers run |
 | Auth/token lifecycle | OAuth credentials are encrypted, validated, refreshed, and synced with DB records |
-| Future custom streamer behavior | Planned per-streamer config layer without fragmenting core automation |
+| Future custom streamer behavior | Twitch command and redemption trigger flags are config-backed; broader per-streamer overrides are still planned |
 
 ## Quick Start
 
@@ -213,8 +213,7 @@ npm run dev
 	- [ ] Add moderation helper tools
 	- [ ] Support controlling Twitch/Spotify/other services from Discord
 	- [ ] Support cross-control paths (for example, controlling Discord from Twitch)
-- [ ] Introduce streamer-specific sub-configs
-	- [ ] Per-streamer feature flags and behavior overrides
+- [ ] Introduce additional per-streamer overrides beyond Twitch command and redemption trigger flags
 	- [ ] Preserve shared defaults while allowing channel-level customization
 - [ ] Improve controller health, modularity, and fault tolerance
 	- [ ] Health checks for every controller
