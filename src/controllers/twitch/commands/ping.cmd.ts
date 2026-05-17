@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 
 import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type ChannelMessage } from "@twitch/lib/base/WaiterCommand";
-import CooldownSystem, { CooldownWrapper } from "../lib/cooldown";
+import CooldownSystem, { CooldownWrapper } from "@twitch/lib/cooldown";
 
 
 export default class PingCMD extends WaiterCommand {
@@ -30,7 +30,7 @@ export default class PingCMD extends WaiterCommand {
 
   @CooldownWrapper()
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
-    await this.bot.channel(channel).sendMessage(`Pong! I'm alive and well!`, { replyTo: message.message_id }).catch((err) => {
+    await this.bot.channel(channel).sendMessage(`Pong! I'm alive and well!`, { replyTo: message }).catch((err) => {
       this.logger.warn("Error sending ping response:", err);
     });
   }

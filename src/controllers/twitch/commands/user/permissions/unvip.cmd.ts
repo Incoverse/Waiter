@@ -13,19 +13,19 @@ export default class UnvipCMD extends WaiterCommand {
     const user = await this.bot.fetchUser(username);
 
     if (!user) {
-      await this.bot.channel(streamer).sendMessage(`I couldn't find a user with the name "${username}"`, { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage(`I couldn't find a user with the name "${username}"`, { replyTo: message });
       return
     }
 
     const isVIP = await streamer.channel().isVIP(user.id);
 
     if (!isVIP) {
-      await this.bot.channel(streamer).sendMessage(`User "${user?.display_name}" is not a VIP.`, { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage(`User "${user?.display_name}" is not a VIP.`, { replyTo: message });
       return
     }
     await streamer.channel().removeVIP(user.id).catch(async (err) => {
       this.logger.error(`Failed to remove "${user?.display_name}" as a VIP:`, err);
-      await this.bot.channel(streamer).sendMessage(`Failed to remove "${user?.display_name}" as a VIP.`, { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage(`Failed to remove "${user?.display_name}" as a VIP.`, { replyTo: message });
     })
   }
 }

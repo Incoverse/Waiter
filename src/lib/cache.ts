@@ -62,7 +62,7 @@ export default class CacheManager<K = string, V = any> {
 
 
     if (this.settings.loggingEnabled) {
-      this.settings.logger?.debug(`[${this.settings.name}] Cache hit[${prettyMilliseconds(entry.expires?.getTime() ?? 0 - Date.now())} left] - ${String(key)}`);
+      this.settings.logger?.debug(`[${this.settings.name}] Cache hit[${prettyMilliseconds((entry.expires?.getTime() ?? 0) - Date.now())} left] - ${String(key)}`);
     }
     return entry.value;
   }

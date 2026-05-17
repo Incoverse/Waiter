@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ export default class ShoutoutCMD extends WaiterCommand {
     
     if (!user) {
       return await this.bot.channel(channel).sendMessage(`I couldn't find a user with the name "${username}"`, {
-        replyTo: message.message_id
+        replyTo: message
       });
     }
     
@@ -47,7 +47,7 @@ export default class ShoutoutCMD extends WaiterCommand {
     try {
       await this.bot.channel(channel).announce(msg, colors[Math.floor(Math.random() * colors.length)] as "purple" | "blue");
     } catch (error) {
-      await this.bot.channel().sendMessage(msg, { replyTo: message.message_id });
+      await this.bot.channel().sendMessage(msg, { replyTo: message });
     }
     
 

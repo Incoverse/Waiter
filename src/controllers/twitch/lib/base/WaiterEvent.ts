@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ export default abstract class WaiterEvent {
      * - `false` if the command failed to setup, and to announce that it failed
      * - `null` if the command failed to setup or is not needed, but to fail silently
     */
-    public async setup(clients: TwitchClient[]): Promise<boolean | null> {
+    public async setup(clients: TwitchClient[], reason: "initial" | "catch-up" | "other" = "initial"): Promise<boolean | null> {
       this.loaded = true;
       return this.loaded;
     }
@@ -69,7 +69,7 @@ export default abstract class WaiterEvent {
      * - `false` if the command failed to unload, and to announce that it failed
      * - `null` if the command failed to unload, but to fail silently
     */
-    public async unload(clients: TwitchClient[]): Promise<boolean | null> {
+    public async unload(clients: TwitchClient[], reason: "shutdown" | "other" = "shutdown"): Promise<boolean | null> {
       this.loaded = false;
       return this.loaded;
     }

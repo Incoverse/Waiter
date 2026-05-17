@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -19,13 +19,14 @@ import SpotifyClient from "@/controllers/spotify/client";
 import { shorten } from "@/controllers/web";
 import { getUser, hasSpotifyTokenStored } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
-import WaiterCommand, { type CommandSettings, type WhisperMessage } from "@twitch/lib/base/WaiterCommand";
+import WaiterCommand, { type CommandScope, type CommandSettings, type WhisperMessage } from "@twitch/lib/base/WaiterCommand";
+import CooldownSystem, { CooldownWrapper } from "@twitch/lib/cooldown";
 import { generateAuthURL as generateSpotifyAuthURL } from "../../spotify/lib/authentication";
 import { UserIsRegisteredStreamer } from "../lib/conditions";
-import CooldownSystem, { CooldownWrapper } from "../lib/cooldown";
 
 
-export default class SetupSpotifyCMD extends WaiterCommand {
+const scope: CommandScope = "dm"
+export default class SetupSpotifyCMD extends WaiterCommand<typeof scope> {
   public messageTrigger: RegExp = /^!setup\s+spotify$/;
 
   public override cooldown: CooldownSystem = new CooldownSystem({
@@ -34,9 +35,7 @@ export default class SetupSpotifyCMD extends WaiterCommand {
     cooldownActiveMessage: "Please wait {{time}} before using this command again."
   });
 
-  public override settings: CommandSettings = {
-    scope: "dm"
-  }
+  public override settings: CommandSettings = { scope }
 
   @UserIsRegisteredStreamer()
   @CooldownWrapper()

@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 
 import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type ChannelMessage } from "@twitch/lib/base/WaiterCommand";
-import { parameterize, RequiresPermission, TwitchPermissions } from "../../lib/misc";
+import { parameterize, RequiresPermission, TwitchPermissions } from "@twitch/lib/misc";
 
 
 export default class BypassCMD extends WaiterCommand {
@@ -29,7 +29,7 @@ export default class BypassCMD extends WaiterCommand {
 
     // needs to have type and scope
     if (!bypassArgs.type) {
-      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !bypass type:<type> [scope:<scope>]", { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !bypass type:<type> [scope:<scope>]", { replyTo: message });
     }
 
     let scope = bypassArgs.scope ?? null;
@@ -49,7 +49,7 @@ export default class BypassCMD extends WaiterCommand {
     }
 
     if (global.twitch.bypasses.has({ type: bypassArgs.type, scope: scope })) {
-      return this.bot.channel(channel).sendMessage(alreadyExistsMessage || `A bypass of type "${bypassArgs.type}"${scope ? ` and scope "${scope}"` : ""} already exists.`, { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage(alreadyExistsMessage || `A bypass of type "${bypassArgs.type}"${scope ? ` and scope "${scope}"` : ""} already exists.`, { replyTo: message });
     }
 
     global.twitch.bypasses.add({
@@ -62,6 +62,6 @@ export default class BypassCMD extends WaiterCommand {
     }
 
     this.logger.warn(`Bypass added by ${message.chatter_user_name} (${message.chatter_user_id}): type="${bypassArgs.type}"${scope ? `, scope="${scope}"` : ""}`);
-    return this.bot.channel(channel).sendMessage(completeMessage, { replyTo: message.message_id });
+    return this.bot.channel(channel).sendMessage(completeMessage, { replyTo: message });
   }
 }

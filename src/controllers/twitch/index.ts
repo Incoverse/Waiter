@@ -8,6 +8,7 @@ import { eq, RecordId, Table } from "surrealdb";
 import { z, type ZodType } from "zod";
 import TwitchClient, { TwitchAppAuth } from "./client";
 import WaiterEvent, { type EventInfo, type TwitchEventInfo } from "./lib/base/WaiterEvent";
+import { isAffiliateEvent } from "./lib/misc";
 import { TwitchAuthDBSchema, type TwitchAuthDB } from "./types";
 
 type StoredToken = {
@@ -20,6 +21,18 @@ type StoredToken = {
     }
   };
   auth: string;
+};
+
+type TwitchEventRegistration = {
+  client: TwitchClient;
+  event: TwitchEventInfo;
+};
+
+type TwitchEventHandlerRecord = {
+  key: string;
+  handlerName: string;
+  registrations: Map<string, Record<string, any>>;
+  exec: (source: TwitchClient, data: any) => Promise<void> | void;
 };
 
 function deepSortObject(obj: any): any {
@@ -40,21 +53,180 @@ if (obj === null || typeof obj !== 'object') {
     }, {});
 }
 
-// Use a Set of hashes for deduplication of Twitch event registrations (API and handler)
-const registeredTwitchEventHashes = new Set<string>();
-
-
 export default class TwitchController extends Controller {
   constructor() {
     super("TWCH", "#8956FB");
   }
 
   private client: TwitchClient;
+  private readonly listenedTwitchEventHashes = new WeakMap<TwitchClient, Set<string>>();
+  private readonly twitchEventHandlers = new WeakMap<TwitchClient, Map<string, Map<string, TwitchEventHandlerRecord>>>();
+  private readonly twitchEventListeners = new WeakMap<TwitchClient, Map<string, (source: TwitchClient, payload: any) => void>>();
 
   private streamerInit = async (client: TwitchClient) => {
     if (!Object.keys(global.twitch.streamerData).includes(client.IAM.id)) {
       global.twitch.streamerData[client.IAM.id] = {};
     }
+  }
+
+  private isAffiliateOrPartner(client: TwitchClient): boolean {
+    return client.IAM.broadcaster_type === "affiliate" || client.IAM.broadcaster_type === "partner";
+  }
+
+  private getEventSignature(event: TwitchEventInfo): string {
+    return JSON.stringify(deepSortObject({
+      ...event,
+      version: event.version.toString(),
+    }));
+  }
+
+  private addPendingAffiliateEvent(client: TwitchClient, event: TwitchEventInfo) {
+    const streamerData = global.twitch.streamerData[client.IAM.id] ?? (global.twitch.streamerData[client.IAM.id] = {});
+    const pendingEvents = streamerData.pendingAffiliateEvents ?? (streamerData.pendingAffiliateEvents = []);
+    const signature = this.getEventSignature(event);
+
+    if (pendingEvents.some((pendingEvent) => this.getEventSignature(pendingEvent) === signature)) {
+      return;
+    }
+
+    pendingEvents.push(event);
+  }
+
+  private removePendingAffiliateEvent(client: TwitchClient, event: TwitchEventInfo) {
+    const pendingEvents = global.twitch.streamerData[client.IAM.id]?.pendingAffiliateEvents;
+
+    if (!pendingEvents?.length) {
+      return;
+    }
+
+    const signature = this.getEventSignature(event);
+    global.twitch.streamerData[client.IAM.id]!.pendingAffiliateEvents = pendingEvents.filter((pendingEvent) => this.getEventSignature(pendingEvent) !== signature);
+  }
+
+  private getSubscriptionHashes(client: TwitchClient): Set<string> {
+    let hashes = this.listenedTwitchEventHashes.get(client);
+    if (!hashes) {
+      hashes = new Set<string>();
+      this.listenedTwitchEventHashes.set(client, hashes);
+    }
+    return hashes;
+  }
+
+  private getEventHandlerRegistry(client: TwitchClient): Map<string, Map<string, TwitchEventHandlerRecord>> {
+    let registry = this.twitchEventHandlers.get(client);
+    if (!registry) {
+      registry = new Map<string, Map<string, TwitchEventHandlerRecord>>();
+      this.twitchEventHandlers.set(client, registry);
+    }
+    return registry;
+  }
+
+  private getAttachedListeners(client: TwitchClient): Map<string, (source: TwitchClient, payload: any) => void> {
+    let listeners = this.twitchEventListeners.get(client);
+    if (!listeners) {
+      listeners = new Map<string, (source: TwitchClient, payload: any) => void>();
+      this.twitchEventListeners.set(client, listeners);
+    }
+    return listeners;
+  }
+
+  private matchesEventCondition(condition: Record<string, any>, payload: any): boolean {
+    const conditionSource = payload?.subscription?.condition ?? payload?.condition ?? payload?.event ?? payload ?? {};
+    return Object.entries(condition).every(([key, expectedValue]) => conditionSource?.[key] === expectedValue);
+  }
+
+  private attachEventListener(client: TwitchClient, eventName: string) {
+    const attachedListeners = this.getAttachedListeners(client);
+    const existingListener = attachedListeners.get(eventName);
+
+    if (existingListener && client.events.listeners(eventName).includes(existingListener)) {
+      return;
+    }
+
+    if (existingListener) {
+      client.events.removeListener(eventName, existingListener);
+    }
+
+    const listener = (source: TwitchClient, payload: any) => {
+      const handlers = Array.from(this.getEventHandlerRegistry(client).get(eventName)?.values() ?? []);
+      const handlerSummary = handlers.map((handler) => `${handler.handlerName}(${handler.registrations.size})`);
+      if (!handlers.length) {
+        return;
+      }
+
+
+      const matchingHandlers = handlers.filter((handler) => {
+        for (const condition of handler.registrations.values()) {
+          if (this.matchesEventCondition(condition, payload)) {
+            return true;
+          }
+        }
+
+        return false;
+      });
+      if (!matchingHandlers.length) {
+        return;
+      }
+
+      void Promise.allSettled(
+        matchingHandlers.map(async (handler) => {
+          try {
+            await handler.exec(source, payload);
+          } catch (error: any) {
+            this.logger.error(`Failed to execute Twitch handler ${handler.handlerName} for ${eventName}:`, error?.message || error);
+            throw error;
+          }
+        })
+      );
+    };
+
+    attachedListeners.set(eventName, listener);
+    client.events.on(eventName, listener);
+  }
+
+  private registerHandler(client: TwitchClient, eventInfo: TwitchEventInfo, handlerName: string, exec: (source: TwitchClient, data: any) => Promise<void> | void, eventHash: string) {
+    const registry = this.getEventHandlerRegistry(client);
+    let handlersForEvent = registry.get(eventInfo.name);
+
+    if (!handlersForEvent) {
+      handlersForEvent = new Map<string, TwitchEventHandlerRecord>();
+      registry.set(eventInfo.name, handlersForEvent);
+    }
+
+    let handler = handlersForEvent.get(handlerName);
+    if (!handler) {
+      handler = {
+        key: `${handlerName}:${eventInfo.name}`,
+        handlerName,
+        registrations: new Map<string, Record<string, any>>(),
+        exec,
+      };
+      handlersForEvent.set(handlerName, handler);
+    }
+
+    const registrationKey = `${eventInfo.as}:${eventHash}`;
+    if (!handler.registrations.has(registrationKey)) {
+      handler.registrations.set(registrationKey, { ...eventInfo.condition });
+    }
+
+    this.attachEventListener(client, eventInfo.name);
+  }
+
+  private async ensureSubscription(client: TwitchClient, eventInfo: TwitchEventInfo, eventHash: string) {
+    const registrationKey = `${eventInfo.as}:${eventHash}`;
+    const subscriptionHashes = this.getSubscriptionHashes(client);
+
+    if (subscriptionHashes.has(registrationKey)) {
+      return;
+    }
+
+    if (!client.wantsToConnectToEventSub) {
+      await client.enableEventSub();
+    }
+
+    await client.awaitConnection();
+    await client.listen(eventInfo.name, eventInfo.version, eventInfo.condition);
+    subscriptionHashes.add(registrationKey);
   }
 
   public override async statuses(): Promise<void> {
@@ -87,8 +259,23 @@ export default class TwitchController extends Controller {
         })
           .describe("Twitch bot configurations")
           .default({ showBotBadge: true }),
+        discord: z.object({
+          prefix: z.string()
+            .describe("The prefix to use for the !discord command. The command will be triggered by messages that exactly match the prefix. You can include emojis in the prefix. @default \"Join our Discord\" // Join our Discord: https://discord.gg/yourserver")
+            .default("Join our Discord"),
+          inviteLink: z.url()
+            .describe("The invite link for the Twitch streamer's Discord server to be used in the !discord command response. If not set, the !discord command will respond with just the prefix. @default null")
+            .nullable()
+            .refine((link) => link === null || link.includes("discord.gg") || link.includes("discord.com/invite"), "Invite link must be a valid Discord invite URL containing 'discord.gg' or 'discord.com/invite'")
+            .default(null),
+          includeColonAfterPrefix: z.boolean()
+            .describe("Whether or not to include a colon and space after the prefix in the !discord command response. For example, if the prefix is 'Join our Discord' and this option is true, the response will be 'Join our Discord: https://discord.gg/yourserver'. If false, the response will be 'Join our Discord https://discord.gg/yourserver'. @default true")
+            .default(true),
+        })
+          .describe("Discord-related configurations for Twitch integration")
+          .default({ prefix: "Join our Discord", inviteLink: null, includeColonAfterPrefix: true }),
 
-      }).default({ authEndpoint: "/twitch/auth", generatedCodeValidity: "15m", bot: { showBotBadge: true } })
+      }).default({ authEndpoint: "/twitch/auth", generatedCodeValidity: "15m", bot: { showBotBadge: true }, discord: { prefix: "Join our Discord", inviteLink: null, includeColonAfterPrefix: true } }),
     }) satisfies z.ZodType<Pick<WaiterConfig, "twitch">>;
   }
 
@@ -189,10 +376,10 @@ export default class TwitchController extends Controller {
         });
         
         for (const event of instantiatedEvents) {
-          event.setup([global.twitch.streamers.get(newClient.IAM.id)!]);
+          await event.setup([global.twitch.streamers.get(newClient.IAM.id)!], "catch-up");
         }
         this.registerOnStartEvents(instantiatedEvents, [global.twitch.streamers.get(newClient.IAM.id)!]);
-        await this.registerTwitchEvents(instantiatedEvents);
+        await this.registerTwitchEvents(instantiatedEvents, [this.client, newClient], "catch-up");
 
 
         await this.client.sendWhisper(newClient.IAM.id, `Welcome ${newClient.IAM.display_name}! This Twitch account has been successfully linked to Waiter. You can now use Twitch-related commands and features in your stream.`);
@@ -239,76 +426,96 @@ export default class TwitchController extends Controller {
     }
   }
 
-  public async registerTwitchEvents(events: WaiterEvent[]) {
+  public async registerTwitchEvents(events: WaiterEvent[], clients = [this.client, ...global.twitch.streamers.values()], dueTo : "initial" | "catch-up" | "other" = "initial") {
     if (!this.client) {
       this.logger.warn("Tried to register Twitch events before Twitch client was initialized. This should not happen.");
       return;
     }
 
+    void dueTo;
+
     for (const event of events) {
-      let toRegister: EventInfo[] = [];
-      if (global.twitch.streamers.size > 0) {
-        for (const streamer of global.twitch.streamers.values()) {
-          toRegister = toRegister.concat(
-            event.eventTrigger({ broadcaster: streamer, sender: this.client }),
-            event.registerTwitchEvents({ broadcaster: streamer, sender: this.client }).map((info) => ({ type: "Twitch:event", event: info }))
-          );
-        }
-      } else {
-        toRegister = toRegister.concat(
-          event.eventTrigger({ broadcaster: null, sender: this.client }),
-          event.registerTwitchEvents({ broadcaster: null, sender: this.client }).map((info) => ({ type: "Twitch:event", event: info }))
-        );
-      }
+      const registrations = this.getTopicsForEvent(event, clients);
+      const handlerName = event.constructor.name || event.constructor.prototype.name || "UnknownEvent";
+      const exec = event.exec.bind(event) as (source: TwitchClient, data: any) => Promise<void> | void;
 
-      toRegister = toRegister
-        .filter((info) => info.type === "Twitch:event")
-        .filter((info) => {
-          if (!("broadcaster_user_id" in info.event.condition)) {
-            return false;
-          }
-          return true;
-        })
-        .filter((info, index, self) => index === self.findIndex((i) => i.event.name === info.event.name && i.event.as === info.event.as && i.event.version === info.event.version && JSON.stringify(i.event.condition) === JSON.stringify(info.event.condition)))
-        .map((info) => {
-          info.event.version = info.event.version.toString() as any;
-          return info;
-        });
-
-      for (const eventInfo of (toRegister as { type: "Twitch:event", event: TwitchEventInfo }[])) {
-        const normalizedEvent = deepSortObject(eventInfo.event);
+      for (const registration of registrations) {
+        const normalizedEvent = deepSortObject(registration.event);
         const eventHash = crypto.createHash("sha256").update(JSON.stringify(normalizedEvent)).digest("hex");
 
-        // If already registered, skip ALL registration and handler setup
-        if (registeredTwitchEventHashes.has(eventHash)) {
-          continue;
-        }
-
-        // Register with Twitch API (EventSub) and set up handler
-        if (eventInfo.event.as === "sender") {
-          if (!this.client.wantsToConnectToEventSub) {
-            await this.client.enableEventSub();
-          }
-          await this.client.awaitConnection();
-          await this.client.listen(eventInfo.event.name, eventInfo.event.version, eventInfo.event.condition);
-          this.client.events.on(eventInfo.event.name, event.exec.bind(event));
-          this.client.registeredEventsHash.push(eventHash);
-        } else if (eventInfo.event.as === "broadcaster") {
-          for (const streamer of global.twitch.streamers.values()) {
-            if (!streamer.wantsToConnectToEventSub) {
-              await streamer.enableEventSub();
-            }
-            await streamer.awaitConnection();
-            await streamer.listen(eventInfo.event.name, eventInfo.event.version, eventInfo.event.condition);
-            streamer.events.on(eventInfo.event.name, event.exec.bind(event));
-            streamer.registeredEventsHash.push(eventHash);
-          }
-        }
-
-        // Add hash to global set to prevent future duplicate registration
-        registeredTwitchEventHashes.add(eventHash);
+        await this.ensureSubscription(registration.client, registration.event, eventHash);
+        this.registerHandler(registration.client, registration.event, handlerName, exec, eventHash);
       }
     }
+
+
+  }
+
+  private getTopicsForEvent(event: WaiterEvent, clients: TwitchClient[]): TwitchEventRegistration[] {
+    const resolvedClients = clients.length > 0 ? clients : [this.client];
+    const senderClients = resolvedClients.filter((client) => client.isBot);
+    const broadcasterClients = resolvedClients.filter((client) => !client.isBot);
+    const registrations: TwitchEventRegistration[] = [];
+    const seen = new Set<string>();
+
+    const addRegistration = (targetClient: TwitchClient | null, info: EventInfo) => {
+      if (info.type !== "Twitch:event") {
+        return;
+      }
+
+      if (!Object.keys(info.event.condition).length) {
+        return;
+      }
+
+      const client = info.event.as === "sender" ? (senderClients[0] ?? null) : targetClient;
+      if (!client) {
+        return;
+      }
+
+      if (info.type === "Twitch:event" && !client.isBot && isAffiliateEvent(info.event.name) && !this.isAffiliateOrPartner(client)) {
+        this.logger.warn(`Skipping affiliate-only Twitch event '${info.event.name}' for ${client.IAM.display_name} (${client.IAM.id}) because they are not an affiliate or partner.`);
+        this.addPendingAffiliateEvent(client, info.event);
+        return;
+      }
+
+      if (info.type === "Twitch:event") {
+        this.removePendingAffiliateEvent(client, info.event);
+      }
+
+      const event = {
+        ...info.event,
+        version: info.event.version.toString() as any,
+      };
+      const normalizedEvent = deepSortObject(event);
+      const dedupeKey = `${client.IAM.id}:${JSON.stringify(normalizedEvent)}`;
+
+      if (seen.has(dedupeKey)) {
+        return;
+      }
+
+      seen.add(dedupeKey);
+      registrations.push({ client, event });
+    };
+
+    if (broadcasterClients.length > 0) {
+      for (const broadcaster of broadcasterClients) {
+        for (const sender of senderClients.length > 0 ? senderClients : [this.client]) {
+          addRegistration(broadcaster, event.eventTrigger({ broadcaster, sender }));
+          for (const info of event.registerTwitchEvents({ broadcaster, sender })) {
+            addRegistration(broadcaster, { type: "Twitch:event", event: info });
+          }
+        }
+      }
+    } else {
+      for (const sender of senderClients.length > 0 ? senderClients : [this.client]) {
+        addRegistration(null, event.eventTrigger({ broadcaster: null, sender }));
+        for (const info of event.registerTwitchEvents({ broadcaster: null, sender })) {
+          addRegistration(null, { type: "Twitch:event", event: info });
+        }
+      }
+    }
+
+    return registrations;
   }
 
 

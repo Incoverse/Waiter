@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -27,18 +27,18 @@ export default class SendAsBotCMD extends WaiterCommand {
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
     const args = this.getArgs(message);
     if (!args) {
-      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !send as bot message=<message> [reply=true]", { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !send as bot message=<message> [reply=true]", { replyTo: message });
     }
     
     const commandArgs = parameterize(args, ["message"]);
     
     // needs to have message
     if (!commandArgs.message) {
-      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !send as bot message=<message> [reply=true]", { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !send as bot message=<message> [reply=true]", { replyTo: message });
     }
   
     await this.bot.channel(channel).sendMessage(commandArgs.message, commandArgs.reply ? {
-      replyTo: message.message_id
+      replyTo: message
     } : {}); 
   }
 }

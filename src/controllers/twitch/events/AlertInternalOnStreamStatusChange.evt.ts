@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ export default class OSSC extends WaiterEvent {
           name: "stream.online",
           version: 1,
           condition: {
-              "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
+            "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
           }
         },
         {
@@ -41,7 +41,7 @@ export default class OSSC extends WaiterEvent {
           name: "stream.offline",
           version: 1,
           condition: {
-              "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
+            "broadcaster_user_id": broadcaster?.IAM?.id ?? "NONE",
           }
         },
         {
@@ -136,7 +136,7 @@ export default class OSSC extends WaiterEvent {
 
             // Send event if there are changes
             if (Object.keys(changed).length > 0) {
-                global.commChannel.emit("stream.change", source, {
+                global.twitch.communication.emit("stream.change", source, {
                     changes: changed
                 });
             }

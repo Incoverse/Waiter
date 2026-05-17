@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ export default class SongCMD extends WaiterCommand {
     const song = await spotify.playback.get();
 
     if (!song || !song.item || !song.is_playing) {
-      return this.bot.channel(channel).sendMessage(`No song is currently playing!`, { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage(`No song is currently playing!`, { replyTo: message });
     }
 
     if (song.item.type == "track") {
@@ -63,12 +63,12 @@ export default class SongCMD extends WaiterCommand {
 
       const songName = song.item.name;
 
-      return this.bot.channel(channel).sendMessage(`Currently playing: "${songName}" by ${artistString}.`, { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage(`Currently playing: "${songName}" by ${artistString}.`, { replyTo: message });
     } else if (song.item.type == "episode") {
       const episodeName = song.item.name;
       const showName = song.item.show.name;
 
-      return this.bot.channel(channel).sendMessage(`Currently playing: "${episodeName}" from the show "${showName}".`, { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage(`Currently playing: "${episodeName}" from the show "${showName}".`, { replyTo: message });
     }
   }
 }

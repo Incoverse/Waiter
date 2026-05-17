@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@ export default abstract class WaiterRedemptionTrigger {
 
     protected cache: CacheManager = new CacheManager();
     public abstract settings: RedemptionSettings;
+  public defaultInstalled: boolean = false;
 
     public loaded: boolean = false;
     public logger: Console;
@@ -56,6 +57,20 @@ export default abstract class WaiterRedemptionTrigger {
     public async setup(clients: TwitchClient[]): Promise<boolean | null> {
         this.loaded = true;
         return this.loaded;
+    }
+
+    /**
+     * Get the config key used to store whether this trigger is installed.
+     */
+    protected getConfigKey(): string {
+      return `rtgr${this.constructor.name.replace(/rtgr$/i, "")}-installed`;
+    }
+
+    /**
+     * Check whether this trigger is installed for the given streamer.
+     */
+    public isInstalled(streamer: TwitchClient): boolean {
+      return streamer.config?.[this.getConfigKey()] ?? this.defaultInstalled;
     }
 
     /**

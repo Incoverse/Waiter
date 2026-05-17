@@ -7,6 +7,8 @@ export default class SDBDefinitions extends TableDefinition {
 
   public static readonly USERS = `
     DEFINE TABLE OVERWRITE users SCHEMALESS;
+
+    DEFINE FIELD OVERWRITE past_ids ON users TYPE array<string> DEFAULT [];
   `.trim();
 
   public static readonly STREAMER_TOKENS = `
@@ -69,6 +71,8 @@ export default class SDBDefinitions extends TableDefinition {
       twitch: toUserData.twitch ?? fromUserData.twitch ?? null,
       discord: toUserData.discord ?? fromUserData.discord ?? null,
       spotify: toUserData.spotify ?? fromUserData.spotify ?? null,
+
+      past_ids: Array.from(new Set([...(toUserData.past_ids ?? []), fromUser.id.toString(), ...(fromUserData.past_ids ?? [])])),
     });
   }
 }

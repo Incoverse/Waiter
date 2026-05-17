@@ -2,6 +2,7 @@ import { CronJob } from "cron";
 import fs from "fs";
 import path from "path";
 import { RecordId } from "surrealdb";
+import { ToWords } from 'to-words';
 import { z, ZodObject, type ZodJSONSchema } from "zod";
 import CacheManager from "./cache";
 
@@ -367,7 +368,6 @@ export type DeepRequired<T> =
         ? { [K in keyof T]-?: DeepRequired<T[K]> }
         : T;
 
-import { ToWords } from 'to-words';
 export function chooseArticle(word: string | number): string {
   if (typeof word === "number") word = new ToWords().convert(word)
 

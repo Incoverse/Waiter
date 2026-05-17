@@ -1,5 +1,6 @@
 import { deepAssign } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
+import type { ValidTopics } from "../types";
 import type WaiterCommand from "./base/WaiterCommand";
 import type { ChannelMessage, Message } from "./base/WaiterCommand";
 
@@ -63,7 +64,7 @@ export function RequiresPermission(permission: TwitchPermissions | TwitchPermiss
 
         if (!config.silent) {
           this.bot.channel(source).sendMessage(`@${message.chatter_user_name}, you do not have permission to use this command.`, {
-            replyTo: message.message_id,
+            replyTo: message,
           });
         }
         return;
@@ -90,7 +91,7 @@ export enum TwitchPermissions {
 
 export const conditionUtils = {
   isModerator: (message: ChannelMessage): boolean => {
-    return message.badges.some(badge => badge.set_id === "moderator");
+    return message.badges.some(badge => badge.set_id === "moderator" || badge.set_id === "lead_moderator");
   },
   isHelper: (message: ChannelMessage, modCheck = false): boolean => {
     return (modCheck && message.badges.some(badge => badge.set_id === "moderator"));
@@ -196,8 +197,9 @@ export function parameterize(CMD: string, assume?: (string | number)[]) {
   for (let i = 0; i < parts.length; i++) {
     // Handle key=value or key:value pattern
     if (parts[i]!.includes("=") || parts[i]!.includes(":")) {
-      const [key, ...rest] = parts[i]!.split(/[:=]/);
-      let value: any = rest.join("=");
+      const separatorIndex = parts[i]!.search(/[:=]/);
+      const key = parts[i]!.slice(0, separatorIndex);
+      let value: any = parts[i]!.slice(separatorIndex + 1);
       if (value.startsWith('"') && value.endsWith('"')) {
         value = value.slice(1, -1);
       } else if (value === "true") {
@@ -227,4 +229,42 @@ export function parameterize(CMD: string, assume?: (string | number)[]) {
     }
   }
   return obj;
+}
+
+
+export function isAffiliateEvent(eventName: ValidTopics) {
+  switch (eventName) {
+    case "channel.bits.use":
+    case "channel.cheer":
+    case "channel.subscribe":
+    case "channel.subscription.gift":
+    case "channel.subscription.message":
+    case "channel.subscription.end":
+    case "channel.cheer":
+    case "channel.prediction.begin":
+    case "channel.prediction.lock":
+    case "channel.prediction.progress":
+    case "channel.prediction.end":
+    case "channel.goal.begin":
+    case "channel.goal.progress":
+    case "channel.goal.end":
+    case "channel.hype_train.begin":
+    case "channel.hype_train.progress":
+    case "channel.hype_train.end":
+    case "channel.channel_points_automatic_reward_redemption.add":
+    case "channel.channel_points_custom_reward_redemption.add":
+    case "channel.channel_points_custom_reward_redemption.update":
+    case "channel.channel_points_custom_reward.add":
+    case "channel.channel_points_custom_reward.update":
+    case "channel.channel_points_custom_reward.remove":
+    case "channel.charity_campaign.donate":
+    case "channel.charity_campaign.start":
+    case "channel.charity_campaign.stop":
+    case "channel.charity_campaign.progress":
+    case "extension.bits_transaction.create":
+    case "channel.ad_break.begin":
+      return true;
+    default:
+      return false;
+  }
 }

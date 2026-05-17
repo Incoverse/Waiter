@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ export default class RunAdCMD extends WaiterCommand {
     const length = this.getArgs(message, "time")?.toLowerCase().trim();
 
     if (!length) {
-      await this.bot.channel(streamer).sendMessage("Please provide a valid ad duration (30s, 1m, 1m30s, 2m, 2m30s, 3m)", { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage("Please provide a valid ad duration (30s, 1m, 1m30s, 2m, 2m30s, 3m)", { replyTo: message });
       return;
     }
 
@@ -39,15 +39,15 @@ export default class RunAdCMD extends WaiterCommand {
     
 
     if (![30,60,90,120,150,180].includes(secondsLength)) {
-      await this.bot.channel(streamer).sendMessage("Please provide a valid ad duration (30s, 1m, 1m30s, 2m, 2m30s, 3m)", { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage("Please provide a valid ad duration (30s, 1m, 1m30s, 2m, 2m30s, 3m)", { replyTo: message });
       return
     }
 
     try { 
       await streamer.channel().runCommercial(secondsLength as 30 | 60 | 90 | 120 | 150 | 180);
-      await this.bot.channel(streamer).sendMessage(`Running a ${formatDuration(secondsLength*1000, true).replace(/s((?=$)|(?=\s))/gi, "")} ad break!`, { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage(`Running a ${formatDuration(secondsLength*1000, true).replace(/s((?=$)|(?=\s))/gi, "")} ad break!`, { replyTo: message });
     } catch (e) {
-      await this.bot.channel(streamer).sendMessage(`I can't run an ad right now. Please try again later.`, { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage(`I can't run an ad right now. Please try again later.`, { replyTo: message });
     }
   }
 }

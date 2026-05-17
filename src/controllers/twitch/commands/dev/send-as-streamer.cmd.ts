@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -27,18 +27,24 @@ export default class SendAsStreamerCMD extends WaiterCommand {
   public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
     const args = this.getArgs(message);
     if (!args) {
-      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !send as streamer message=<message> [reply=true]", { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !send as streamer message=<message> [reply=true] [streamer=<id/username>]", { replyTo: message });
     }
     
     const commandArgs = parameterize(args, ["message"]);
     
     // needs to have message
     if (!commandArgs.message) {
-      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !send as streamer message=<message> [reply=true]", { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage("Invalid command format. Use: !send as streamer message=<message> [reply=true] [streamer=<id/username>]", { replyTo: message });
     }
   
-    await channel.channel().sendMessage(commandArgs.message, commandArgs.reply ? {
-      replyTo: message.message_id
+    const targetStreamer = commandArgs.streamer ? global.twitch.streamers.values().find((v) => v.IAM.id === commandArgs.streamer || v.IAM.login === commandArgs.streamer?.toLowerCase()) : channel
+
+    if (!targetStreamer) {
+      return this.bot.channel(channel).sendMessage("Streamer not found. Please provide a valid streamer ID or username.", { replyTo: message });
+    }
+
+    await targetStreamer.channel(channel).sendMessage(commandArgs.message, commandArgs.reply ? {
+      replyTo: message
     } : {});
     
   }

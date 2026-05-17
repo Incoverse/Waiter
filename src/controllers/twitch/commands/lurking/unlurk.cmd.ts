@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -41,11 +41,11 @@ export default class UnlurkCMD extends WaiterCommand {
     const user = await this.bot.fetchUser(message.chatter_user_id);
 
     if (!user) {
-      return await this.bot.channel(channel).sendMessage("I couldn't find your user information. Please try again.", { replyTo: message.message_id});
+      return await this.bot.channel(channel).sendMessage("I couldn't find your user information. Please try again.", { replyTo: message});
     }
 
     if (!global.twitch.streamerData[channel.IAM.id]!.lurkedUsers?.some((u) => u.id === user.id)) {
-      return await this.bot.channel(channel).sendMessage("You are not lurking!", { replyTo: message.message_id });
+      return await this.bot.channel(channel).sendMessage("You are not lurking!", { replyTo: message });
     }
 
     let messages = [

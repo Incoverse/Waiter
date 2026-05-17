@@ -1,9 +1,14 @@
 import { formatDuration, parseDuration } from "@/lib/misc";
 import { paginateData, ResDataData0, type ChannelSpecificWrapper } from "@twitch/client";
-import type { UserResolvable } from "../../types";
+import type { ChannelMessage } from "@twitch/lib/base/WaiterCommand";
+import type { UserResolvable } from "@twitch/types";
 
-export async function send(this: ChannelSpecificWrapper, message: string, {replyTo}: {replyTo?: string} = {}) {
+export async function send(this: ChannelSpecificWrapper, message: string, {replyTo, sourceOnly = false}: {replyTo?: string | ChannelMessage, sourceOnly?: boolean} = {}) {
 
+
+  if (replyTo && typeof replyTo !== "string") {
+    replyTo = replyTo.message_id;
+  }
 
   let api = this.twcl.api;
 
@@ -12,12 +17,21 @@ export async function send(this: ChannelSpecificWrapper, message: string, {reply
     (this.twcl.isBot && global.config.twitch!.bot!.showBotBadge)
   ) api = global.twitch.appAuth.api; // Use app auth so that the chat bot badge shows up.
 
+  // max 500 characters, but we'll trim it just in case
+  const msg = message.trim().slice(0, 500);
+
+  if (msg !== message.trim()) {
+    // Message was too long and got trimmed
+    this.twcl.logger.warn(`Message was too long and got trimmed: "${message}" -> "${msg}"`);
+  }
+
 
   return await api.post(`/chat/messages`, {
-    message: message.trim(),
+    message: msg,
     broadcaster_id: this.channelId,
     sender_id: this.twcl.IAM.id,
-    ...(replyTo ? {reply_parent_message_id: replyTo} : {})
+    for_source_only: sourceOnly,
+    ...(replyTo ? {reply_parent_message_id: replyTo} : {}),
   }).then(ResDataData0).catch(() => false);
 };
 

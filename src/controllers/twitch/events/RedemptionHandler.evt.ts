@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -15,13 +15,14 @@
   * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import CacheManager from "@/lib/cache";
 import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
 import WaiterEvent, { type BroadcasterSender, type EventInfo } from "../lib/base/WaiterEvent";
 import type { RedemptionInfo } from "../lib/base/WaiterRedemptionTrigger";
 import WaiterRedemptionTrigger from "../lib/base/WaiterRedemptionTrigger";
 import { ATCategoryType, ATCondition, ATTitleType } from "../lib/base/WaiterReward";
-import type { CustomRewardRedemptionAdd } from "../types";
+import type { CustomRewardRedemptionAdd, TwitchRedemption } from "../types";
 
 
 export default class TRED extends WaiterEvent {
@@ -37,7 +38,14 @@ export default class TRED extends WaiterEvent {
       }
   })
 
-  private redemptionTriggers: WaiterRedemptionTrigger[] = [];
+  private redemptionTriggers: Set<{
+    streamer: TwitchClient;
+    trigger: WaiterRedemptionTrigger;
+  }> = new Set();
+
+  private canManageChannelPoints(client: TwitchClient): boolean {
+    return client.IAM.broadcaster_type === "affiliate" || client.IAM.broadcaster_type === "partner";
+  }
 
   public override async setup(clients: TwitchClient[]): Promise<boolean | null> {
     const triggers = (await Promise.all(
@@ -52,30 +60,141 @@ export default class TRED extends WaiterEvent {
 
     this.logger.info(`Found ${triggers.length} trigger(s). Setting up...`);
 
-    for (const trigger of triggers) {
-      const instantiatedTrigger = new trigger(this.bot);
+    const monitizedStreamers = streamers.filter(streamer => {
+      if (!this.canManageChannelPoints(streamer)) {
+        this.logger.warn(`Streamer ${streamer.IAM.display_name} (ID: ${streamer.IAM.id}) does not have access to channel point rewards and will be skipped for redemption trigger setup.`);
+        return false;
+      }
+      return true;
+    });
+
+
+    // Cache rewards per streamer to avoid fetching them multiple times across triggers
+    const rewardsCache = new CacheManager<string, { all: TwitchRedemption[]; manageable: TwitchRedemption[] }>({
+      name: "RedemptionRewardsCache",
+      logger: this.logger,
+      loggingEnabled: true
+    });
+
+    const streamStateCache = new CacheManager<string, { isStreamLive: boolean; streamInformation: any }>({
+      name: "RedemptionStreamStateCache",
+      logger: this.logger,
+      loggingEnabled: true
+    });
+
+    // Collect all unregister operations to run them in parallel
+    const unregisterPromises: Promise<any>[] = [];
+
+    for (const Trigger of triggers) {
+      const instantiatedTrigger = new Trigger(this.bot);
 
       const setupResult = await instantiatedTrigger.setup(clients);
 
       if (setupResult === false) {
-          this.logger.error(`Failed to setup redemption trigger: ${trigger.name}`);
-          continue;
+        this.logger.error(`Failed to setup redemption trigger: ${Trigger.name}`);
+        continue;
       } else if (setupResult === null) {
-          continue;
+        continue;
       }
       
       
-      for (const streamer of streamers) {
-        const rewards = await streamer.getRewards();
-        const manageableRewards = await streamer.getRewards(undefined, true)
+      for (const streamer of monitizedStreamers) {
+
+        const triggerInstalled = instantiatedTrigger.isInstalled(streamer);
+
+        let rewards: TwitchRedemption[] = [];
+        let manageableRewards: TwitchRedemption[] = [];
+        let isStreamLive = false;
+        let streamInformation: any = null;
+
+        const shouldInspectRewards = triggerInstalled || instantiatedTrigger.settings.type === "internal";
+
+        if (!shouldInspectRewards) {
+          this.redemptionTriggers.add({ streamer, trigger: instantiatedTrigger });
+          continue;
+        }
+
+        try {
+          // Check cache first to avoid redundant API calls
+          const cacheKey = streamer.IAM.id;
+          let cachedRewards = rewardsCache.get(cacheKey);
+          
+          if (!cachedRewards) {
+            // Fetch both regular and manageable rewards in parallel
+            const [allRewards, manageableRewardsData] = await Promise.all([
+              streamer.getRewards(),
+              streamer.getRewards(undefined, true)
+            ]);
+            cachedRewards = {
+              all: allRewards,
+              manageable: manageableRewardsData
+            };
+            // Cache for 2 minutes (120000 ms)
+            rewardsCache.set(cacheKey, cachedRewards, 120000);
+          }
+          
+          rewards = cachedRewards.all;
+          manageableRewards = cachedRewards.manageable;
+
+          let cachedStreamState = streamStateCache.get(cacheKey);
+
+          if (!cachedStreamState) {
+            const [isStreamLive, streamInformation] = await Promise.all([
+              streamer.isStreaming(),
+              streamer.channel().getChannelInfo(),
+            ]);
+
+            cachedStreamState = {
+              isStreamLive,
+              streamInformation: streamInformation || null,
+            };
+
+            streamStateCache.set(cacheKey, cachedStreamState, 120000);
+          }
+
+          isStreamLive = cachedStreamState.isStreamLive;
+          streamInformation = cachedStreamState.streamInformation;
+        } catch (error: any) {
+          if (error?.response?.status === 403) {
+            this.logger.warn(`Skipping redemption trigger setup for ${streamer.IAM.display_name} (${streamer.IAM.id}) because Twitch returned 403 for channel point rewards.`);
+            continue;
+          }
+
+          throw error;
+        }
   
-        const isStreamLive = await streamer.isStreaming();
-        const streamInformation = await streamer.channel().getChannelInfo() || null;
+          if (!triggerInstalled) {
+            if (instantiatedTrigger.settings.type === "internal") {
+              const reward = instantiatedTrigger.settings.reward;
+
+              if (!reward) {
+                this.logger.error(`Redemption trigger ${Trigger.name} is internal but has no reward set.`);
+                continue;
+              }
+
+              const existing = rewards.map((r) => {
+                return {
+                  ...r,
+                  manageable: manageableRewards.some((m) => m.id === r.id)
+                }
+              }).find((r) => r.title.toLowerCase() === reward.settings.name.toLowerCase() || !reward.settings.description || r.prompt.toLowerCase() === reward.settings.description.toLowerCase());
+
+              if (existing?.manageable) {
+                reward.id = existing.id;
+                unregisterPromises.push(reward.unregister(streamer));
+              } else if (existing) {
+                this.logger.warn(`Redemption trigger ${Trigger.name} exists for ${streamer.IAM.display_name} but is not manageable, so it cannot be deleted.`);
+              }
+            }
+
+            this.redemptionTriggers.add({ streamer, trigger: instantiatedTrigger });
+            continue;
+          }
 
 
           if (instantiatedTrigger.settings.type === "internal") {
               if (!instantiatedTrigger.settings.reward) {
-                  this.logger.error(`Redemption trigger ${trigger.name} is internal but has no reward set.`);
+                  this.logger.error(`Redemption trigger ${Trigger.name} is internal but has no reward set.`);
                   continue;
               }
 
@@ -94,9 +213,9 @@ export default class TRED extends WaiterEvent {
                           return (category.id ? streamInformation?.game_id === category.id : true) && (category.name ? streamInformation?.game_name === category.name : true);
                       })
 
-                      const shouldBeEnabled = categoryMode === ATCategoryType.INCLUDES ? categoryMatch : !categoryMatch;
+                          const shouldBeEnabled = categoryMode === ATCategoryType.INCLUDES ? categoryMatch : !categoryMatch;
 
-                      await reward.register(streamer, rewards, manageableRewards, shouldBeEnabled);
+                          await reward.register(streamer, rewards, manageableRewards, shouldBeEnabled);
                   } else if (autoToggle.condition == ATCondition.STREAM_STARTED) {
                       await reward.register(streamer, rewards, manageableRewards, isStreamLive);
                   } else if (autoToggle.condition == ATCondition.STREAM_ENDED) {
@@ -128,16 +247,27 @@ export default class TRED extends WaiterEvent {
                       }
 
                       await reward.register(streamer, rewards, manageableRewards, shouldBeEnabled);
+                  } else if (autoToggle.condition == ATCondition.MANAGER_CONNECTED) {
+                      const isManagerConnected = global.manager?.clients?.values().some(client => client.waiterUserId === streamer.waiterUserId) ?? false;
+
+                      await reward.register(streamer, rewards, manageableRewards, isManagerConnected);
+                  } else if (autoToggle.condition == ATCondition.MANAGER_DISCONNECTED) {
+                      const isManagerDisconnected = !global.manager?.clients?.values().some(client => client.waiterUserId === streamer.waiterUserId);
+
+                      await reward.register(streamer, rewards, manageableRewards, isManagerDisconnected);
                   }
               } else {
                   await reward.register(streamer, rewards, manageableRewards);
               }
           }
 
-          this.redemptionTriggers.push(instantiatedTrigger);
+          this.redemptionTriggers.add({ streamer, trigger: instantiatedTrigger });
       }
 
     }
+
+    // Execute all unregister operations in parallel
+    await Promise.all(unregisterPromises);
 
     return super.setup(clients);
 
@@ -169,7 +299,10 @@ export default class TRED extends WaiterEvent {
       },
       redeemed_at: data.event.redeemed_at,
     }
-    for (const trigger of this.redemptionTriggers) {
+    for (const { streamer, trigger } of this.redemptionTriggers) {
+
+      if (source.IAM.id !== streamer.IAM.id) continue; // Only execute triggers for the streamer the redemption belongs to
+
       if (trigger.settings.type == "external") {
         if (trigger.settings.trigger instanceof RegExp && trigger.settings.trigger.test(data.event.reward.title)) {
           this.logger.withPrefix(`[${streamer.IAM.login}] - ${trigger.constructor.name}`).log("Redemption trigger was triggered by", data.event.user_name);

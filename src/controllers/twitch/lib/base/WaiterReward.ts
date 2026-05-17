@@ -29,13 +29,13 @@ export default class WaiterReward {
         }
 
         if (!this.id) {
-            this.logger.error(`Cannot get enabled state of reward "${this.settings.name}" because it has no ID`);
+            streamer.logger.error(`Cannot get enabled state of reward "${this.settings.name}" because it has no ID`);
             return false;
         }
         return await streamer.getRewards(this.id).then((rewards) => {
             const reward = rewards.find((r) => r.id === this.id);
             if (!reward) {
-                this.logger.error(`Reward with ID "${this.id}" not found when getting enabled state of reward "${this.settings.name}"`);
+                streamer.logger.error(`Reward with ID "${this.id}" not found when getting enabled state of reward "${this.settings.name}"`);
                 return false;
             }
 
@@ -43,7 +43,7 @@ export default class WaiterReward {
 
             return reward.is_enabled;
         }).catch((error) => {
-            this.logger.error(`Failed to get enabled state of reward "${this.settings.name}": ${error.message}`);
+            streamer.logger.error(`Failed to get enabled state of reward "${this.settings.name}": ${error.message}`);
         });
     }
 
@@ -71,15 +71,15 @@ export default class WaiterReward {
 
     public async modifyPrice(streamer: TwitchClient,price: number): Promise<boolean> {
         if (!this.id) {
-            this.logger.error(`Cannot modify price of reward "${this.settings.name}" because it has no ID`);
+            streamer.logger.error(`Cannot modify price of reward "${this.settings.name}" because it has no ID`);
             return false;
         }
         return streamer.updateReward(this.id, { cost: price }).then(() => {
-            this.logger.debug(`Reward "${this.settings.name}" price modified to ${price}`);
+            streamer.logger.debug(`Reward "${this.settings.name}" price modified to ${price}`);
             this.currentPrice = price;
             return true;
         }).catch((error) => {
-            this.logger.error(`Failed to modify price of reward "${this.settings.name}": ${error.message}`);
+            streamer.logger.error(`Failed to modify price of reward "${this.settings.name}": ${error.message}`);
             return false;
         });
     }
@@ -130,7 +130,7 @@ export default class WaiterReward {
                         return false;
                     });
 
-                    this.logger.debug(`Automatic toggle condition for category matched: ${matches}`);
+                    streamer.logger.debug(`Automatic toggle condition for category matched: ${matches}`);
 
                     if (matches) {
                         if (!(await this.enabled(streamer))) {
@@ -157,7 +157,7 @@ export default class WaiterReward {
                             if (matches) break;
                         }
 
-                        this.logger.debug(`Automatic toggle condition for title matched: ${matches}`);
+                        streamer.logger.debug(`Automatic toggle condition for title matched: ${matches}`);
 
                         if (matches) {
                             if (!(await this.enabled(streamer))) {
@@ -172,6 +172,56 @@ export default class WaiterReward {
                 }
             }
         })
+
+        const attachManagerListeners = (() => {
+            const managerCommunication = global.manager?.communication;
+
+            if (!managerCommunication) {
+                return false;
+            }
+
+            managerCommunication.on("manager.client_connected", async (data) => {
+                if (this.settings.automaticToggle?.condition === "manager_connected") {
+                    if (data.wuid === streamer.waiterUserId) {
+                        if (!(await this.enabled(streamer))) {
+                            await this.enable(streamer);
+                        }
+                    }
+                } else if (this.settings.automaticToggle?.condition === "manager_disconnected") {
+                    if (data.wuid === streamer.waiterUserId) {
+                        if (await this.enabled(streamer)) {
+                            await this.disable(streamer);
+                        }
+                    }
+                }
+            });
+
+            managerCommunication.on("manager.client_disconnected", async (data) => {
+                if (this.settings.automaticToggle?.condition === "manager_connected") {
+                    if (data.wuid === streamer.waiterUserId) {
+                        if (await this.enabled(streamer)) {
+                            await this.disable(streamer);
+                        }
+                    }
+                } else if (this.settings.automaticToggle?.condition === "manager_disconnected") {
+                    if (data.wuid === streamer.waiterUserId) {
+                        if (!(await this.enabled(streamer))) {
+                            await this.enable(streamer);
+                        }
+                    }
+                }
+            });
+
+            return true;
+        }).bind(this);
+
+        if (!attachManagerListeners()) {
+            const managerListenerInterval = setInterval(() => {
+                if (attachManagerListeners()) {
+                    clearInterval(managerListenerInterval);
+                }
+            }, 1000);
+        }
 
 
         if (!redemptions) {
@@ -191,7 +241,7 @@ export default class WaiterReward {
         if (existing) {
             if (existing.manageable) {
                 this.id = existing.id;
-                this.logger.withPrefix(`[${streamer.IAM.login}]`).debug(`Reward "${this.settings.name}" already exists, using existing ID: ${this.id}`);
+                streamer.logger.withPrefix(`[${streamer.IAM.login}]`).debug(`Reward "${this.settings.name}" already exists, using existing ID: ${this.id}`);
 
                 let needsUpdate =
                     this.settings.name !== existing.title ||
@@ -262,11 +312,11 @@ export default class WaiterReward {
                         updatePayload.max_per_user_per_stream = this.settings.redemptionLimit?.perUser || null;
                     }
                     await streamer.updateReward(this.id, updatePayload);
-                    this.logger.debug(`Reward "${this.settings.name}" updated to match settings`);
+                    streamer.logger.debug(`Reward "${this.settings.name}" updated to match settings`);
                 }
                 return true;
             } else {
-                this.logger.error(`Reward "${this.settings.name}" already exists but is not manageable, cannot register`);
+                streamer.logger.error(`Reward "${this.settings.name}" already exists but is not manageable, cannot register`);
                 return false;
             }
         }
@@ -284,68 +334,68 @@ export default class WaiterReward {
             max_per_stream: this.settings.redemptionLimit?.perStream || undefined,
             max_per_user_per_stream: this.settings.redemptionLimit?.perUser || undefined,
         }).then((reward) => {
-            this.logger.debug(`Reward "${this.settings.name}" registered with ID: ${reward.id}`);
+            streamer.logger.debug(`Reward "${this.settings.name}" registered with ID: ${reward.id}`);
             this.id = reward.id;
-            this.enabled = reward.is_enabled;
+            this.cache.set(`${streamer.IAM.id}-enabled`, reward.is_enabled, 60000);
             return true;
         }).catch((error) => {
-            this.logger.error(`Failed to register reward "${this.settings.name}": ${error.message}`);
+            streamer.logger.error(`Failed to register reward "${this.settings.name}": ${error.message}`);
             return false;
         })
     }
     public async unregister(streamer: TwitchClient) {
         if (!this.id) {
-            this.logger.error(`Cannot unregister reward "${this.settings.name}" because it has no ID`);
+            streamer.logger.error(`Cannot unregister reward "${this.settings.name}" because it has no ID`);
             return false
         }
         return streamer.deleteReward(this.id).then(() => {
-            this.logger.debug(`Reward "${this.settings.name}" unregistered successfully`);
+            streamer.logger.debug(`Reward "${this.settings.name}" unregistered successfully`);
             this.id = null;
             this.cache.delete(`${streamer.IAM.id}-enabled`);
 
             return true;
         }).catch((error) => {
-            this.logger.error(`Failed to unregister reward "${this.settings.name}": ${error.message}`);
+            streamer.logger.error(`Failed to unregister reward "${this.settings.name}": ${error.message}`);
             return false;
         });
     }
     public async enable(streamer: TwitchClient) {
         if (!this.id) {
-            this.logger.error(`Cannot enable reward "${this.settings.name}" because it has no ID`);
+            streamer.logger.error(`Cannot enable reward "${this.settings.name}" because it has no ID`);
             return false;
         }
 
         if (await this.enabled(streamer)) {
-            this.logger.debug(`Reward "${this.settings.name}" is already enabled`);
+            streamer.logger.debug(`Reward "${this.settings.name}" is already enabled`);
             return true; // Already enabled, no action needed
         }
 
         return streamer.updateReward(this.id, { is_enabled: true }).then(() => {
-            this.logger.debug(`Reward "${this.settings.name}" enabled successfully`);
+            streamer.logger.debug(`Reward "${this.settings.name}" enabled successfully`);
             this.cache.set(`${streamer.IAM.id}-enabled`, true, 60000);
             return true;
         }).catch((error) => {
-            this.logger.error(`Failed to enable reward "${this.settings.name}": ${error.message}`);
+            streamer.logger.error(`Failed to enable reward "${this.settings.name}": ${error.message}`);
             return false;
         });
     }
     public async disable(streamer: TwitchClient) {
         if (!this.id) {
-            this.logger.error(`Cannot disable reward "${this.settings.name}" because it has no ID`);
+            streamer.logger.error(`Cannot disable reward "${this.settings.name}" because it has no ID`);
             return false;
         }
 
         if (!(await this.enabled(streamer))) {
-            this.logger.debug(`Reward "${this.settings.name}" is already disabled`);
+            streamer.logger.debug(`Reward "${this.settings.name}" is already disabled`);
             return true; // Already disabled, no action needed
         }
 
         return streamer.updateReward(this.id, { is_enabled: false }).then(() => {
-            this.logger.debug(`Reward "${this.settings.name}" disabled successfully`);
+            streamer.logger.debug(`Reward "${this.settings.name}" disabled successfully`);
             this.cache.set(`${streamer.IAM.id}-enabled`, false, 60000);
             return true;
         }).catch((error) => {
-            this.logger.error(`Failed to disable reward "${this.settings.name}": ${error.message}`);
+            streamer.logger.error(`Failed to disable reward "${this.settings.name}": ${error.message}`);
             return false;
         });
     }
@@ -490,6 +540,18 @@ export type RewardSettings = {
          */
         type?: ATTitleType;
     }
+    | {
+        /**
+         * This reward will be automatically toggled on when the manager is connected, and off when it is disconnected.
+         */
+        condition: ATCondition.MANAGER_CONNECTED;
+    }
+    | {
+        /**
+         * This reward will be automatically toggled on when the manager is disconnected, and off when it is connected.
+         */
+        condition: ATCondition.MANAGER_DISCONNECTED;
+    };
 }
 
 export enum ATTitleType {
@@ -512,4 +574,6 @@ export enum ATCondition {
     STREAM_STARTED = "stream_started",
     STREAM_ENDED = "stream_ended",
     TITLE = "title",
+    MANAGER_CONNECTED = "manager_connected",
+    MANAGER_DISCONNECTED = "manager_disconnected",
 }

@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -48,13 +48,43 @@ export default class PlayCMD extends WaiterCommand {
     const userInput = this.getArgs(message)!;
 
     if (!userInput || userInput.trim() === "") {
-      return this.bot.channel(channel).sendMessage(`Please provide a song name or Spotify track URL/URI to play!`, { replyTo: message.message_id });
+      return this.bot.channel(channel).sendMessage(`Please provide a song name or Spotify track URL/URI to play!`, { replyTo: message });
     }
 
     const songId = resolveId(userInput.trim());
 
     if (!songId) {
       //? Attempt to search for the song by name if the input isn't a valid Spotify URL/URI
+      const track = await spotify.search.query(userInput, ["track"], { limit: 1 }).then(res => res?.tracks?.items[0]).catch((e) => {
+        this.logger.warn(`Error searching for track with query "${userInput}":`, e.response?.data?.error?.message || e.response?.data || e.message);
+        return null;
+      });
+
+      if (!track) {
+        return this.bot.channel(channel).sendMessage(`Could not find a track with the name "${userInput}"! Please try providing a Spotify URL/URI or a different song name.`, { replyTo: message });
+      }
+
+      const addedToQueue = await spotify.playback.addToQueue(track.uri).catch((e) => {
+        this.logger.warn(`Error adding track ${track.uri} to queue:`, e.response?.data?.error?.message || e.response?.data || e.message);
+        this.bot.channel(channel).sendMessage(`Failed to add "${track.name}" to the queue. Please try again later!`, { replyTo: message });
+        return false;
+      })
+
+      if (addedToQueue) {
+        let artistsByName = track.artists.map((a: any) => a.name)
+
+        let artistString = "";
+        if (artistsByName.length > 2) {   
+          //? Artist A, Artist B, and Artist C
+          artistString = artistsByName.slice(0, -1).join(", ") + ", and " + artistsByName.slice(-1);
+        } else {
+          //? Artist A
+          //? Artist A and Artist B
+          artistString = artistsByName.join(" and ");
+        }
+
+        return this.bot.channel(channel).sendMessage(`Queued: "${track.name}" by ${artistString}!`, { replyTo: message });
+      }
     } else {
       //? Fetch the song, check if it's a track, then queue it
 
@@ -64,16 +94,16 @@ export default class PlayCMD extends WaiterCommand {
       })
 
       if (!trackInfo) {
-        return this.bot.channel(channel).sendMessage(`Could not find a track with the provided ID!`, { replyTo: message.message_id });
+        return this.bot.channel(channel).sendMessage(`Could not find a track with the provided ID!`, { replyTo: message });
       }
 
       if (trackInfo.type !== "track") {
-        return this.bot.channel(channel).sendMessage(`It seems you've provided ${chooseArticle(trackInfo.type)} ${trackInfo.type} instead of a track. Currently, only tracks can be played!`, { replyTo: message.message_id });
+        return this.bot.channel(channel).sendMessage(`It seems you've provided ${chooseArticle(trackInfo.type)} ${trackInfo.type} instead of a track. Currently, only tracks can be played!`, { replyTo: message });
       }
 
       const addedToQueue = await spotify.playback.addToQueue(trackInfo.uri).catch((e) => {
         this.logger.warn(`Error adding track ${trackInfo.uri} to queue:`, e.response?.data?.error?.message || e.response?.data || e.message);
-        this.bot.channel(channel).sendMessage(`Failed to add "${trackInfo.name}" to the queue. Please try again later!`, { replyTo: message.message_id });
+        this.bot.channel(channel).sendMessage(`Failed to add "${trackInfo.name}" to the queue. Please try again later!`, { replyTo: message });
         return false;
       })
 
@@ -90,7 +120,7 @@ export default class PlayCMD extends WaiterCommand {
           artistString = artistsByName.join(" and ");
         }
 
-        return this.bot.channel(channel).sendMessage(`Queued: "${trackInfo.name}" by ${artistString}!`, { replyTo: message.message_id });
+        return this.bot.channel(channel).sendMessage(`Queued: "${trackInfo.name}" by ${artistString}!`, { replyTo: message });
       }
     }
 

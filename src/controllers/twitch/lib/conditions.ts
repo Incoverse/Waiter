@@ -1,3 +1,4 @@
+import { getManagerClient } from "@/controllers/manager/lib/misc";
 import { getSpotifyClient } from "@/controllers/spotify/lib/misc";
 import { getDiscord } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
@@ -25,7 +26,7 @@ export function StreamerIsLive(silent: boolean = false) {
         if (!liveBypassCheck(source)) { 
           this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) is not live.`);
           if (!silent) {
-            await this.bot.channel(source).sendMessage(`This command can only be used while the stream is live!`, { replyTo: message.message_id });
+            await this.bot.channel(source).sendMessage(`This command can only be used while the stream is live!`, { replyTo: message });
           }
           return;
         }
@@ -82,7 +83,103 @@ export function StreamerHasDiscordLinked(silent: boolean = true) {
       if (!discordAcc) {
         this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) does not have a linked Discord account.`);
         if (!silent) {
-          await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must link their Discord account to Waiter for this command to be available.`, { replyTo: message.message_id });
+          await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must link their Discord account to Waiter for this command to be available.`, { replyTo: message });
+        }
+        return;
+      }
+
+      return originalMethod.apply(this, [source, message, ...args]);
+    };
+
+    return descriptor;
+  }
+}
+
+
+export function StreamerHasManagerConnected(silent: boolean = true) {
+  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (
+      this: WaiterCommand,
+      source: TwitchClient, message: ChannelMessage, ...args: any[]
+    ) {
+      if (!getManagerClient(source.waiterUserId)) {
+        this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) does not have the Manager connected.`);
+        if (!silent) {
+          await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must connect their Manager to Waiter for this command to be available.`, { replyTo: message });
+        }
+        return;
+      }
+
+      return originalMethod.apply(this, [source, message, ...args]);
+    };
+
+    return descriptor;
+  }
+}
+
+/** Decorator for checking if a streamer is either an affiliate or a partner (meaning they're monetized) */
+export function StreamerIsMonetized(silent: boolean = true) {
+  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (
+      this: WaiterCommand,
+      source: TwitchClient, message: ChannelMessage, ...args: any[]
+    ) {
+      if (!["affiliate", "partner"].includes(source.IAM.broadcaster_type)) {
+        this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) is not monetized`);
+        if (!silent) {
+          await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must be an affiliate or partner to use this command!`, { replyTo: message });
+        }
+        return;
+      }
+
+      return originalMethod.apply(this, [source, message, ...args]);
+    };
+
+    return descriptor;
+  }
+}
+
+/** Decorator for checking if a streamer is an affiliate */
+export function StreamerIsAffiliate(silent: boolean = true) {
+  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (
+      this: WaiterCommand,
+      source: TwitchClient, message: ChannelMessage, ...args: any[]
+    ) {
+      if (source.IAM.broadcaster_type !== "affiliate") {
+        this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) is not an affiliate`);
+        if (!silent) {
+          await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must be an affiliate to use this command!`, { replyTo: message });
+        }
+        return;
+      }
+
+      return originalMethod.apply(this, [source, message, ...args]);
+    };
+
+    return descriptor;
+  }
+}
+
+/** Decorator for checking if a streamer is a partner */
+export function StreamerIsPartner(silent: boolean = true) {
+  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (
+      this: WaiterCommand,
+      source: TwitchClient, message: ChannelMessage, ...args: any[]
+    ) {
+      if (source.IAM.broadcaster_type !== "partner") {
+        this.logger.debug(`Command is being blocked because streamer ${source.IAM.display_name} (ID: ${source.IAM.id}) is not a partner`);
+        if (!silent) {
+          await this.bot.channel(source).sendMessage(`${message.broadcaster_user_name} must be a partner to use this command!`, { replyTo: message });
         }
         return;
       }

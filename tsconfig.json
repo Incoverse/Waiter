@@ -31,10 +31,12 @@
     "noPropertyAccessFromIndexSignature": false,
     "paths": {
       "@/*": ["./src/*"],
-      "@twitch/*": ["./src/controllers/twitch/*"],
-      "@discord/*": ["./src/controllers/discord/*"],
       "@sdb/*": ["./src/controllers/sdb/*"],
       "@web/*": ["./src/controllers/web/*"],
+      "@twitch/*": ["./src/controllers/twitch/*"],
+      "@spotify/*": ["./src/controllers/spotify/*"],
+      "@discord/*": ["./src/controllers/discord/*"],
+      "@manager/*": ["./src/controllers/manager/*"],
     }
   }
 }

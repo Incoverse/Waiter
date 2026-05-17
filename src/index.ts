@@ -187,6 +187,10 @@ for (const controller of controllers) {
   global.controllers.set(controller.abbr, controller);
 }
 
+const controllerByAbbr = new Map(controllers.map((controller) => [controller.abbr, controller]));
+const completedControllers = new Set<string>();
+const failedControllers = new Set<string>();
+
 async function runController(controller: Controller) {
   const controllerName = controller.constructor.name;
   console.debug(`Starting controller: ${controllerName} (${controller.abbr})`);
@@ -204,15 +208,95 @@ async function runController(controller: Controller) {
   const duration = performance.measure(`${controllerName}_duration`, `${controllerName}_start`, `${controllerName}_end`).duration;
   if (failed) {
     console.error(`Controller ${controllerName} (${controller.abbr}) failed to start after ${chalk.redBright.bold(prettyMilliseconds(duration))}.`);
+    failedControllers.add(controller.abbr);
   } else {
     console.debug(`Controller ${controllerName} (${controller.abbr}) started successfully in ${chalk.greenBright.bold(prettyMilliseconds(duration))}.`);
+    completedControllers.add(controller.abbr);
   }
 
 }
 
-await Promise.all(preControllers.map(runController));
-await Promise.all(normalControllers.map(runController));
-await Promise.all(postControllers.map(runController));
+async function runControllerStage(stageControllers: Controller[]) {
+  const pending = new Set(stageControllers);
+  const stageControllerAbbrs = new Set(stageControllers.map((c) => c.abbr));
+
+  while (pending.size > 0) {
+    const blockedByFailed = [...pending].filter((controller) =>
+      controller.startupDependencies.some((dependencyAbbr) => failedControllers.has(dependencyAbbr)),
+    );
+
+    for (const controller of blockedByFailed) {
+      pending.delete(controller);
+      failedControllers.add(controller.abbr);
+      console.error(
+        `Skipping controller ${controller.constructor.name} (${controller.abbr}) because one of its dependencies failed: ${controller.startupDependencies.join(", ")}`,
+      );
+    }
+
+    const readyControllers = [...pending].filter((controller) => {
+      for (const dependencyAbbr of controller.startupDependencies) {
+        const dependencyController = controllerByAbbr.get(dependencyAbbr);
+        if (!dependencyController) {
+          console.error(
+            `Controller ${controller.constructor.name} (${controller.abbr}) depends on unknown controller '${dependencyAbbr}'.`,
+          );
+          failedControllers.add(controller.abbr);
+          pending.delete(controller);
+          return false;
+        }
+
+        if (dependencyController.stage === "post" && controller.stage !== "post") {
+          console.error(
+            `Controller ${controller.constructor.name} (${controller.abbr}) cannot depend on post-stage controller ${dependencyController.constructor.name} (${dependencyAbbr}).`,
+          );
+          failedControllers.add(controller.abbr);
+          pending.delete(controller);
+          return false;
+        }
+
+        if (dependencyController.stage === "normal" && controller.stage === "pre") {
+          console.error(
+            `Controller ${controller.constructor.name} (${controller.abbr}) cannot depend on normal-stage controller ${dependencyController.constructor.name} (${dependencyAbbr}).`,
+          );
+          failedControllers.add(controller.abbr);
+          pending.delete(controller);
+          return false;
+        }
+
+        if (!completedControllers.has(dependencyAbbr)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (readyControllers.length === 0) {
+      const unresolved = [...pending].map((controller) =>
+        `${controller.constructor.name} (${controller.abbr}) waiting for [${controller.startupDependencies.join(", ")}]`,
+      );
+      console.error(
+        `Could not resolve startup dependencies for this stage. Remaining controllers: ${unresolved.join("; ")}`,
+      );
+
+      for (const controller of pending) {
+        failedControllers.add(controller.abbr);
+      }
+
+      return;
+    }
+
+    for (const controller of readyControllers) {
+      pending.delete(controller);
+    }
+
+    await Promise.all(readyControllers.map(runController));
+  }
+}
+
+await runControllerStage(preControllers);
+await runControllerStage(normalControllers);
+await runControllerStage(postControllers);
 
 console.perfect("All controllers started.");
 performance.mark("app_ready");
@@ -224,10 +308,21 @@ console.debug("---------------------------------")
 console.debug(`Startup times:`);
 console.debug(`  - Waiter: ${chalk.cyanBright.bold(prettyMilliseconds(s2r.duration))}`);
 for (const controller of controllers) {
+  if (failedControllers.has(controller.abbr)) {
+    console.debug(`  - ${controller.constructor.name} (${controller.abbr}): ${chalk.redBright.bold("FAILED TO START")}`);
+    continue;
+  }
+  
   const startMark = `${controller.constructor.name}_start`;
   const endMark = `${controller.constructor.name}_end`;
   const measureName = `${controller.constructor.name}_duration`;
-  const duration = performance.measure(measureName, startMark, endMark).duration;
+  let duration;
+  try {
+    duration = performance.measure(measureName, startMark, endMark).duration;
+  } catch (error) {
+    console.error(`Error occurred while measuring duration for ${controller.constructor.name}:`, error);
+    duration = 0;
+  }
   const stagePrefix = controller.stage === "normal" ? "norm" : controller.stage.padEnd(4, " ");
   console.debug(`    - [${stagePrefix}] ${controller.constructor.name} (${controller.abbr}): ${chalk.cyanBright.bold(prettyMilliseconds(duration))}`);
 }

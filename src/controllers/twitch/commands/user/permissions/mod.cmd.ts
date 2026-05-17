@@ -13,7 +13,7 @@ export default class ModCMD extends WaiterCommand {
     const user = await this.bot.fetchUser(username);
 
     if (!user) {
-      await this.bot.channel(streamer).sendMessage(`I couldn't find a user with the name "${username}"`, { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage(`I couldn't find a user with the name "${username}"`, { replyTo: message });
       return
     }
 
@@ -22,7 +22,7 @@ export default class ModCMD extends WaiterCommand {
     if (isVIP) await streamer.channel().removeVIP(user.id);
     await streamer.channel().addMod(user.id).catch(async (err) => {
       this.logger.error(`Failed to add "${user?.display_name}" as a moderator:`, err);
-      await this.bot.channel(streamer).sendMessage(`Failed to add "${user?.display_name}" as a moderator.`, { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage(`Failed to add "${user?.display_name}" as a moderator.`, { replyTo: message });
     })
   }
 }

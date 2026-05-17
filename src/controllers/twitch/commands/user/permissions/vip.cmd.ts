@@ -13,7 +13,7 @@ export default class VipCMD extends WaiterCommand {
     const user = await this.bot.fetchUser(username);
 
     if (!user) {
-      await this.bot.channel(streamer).sendMessage(`I couldn't find a user with the name "${username}"`, { replyTo: message.message_id });
+      await this.bot.channel(streamer).sendMessage(`I couldn't find a user with the name "${username}"`, { replyTo: message });
       return
     }
 
@@ -22,10 +22,10 @@ export default class VipCMD extends WaiterCommand {
     if (isMod) await streamer.channel().removeMod(user.id);
     await streamer.channel().addVIP(user.id).catch(async (err) => {
       if (/unlock additional vip slots/i.test(err?.response?.data?.message)) {
-        await this.bot.channel(streamer).sendMessage(`I couldn't add "${user.display_name}" as a VIP because the channel has reached the maximum number of VIPs.`, { replyTo: message.message_id });
+        await this.bot.channel(streamer).sendMessage(`I couldn't add "${user.display_name}" as a VIP because the channel has reached the maximum number of VIPs.`, { replyTo: message });
       } else {
         this.logger.error(`Failed to add "${user.display_name}" as a VIP:`, err);
-        await this.bot.channel(streamer).sendMessage(`Failed to add "${user.display_name}" as a VIP.`, { replyTo: message.message_id });
+        await this.bot.channel(streamer).sendMessage(`Failed to add "${user.display_name}" as a VIP.`, { replyTo: message });
       }
     })
   }

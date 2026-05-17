@@ -1,6 +1,7 @@
 import type Communication from "@/lib/communication";
 import type TwitchClient from "@twitch/client";
 import type TwitchController from "..";
+import type { TwitchEventInfo } from "../lib/base/WaiterEvent";
 
 declare global {
   var twitch: {
@@ -21,6 +22,8 @@ declare global {
         isStreaming: boolean;
         /** Viewers who are currently lurking (viewing the stream without active participation). */
         lurkedUsers: { id: string; login: string; display_name: string }[];
+        /** Twitch events that require affiliate/partner status and are waiting to be registered. */
+        pendingAffiliateEvents: TwitchEventInfo[];
       }>;
     }
     /** Bypasses that are set by the Waiter developer. */

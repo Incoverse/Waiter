@@ -2,19 +2,7 @@
 import type { ChannelSpecificWrapper } from "@twitch/client";
 import { paginateData, ResDataData0 } from "@twitch/client";
 
-export async function getStreamInfo(this: ChannelSpecificWrapper, id: string | string[], settings: { all?: boolean } = { all: false }) {
-  const userIds = Array.isArray(id) ? id : [id];
-  const params: any = { first: 100, user_id: userIds };
-  const res = await this.twcl.api.get(`/streams`, { params });
-  return await paginateData(this.twcl.api, `/streams`, params, { all: settings.all })(res);
-}
 
-
-export async function getStreams(this: ChannelSpecificWrapper, deeperSearch: { game_id?: string|string[]; type?: "live" | "all", language?: string|string[] } = {}, settings:{all?:boolean, limit:number}={all: false, limit:100}) {
-  const params: any = { first: settings.limit, ...deeperSearch };
-  const res = await this.twcl.api.get(`/streams`, { params });
-  return await paginateData(this.twcl.api, `/streams`, params, { all: settings.all, first: settings.limit })(res);
-}
 
 export async function getStreamMarkers(this: ChannelSpecificWrapper, vid: string, settings:{all?:boolean}={all: false}) {
   const params: any = { first: 100 };
@@ -24,25 +12,6 @@ export async function getStreamMarkers(this: ChannelSpecificWrapper, vid: string
   return await paginateData(this.twcl.api, `/streams/markers`, params, { all: settings.all })(res);
 }
 
-
-export async function getGame(this: ChannelSpecificWrapper, idOrName: string) {
-  const isId = !isNaN(parseInt(idOrName));
-  return await this.twcl.api.get(`/games`, { params: { [isId ? "id" : "name"]: idOrName } })
-    .then(ResDataData0);
-}
-
-export async function getVideos(this: ChannelSpecificWrapper, settings: any) {
-  let params: any = { first: 100 };
-  Object.keys(settings).filter(a => a !== "all").forEach((key) => { params[key] = settings[key]; });
-  let data: any[] = [];
-  let cursor: string | undefined = undefined;
-  do {
-    const res = await this.twcl.api.get(`/videos`, { params: { ...params, ...(cursor ? { after: cursor } : {}) } });
-    data = data.concat(res.data.data);
-    cursor = res.data.pagination?.cursor;
-  } while (settings.all && cursor);
-  return data;
-}
 
 export async function raid(this: ChannelSpecificWrapper, id: string) {
   return await this.twcl.api.post(`/raids`, {}, { params: { from_broadcaster_id: this.channelId, to_broadcaster_id: id } });
@@ -89,9 +58,32 @@ export async function updateColor(this: ChannelSpecificWrapper, color: string) {
 export async function get(this: ChannelSpecificWrapper, broadcaster_id: string = this.channelId) {
   return await this.twcl.api.get(`/channels`, {
     params: {
-      broadcaster_id: this.channelId,
+      broadcaster_id
     },
   }).then(ResDataData0)
+}
+
+export type StreamInfo = Awaited<ReturnType<typeof getStreamInfo>>[0];
+
+export async function getStreamInfo(this: ChannelSpecificWrapper, id: string | string[] = this.channelId, settings: { all?: boolean } = { all: false }): Promise<{
+  id: string;
+  user_id: string;
+  user_login: string;
+  user_name: string;
+  game_id: string;
+  game_name: string;
+  type: "live",
+  title: string;
+  tags: string[];
+  viewer_count: number;
+  started_at: string;
+  language: string;
+  thumbnail_url: string;
+}[]> {
+  const userIds = Array.isArray(id) ? id : [id];
+  const params: any = { first: 100, user_id: userIds };
+  const res = await this.twcl.api.get(`/streams`, { params });
+  return await paginateData(this.twcl.api, `/streams`, params, { all: settings.all })(res) as any;
 }
 
 export async function modify(this: ChannelSpecificWrapper, settings: {

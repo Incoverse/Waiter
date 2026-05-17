@@ -6,9 +6,11 @@ import chalk from "chalk";
 import crypto from "crypto";
 import express from "express";
 import { existsSync, readFileSync } from "fs";
+import { createServer } from "http";
 import { z, type ZodType } from "zod";
 
 const app = express();
+const server = createServer(app);
 
 // Middleware to add res.template
 app.use((req, res, next) => {
@@ -29,14 +31,21 @@ const shortenCache = new CacheManager({
 const toRegister: {
   call: () => string,
   method: HTTPMethod,
-  handler: any,
+  handler: express.RequestHandler,
   handlerStr: string,
+  ownerClassName: string,
 }[] = [];
+
+
+
+const logger = console.withSender(chalk.hex("009f9f")("HTTP"))
 
 export default class WebController extends Controller {
   public override priority: number = Number.MIN_SAFE_INTEGER + 1; //? Ensure this controller loads after the database controller, but before all other controllers that might want to register routes.
+  public override stage: "pre" | "normal" | "post" = "pre";
   constructor() {
     super("HTTP", "#009f9f");
+    this.waitForControllers("SUDB");
   }
 
   @registerRoute("GET", "/")
@@ -75,11 +84,20 @@ export default class WebController extends Controller {
   }
 
   public exec() {
-    return new Promise<void>((resolve, reject) => {
+    global.web = {
+      controller: this,
+      server,
+    };
 
+    return new Promise<void>((resolve, reject) => {
       for (const route of toRegister) {
         const path = route.call();
-        app[route.method.toLowerCase()](path, route.handler);
+        const owner = [...global.controllers.values()].find(
+          (controller) => controller.constructor.name === route.ownerClassName,
+        );
+
+        const boundHandler = owner ? route.handler.bind(owner) : route.handler;
+        app[route.method.toLowerCase()](path, boundHandler);
         registeredRoutes.push({
           method: route.method.toUpperCase(),
           path,
@@ -87,16 +105,16 @@ export default class WebController extends Controller {
         });
       } 
 
-      app.listen(global.config.web.port, (err) => {
-        if (err) {
-          this.logger.error("Error starting web server:", err);
-          reject(err);
-          return;
-        }
-
-        this.logger.info(`Web server is listening on *:${global.config.web.port}`);
-        resolve();
-      });
+      try {
+        server.listen(global.config.web.port, () => {
+          this.logger.info(`Web server is listening on *:${global.config.web.port}`);
+          resolve();
+        });
+      } catch (error) {
+        this.logger.error("Error starting web server:", error);
+        reject(error);
+        return;
+      }
 
       this.logger.debug("Registered routes:");
       for (const route of registeredRoutes) {
@@ -104,6 +122,7 @@ export default class WebController extends Controller {
           `  - ${route.method} ${route.path} -> ${route.handlerStr}`,
         );
       }
+
 
       app.use(async (req, res) => {
         this.logger.warn(`No route found for ${req.method} ${req.path}`);
@@ -190,13 +209,15 @@ export function registerRoute(method: HTTPMethod, path: string | (()=>string)) {
         method,
         handler: descriptor.value,
         handlerStr: `${target.name ?? target.constructor.name}#${propertyKey}()`,
+        ownerClassName: target.constructor?.name ?? target.name,
       });
     } else {
-      app[method.toLowerCase()](path, descriptor.value);
-      registeredRoutes.push({
-        method: method.toUpperCase(),
-        path,
+      toRegister.push({
+        call: () => path,
+        method,
+        handler: descriptor.value,
         handlerStr: `${target.name ?? target.constructor.name}#${propertyKey}()`,
+        ownerClassName: target.constructor?.name ?? target.name,
       });
     }
 
@@ -259,21 +280,21 @@ const NO_TEMPLATE_HTML = `<!DOCTYPE html>
 export function renderTemplate(templatePath: string, variables: Record<string, string> = {}) {
 
   if (!templatePath || !templatePath.trim()) {
-    console.withSender(chalk.hex("009f9f")("HTTP")).warn("No template path provided, returning default error page.");
+    logger.warn("No template path provided, returning default error page.");
     return NO_TEMPLATE_HTML
       .replaceAll("{{ title }}", "No Template Provided")
       .replaceAll("{{ message }}", "No template was provided to the renderer.");
   }
 
   if (!existsSync(templatePath)) {
-    console.withSender(chalk.hex("009f9f")("HTTP")).warn(`Template not found: ${templatePath}`);
+    logger.warn(`Template not found: ${templatePath}`);
     return NO_TEMPLATE_HTML
       .replaceAll("{{ title }}", "Template Not Found")
       .replaceAll("{{ message }}", "The requested template could not be found on the server.");
   }
 
   
-  console.withSender(chalk.hex("009f9f")("HTTP")).debug(`Rendering template: ${templatePath}`);
+  logger.debug(`Rendering template: ${templatePath}`);
   let contents = readFileSync(templatePath, "utf-8");
 
   for (const [key, value] of Object.entries(variables)) {

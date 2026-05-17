@@ -18,6 +18,7 @@ import * as Ads from "./funcs/channel/ads";
 import * as Channel from "./funcs/channel/channel";
 import * as Chat from "./funcs/channel/chat";
 import * as Moderator from "./funcs/channel/mod";
+import * as Moderation from "./funcs/channel/moderation";
 import * as VIP from "./funcs/channel/vip";
 
 import * as Rewards from "./funcs/rewards";
@@ -25,6 +26,7 @@ import * as User from "./funcs/user";
 
 import chalk from "chalk";
 import type { Request, Response } from "express";
+import StreamerConfig from "./lib/streamerConfig";
 import type { CoercedNumber, EventCondition, EventVersion, UserResolvable, ValidTopics } from "./types";
 
 let eventSubConnURL = "wss://eventsub.wss.twitch.tv/ws";
@@ -78,6 +80,37 @@ const UserCache = new CacheManager({
   logger: console.withSender(TWCHSender),
 });
 
+/**
+ * Build request metadata for logging based on the HTTP method and URL.
+ * Extracts relevant information from the request config (message, parameters, etc.)
+ * to include in debug logs.
+ */
+function buildRequestMetadata(config: any): string[] {
+  let metadata: string[] = [];
+
+  switch (`${config.method!.toUpperCase()} ${config.url}`) {
+    case "POST /chat/messages":
+      metadata.push(`Message: ${config.data?.message}`);
+      break;
+    case "POST /whispers":
+      metadata.push(`Message: ${config.data?.message}`);
+      break;
+    case "POST /chat/announcements":
+      metadata.push(`Message: ${config.data?.message}`);
+      break;
+    case "GET /channel_points/custom_rewards":
+      if (!config.data?.id) {
+        metadata.push(`Only manageable: ${config.params?.only_manageable_rewards ? "Yes" : "No"}`);
+      }
+      break;
+  }
+
+  if (metadata.length > 0) {
+    metadata.unshift(""); // Add a separator between the endpoint and the metadata for better readability
+  }
+
+  return metadata;
+}
 
 export class TwitchAppAuth {
   public auth: Omit<TwitchAuthDB, "refreshToken">
@@ -122,10 +155,11 @@ export class TwitchAppAuth {
           }
         } catch (e) {}
 
+        const metadata = buildRequestMetadata(config);
 
         this.logger.withPrefix(
           onBehalfOf ? `[APP (as ${onBehalfOf})]` : "[APP_AUTH]"
-        ).debug(` --> ${config.method!.toUpperCase()} ${config.url}`);
+        ).debug(` --> ${config.method!.toUpperCase()} ${config.url}${metadata.join(" | ")}`);
 
         return config;
       },
@@ -238,13 +272,18 @@ export class TwitchAppAuth {
     if (this.tokenRefresher) {
       this.tokenRefresher.stop();
     }
-    this.tokenRefresher = new CronJob(expiresIn >= 60 ? new Date(Date.now() + (expiresIn*1000) - 30000) : new Date(Date.now() + 300000), async () => {
+    const getNextRefreshTime = (tokenExpiresInSeconds: number) => new Date(Math.max(
+      Date.now() + (tokenExpiresInSeconds * 1000) - 30000,
+      Date.now() + 1000,
+    ));
+
+    this.tokenRefresher = new CronJob(expiresIn >= 60 ? getNextRefreshTime(expiresIn) : new Date(Date.now() + 300000), async () => {
       this.logger.warn("Refreshing App Access Token...");
       const newExpires = await this.refreshToken();
       this.logger.success("App Access Token refreshed. Expires in: " + newExpires + ` seconds (${prettyMilliseconds(newExpires*1000)})`);
 
       
-      this.tokenRefresher.setTime(new CronTime(new Date(Date.now() + (newExpires*1000) - 30000)));
+      this.tokenRefresher.setTime(new CronTime(getNextRefreshTime(newExpires)));
       this.tokenRefresher.start();
     }) 
 
@@ -334,13 +373,11 @@ export default class TwitchClient {
 
   public registeredEventsHash: string[] = [];
 
-  public IAM: {
-    id: string;
-    login: string;
-    display_name: string;
-  }
+  public IAM: TwitchUser;
 
   public waiterUserId: string;
+
+  public config: StreamerConfig;
 
   @schedule("*/5 * * * *")
   public static cleanOldCodes() {
@@ -437,7 +474,9 @@ export default class TwitchClient {
           config.headers['Client-Id'] = this.auth.clientId;
         }
 
-        this.logger.debug(` --> ${config.method!.toUpperCase()} ${config.url}`);
+        const metadata = buildRequestMetadata(config);
+
+        this.logger.debug(` --> ${config.method!.toUpperCase()} ${config.url}${metadata.join(" | ")}`);
 
         return config;
       },
@@ -504,6 +543,10 @@ export default class TwitchClient {
         this.connect()
       }
       
+      if (!this.isBot) {
+        this.config = await StreamerConfig.load(this);
+      }
+
       this.logger.perf(`Twitch Client initialized as ${this.IAM.display_name} (ID: ${this.IAM.id})`);
       resolve();
     })
@@ -708,17 +751,22 @@ export default class TwitchClient {
   }
 
   public async cleanup() {
-    if (this.eventsubWS && this.eventsubConnected) {
+    this.connectEventSub = false;
+
+    if (this.eventsubWS) {
+      if (this.eventsubConnected && this.eventSubData.length > 0) {
+        // Unregister all events in parallel
+        await Promise.all(this.eventSubData.map(data => this.unlisten(data.id)));
+      }
+
+      this.eventsubConnected = false;
       if (this.eventSubData.length > 0) {
-        for (const data of this.eventSubData) {
-          await this.unlisten(data.id);
-        }
+        this.eventSubData = [];
       }
 
       this.eventsubWS.removeAllListeners();
       clearInterval(this.ESKATimer);
-      this.connectEventSub = false;
-      this.eventsubWS.close();
+      this.eventsubWS.close(1000, "Shutdown");
     }
     this.events.removeAllListeners();
   }
@@ -835,13 +883,12 @@ export default class TwitchClient {
         if (!parsedAuth.success)
           throw new Error(parsedAuth.error.message);
         auth = parsedAuth.data;
+        console.withSender(TWCHSender).great("Twitch auth loaded from database.");
       } catch (error) {
         console.withSender(TWCHSender).error("Error parsing stored Twitch auth:", error);
         console.withSender(TWCHSender).debug("Clearing invalid Twitch auth from database.");
         await global.db.query('DELETE FROM streamer_tokens WHERE type = \'twitch\' AND streamer.id = $botId', { botId: botTwitchUser.id });
       }
-
-      console.withSender(TWCHSender).great("Twitch auth loaded from database.");
     }
 
     if (!auth) {
@@ -888,34 +935,30 @@ export default class TwitchClient {
         throw new Error("Failed to fetch user info for Twitch bot after authentication. Please ensure the provided credentials are correct and have the necessary permissions.");
       }
 
+      const transaction = await global.db.beginTransaction();
+
+      
       if (botTwitchUser && tokenOwner.id !== botTwitchUser.twitch.id.id.toString()) {
         console.withSender(TWCHSender).warn(`Authenticated Twitch user (${tokenOwner.login}) does not match the previously authenticated bot user (${botTwitchUser.twitch.login}). Setting new Twitch user as the bot user in the database.`);
-        
-        const transaction = await global.db.beginTransaction();
         
         // set old user's bot field to false (or unset it). 
         await transaction.query("UPDATE twitch_users SET bot = false WHERE id = $oldId", { oldId: botTwitchUser.twitch.id });
         
-        // Ensure the new user exists in the twitch_users table and set bot = true. use upsert to create the user if it doesn't exist.
-        await transaction.query("UPSERT $twitchUser SET login = $login, display_name = $display_name, bot = true", {
-          twitchUser: new RecordId("twitch_users", tokenOwner.id),
-          login: tokenOwner.login,
-          display_name: tokenOwner.display_name
-        });
-        
-        // Ensure there is a waiter user ("users" table) with the twitch field set to the new twitch user id
-        await transaction.query("UPSERT ONLY users SET twitch = $twitchId WHERE twitch = $twitchId", {
-          twitchId: new RecordId("twitch_users", tokenOwner.id)
-        });
-        
-        await transaction.commit();
       } 
+      // Ensure there is a waiter user ("users" table) with the twitch field set to the new twitch user id
+      await transaction.query("UPSERT ONLY users SET twitch = $twitchId WHERE twitch = $twitchId", {
+        twitchId: new RecordId("twitch_users", tokenOwner.id)
+      });
+
+      
       // User is the same as before, or one isn't defined, so ensure the user exists and has bot = true
       await global.db.query("UPSERT $twitchUser SET login = $login, display_name = $display_name, bot = true", {
         twitchUser: new RecordId("twitch_users", tokenOwner.id),
         login: tokenOwner.login,
         display_name: tokenOwner.display_name
       });
+
+      await transaction.commit();
 
       const encryptedAuth = new EncryptedField(auth);
     
@@ -1050,28 +1093,48 @@ export default class TwitchClient {
     return fn.bind(this) as OmitThisParameter<T>;
   }
 
+  /** Send a whisper to a user. Requires the "user:manage:whispers" scope. */
   public sendWhisper = this.bindChannelFn(User.sendWhisper)
+  /** Get information about a user. If no user is specified, returns information about the authenticated user. */
   public isStreaming = this.bindChannelFn(User.isStreaming)
+  /** Get the followers of a user. */
+  public getFollowers = this.bindChannelFn(User.getFollowers)
+  /** Get streams on Twitch, optionally filtered by user ID or login. */
+  public getStreams = this.bindChannelFn(User.getStreams)
+  /** Get information about a game. */
+  public getGame = this.bindChannelFn(User.getGame)
+  /** Find or get information about a VoD. */
+  public getVideos = this.bindChannelFn(User.getVideos)
 
+  /** Cancel a reward redemption. */
   public cancelRedemption = this.bindChannelFn(Rewards.cancelRedemption)
+  /** Fulfill a reward redemption. */
   public completeRedemption = this.bindChannelFn(Rewards.completeRedemption)
+  /** Get the custom rewards for a channel. */
   public getRewards = this.bindChannelFn(Rewards.getRewards)
+  /** Update a custom reward. */
   public updateReward = this.bindChannelFn(Rewards.updateReward)
+  /** Create a custom reward. */
   public createReward = this.bindChannelFn(Rewards.createReward)
+  /** Delete a custom reward. */
   public deleteReward = this.bindChannelFn(Rewards.deleteReward)
 
 
-  public fetchUser = (idLogin?: string): Promise<TwitchUser | null> => {
+  public fetchUser = async (idLogin?: string): Promise<TwitchUser | null> => {
 
     if (idLogin || this.IAM?.id) {
       const cached = UserCache.get(idLogin ?? this.IAM?.id);
       if (cached) return Promise.resolve(cached);
     }
     
-    return this.api.get(`/users${idLogin ? `?${/^\d+$/.test(idLogin) ? "id":"login"}=${idLogin}` : ""}`).then(ResDataData0).then((result: TwitchUser) => {
+    try {
+      const res = await this.api.get(`/users${idLogin ? `?${/^\d+$/.test(idLogin) ? "id" : "login"}=${idLogin}` : ""}`);
+      const result = await ResDataData0(res);
       if (result) UserCache.set(idLogin || result.id, result, 300000); // 5 minutes
       return result;
-    }).catch(()=>null);
+    } catch {
+      return null;
+    }
   }
   public getSubscriptions = () => this.api.get(`/eventsub/subscriptions`).then(ResData).catch(()=>null)
 
@@ -1110,17 +1173,25 @@ export class ChannelSpecificWrapper {
     return fn.bind(this) as OmitThisParameter<T>;
   }
 
+  /** Add a user as a VIP. */
   public addVIP = this.bindChannelFn(VIP.add)
+  /** Remove a user from VIP status. */
   public removeVIP = this.bindChannelFn(VIP.remove)
+  /** Check if a user is a VIP. */
   public isVIP = this.bindChannelFn(VIP.is)
 
+  /** Add a user as a moderator. Requires broadcaster rights. */
   public addMod = this.bindChannelFn(Moderator.add)
+  /** Remove a user from moderator status. Requires broadcaster rights. */
   public removeMod = this.bindChannelFn(Moderator.remove)
+  /** Check if a user is a moderator. */
   public isMod = async (id = this.twcl.IAM.id, forceRefresh = false): Promise<boolean> => {
     if (this.isBroadcaster(id)) return true;
     return await Moderator.is.apply(this, [id, forceRefresh]);
   }
+  /** Check if a user is the broadcaster of the channel. */
   public isBroadcaster = (id = this.twcl.IAM.id) => this.channelId === id
+  /** Check if a user has moderator or broadcaster rights in the channel. */
   public hasModRights = async (id = this.twcl.IAM.id) => this.isBroadcaster(id) || await this.isMod(id);
 
   /** Send a message to the channel. */
@@ -1159,8 +1230,30 @@ export class ChannelSpecificWrapper {
 
   /** Get information about the channel. */
   public getChannelInfo = this.bindChannelFn(Channel.get)
+  /** Get information about the channel's stream */
+  public getStreamInfo = this.bindChannelFn(Channel.getStreamInfo)
+
   /** Modify the channel's information. Requires broadcaster or editor rights. */
   public modifyChannelInfo = this.bindChannelFn(Channel.modify)
+
+  /** Ban a user from the channel. Requires moderator or broadcaster rights. */
+  public ban = this.bindChannelFn(Moderation.ban)
+  /** Unban a user from the channel. Requires moderator or broadcaster rights. */
+  public unban = this.bindChannelFn(Moderation.unban)
+  /** Timeout a user in the channel for a specified duration. Requires moderator or broadcaster rights. */
+  public timeout = this.bindChannelFn(Moderation.timeout)
+  /** Untimeout a user in the channel. Requires moderator or broadcaster rights. */
+  public untimeout = this.bindChannelFn(Moderation.untimeout)
+  /** Get the list of banned users in the channel. Requires moderator or broadcaster rights. */
+  public getBans = this.bindChannelFn(Moderation.getBannedUsers)
+  /** Get the list of unban requests in the channel. Requires moderator or broadcaster rights. */
+  public getUnbanRequests = this.bindChannelFn(Moderation.getUnbanRequests)
+
+  /** Raid another channel. Requires broadcaster rights. */
+  public raid = this.bindChannelFn(Channel.raid)
+  /** End an active raid. Requires broadcaster rights. */
+  public endRaid = this.bindChannelFn(Channel.stopRaid)
+
 
   public listen<Topic extends TopicWithBroadcasterCondition>(
     topic: Topic,

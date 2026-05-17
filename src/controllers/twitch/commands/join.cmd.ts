@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -17,13 +17,15 @@
 
 import { shorten } from "@/controllers/web";
 import type TwitchClient from "@twitch/client";
-import WaiterCommand, { type CommandSettings, type WhisperMessage } from "@twitch/lib/base/WaiterCommand";
+import WaiterCommand, { type CommandScope, type CommandSettings, type WhisperMessage } from "@twitch/lib/base/WaiterCommand";
+import CooldownSystem, { CooldownWrapper } from "@twitch/lib/cooldown";
 import { eq, Table } from "surrealdb";
 import { generateAuthURL } from "../lib/authentication";
-import CooldownSystem, { CooldownWrapper } from "../lib/cooldown";
 
 
-export default class JoinCMD extends WaiterCommand {
+const scope: CommandScope = "dm" 
+
+export default class JoinCMD extends WaiterCommand<typeof scope> {
   public messageTrigger: RegExp = /^!join\s+(?<code>.*)$/;
 
   public override cooldown: CooldownSystem = new CooldownSystem({
@@ -31,9 +33,7 @@ export default class JoinCMD extends WaiterCommand {
     cooldownTime: "30s",
   });
 
-  public override settings: CommandSettings = {
-    scope: "dm"
-  }
+  public override settings: CommandSettings = { scope }
 
   @CooldownWrapper()
   public async exec(recipient: TwitchClient, message: WhisperMessage): Promise<any> {
@@ -41,7 +41,7 @@ export default class JoinCMD extends WaiterCommand {
     if (global.twitch.streamers.has(message.from_user_id)) {
       return recipient.sendWhisper(message.from_user_id, "You are already a streamer in the system.");
     }
-
+    
     const code = this.getArgs(message, "code")?.trim();
 
     if (!code) {

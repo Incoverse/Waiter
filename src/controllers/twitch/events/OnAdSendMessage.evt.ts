@@ -1,5 +1,5 @@
 /*
-  * Copyright (c) 2025 Inimi | InimicalPart | Incoverse
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -48,17 +48,15 @@ export default class OASIM extends WaiterEvent {
         .replace(/{{duration}}/g, formatDuration(data.event.duration_seconds * 1000));
 
       setTimeout(async () => {
-        await this.bot.channel(source).sendMessage(adEndNotification).catch((err) => {
+        await this.bot.channel(source).sendMessage(adEndNotification, { sourceOnly: true }).catch((err) => {
           this.logger.warn("Error sending ad end message:", err);
         });
       }, data.event.duration_seconds * 1000);
 
 
-      await this.bot.channel(source).sendMessage(adStartNotification).catch((err) => {
+      await this.bot.channel(source).sendMessage(adStartNotification, { sourceOnly: true }).catch((err) => {
         this.logger.warn("Error sending ad break message:", err);
       });
-
-
     
       return
     }

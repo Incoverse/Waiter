@@ -155,12 +155,17 @@ export default class SpotifyClient {
     if (this.tokenRefresher) {
       this.tokenRefresher.stop();
     }
-    this.tokenRefresher = new CronJob(expiresIn >= 60 ? new Date(Date.now() + (expiresIn*1000) - 30000) : new Date(Date.now() + 300000), async () => {
+    const getNextRefreshTime = (tokenExpiresInSeconds: number) => new Date(Math.max(
+      Date.now() + (tokenExpiresInSeconds * 1000) - 30000,
+      Date.now() + 1000,
+    ));
+
+    this.tokenRefresher = new CronJob(expiresIn >= 60 ? getNextRefreshTime(expiresIn) : new Date(Date.now() + 300000), async () => {
       this.logger.warn("Refreshing Access Token...");
       const newExpires = await this.refreshToken();
       this.logger.success("Access Token refreshed. Expires in: " + newExpires + ` seconds (${prettyMilliseconds(newExpires*1000)})`);
       
-      this.tokenRefresher.setTime(new CronTime(new Date(Date.now() + (newExpires*1000) - 30000)));
+      this.tokenRefresher.setTime(new CronTime(getNextRefreshTime(newExpires)));
       this.tokenRefresher.start();
     }) 
 

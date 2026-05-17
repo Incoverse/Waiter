@@ -1,10 +1,10 @@
 import { Controller } from "@/lib/base/controller";
 import TableDefinition from "@/lib/base/tableDefinition";
 import {
-    extendsClass,
-    findFiles,
-    getStaticProps,
-    importLocalModule
+  extendsClass,
+  findFiles,
+  getStaticProps,
+  importLocalModule
 } from "@/lib/misc";
 import chalk from "chalk";
 import ping from "ping";
@@ -23,11 +23,7 @@ type SessionInfo = {
 type OwnerVerificationResult = "verified" | "mismatch" | "needs-claim";
 
 
-function defaultDBName() {
-  const username = process.env.USER || process.env.USERNAME || "user";
-  console.warn("No database name was configured. Using a default username-based database name.");
-  return `${username}-test`;
-}
+
 
 export default class SurrealDBController extends Controller {
 
@@ -38,13 +34,19 @@ export default class SurrealDBController extends Controller {
     super("SUDB", "#ac036e");
   }
 
+  private defaultDBName() {
+    const username = process.env.USER || process.env.USERNAME || "user";
+    this.logger.warn("No database name was configured. Using a default username-based database name.");
+    return `${username}-test`;
+  }
+
   public override registerConfig(): ZodType | void {
     return z.object({
       database: z.object({
         uri: z.url().describe("The URI of the SurrealDB server").default("wss://inimicalpart.com:13244"),
-        db: z.string().describe("Active database for SurrealDB. Uses the logged in user's username + '-test'. This should be changed to 'main' when running production").default(defaultDBName),
+        db: z.string().describe("Active database for SurrealDB. Uses the logged in user's username + '-test'. This should be changed to 'main' when running production").default(() => this.defaultDBName()),
         ignoreOwnerMismatch: z.boolean().describe("Whether or not to ignore machine ID mismatches in the database. If this is true, the application will skip checking the machine ID in the database and overwrite it. If false, the application will refuse to operate on the database").default(false),
-      }).default(() => ({ uri: "wss://inimicalpart.com:13244", db: defaultDBName(), ignoreOwnerMismatch: false })),
+      }).default(() => ({ uri: "wss://inimicalpart.com:13244", db: this.defaultDBName(), ignoreOwnerMismatch: false })),
     }) satisfies z.ZodType<Pick<WaiterConfig, "database">>;
   }
 
@@ -178,7 +180,7 @@ export default class SurrealDBController extends Controller {
 
     const tableDefinitions = (
       await Promise.all(
-        (await findFiles(global.isCompiled ? "dist" : "src", /tables\..s$/))
+        findFiles(global.isCompiled ? "dist" : "src", /tables\..s$/)
           .map(importLocalModule)
           .map((mod) => mod.then((m) => m.default)),
       )
