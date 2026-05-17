@@ -50,9 +50,9 @@ Instead of maintaining separate bots/services for chat commands, account linking
 ## Origin And Vision
 
 > [!IMPORTANT]
-> Waiter was originally designed for TSF (The Swedish Fika), a community of four streamers sharing one Discord server.
+> Waiter was originally designed for TSF (The Swedish Fika), a community of five streamers sharing one Discord server.
 
-The initial purpose was to manage all four channels from one automation runtime while still giving each streamer room for custom behavior.
+The initial purpose was to manage all five channels from one automation runtime while still giving each streamer room for custom behavior.
 
 Per-streamer customization is already implemented for Twitch commands and redemption triggers through config-backed enable/install flags, and broader per-streamer behavior is still planned for other parts of the stack.
 
@@ -86,7 +86,7 @@ Stage execution is a strict barrier model: the `pre` stage must fully complete b
 
 | Concern | How Waiter handles it |
 |---|---|
-| Four-streamer coordination | One runtime tracks multiple channels while keeping streamer context separate |
+| Five-streamer coordination | One runtime tracks multiple channels while keeping streamer context separate |
 | Shared Discord bridge | Twitch and Spotify actions can be surfaced into a shared Discord experience |
 | Reliability and startup safety | Config validation occurs before platform controllers run |
 | Auth/token lifecycle | OAuth credentials are encrypted, validated, refreshed, and synced with DB records |
