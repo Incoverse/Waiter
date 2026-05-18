@@ -81,12 +81,21 @@ export default abstract class WaiterRedemptionTrigger {
      * - `false` if the redemption trigger failed to unload, and to announce that it failed
      * - `null` if the redemption trigger failed to unload, but to fail silently
      */
-    public async unload(clients: TwitchClient[]): Promise<boolean | null> {
+    public async unload(clients: TwitchClient[], reason: "shutdown" | "change" | "remove" | "other" = "shutdown"): Promise<boolean | null> {
         if (this.settings.type == "internal" && this.settings.reward) {
           const streamers = clients.filter(client => !client.isBot);
 
           for (const streamer of streamers) {
-            await this.settings.reward.disable(streamer);
+            if (!this.settings.reward.id) {
+              streamer.logger.debug(`Skipping disable for reward "${this.settings.reward.settings.name}" because it has no ID`);
+              continue;
+            }
+
+            if (reason === "remove") {
+              await this.settings.reward.unregister(streamer);
+            } else {
+              await this.settings.reward.disable(streamer);
+            }
           }
         }
 

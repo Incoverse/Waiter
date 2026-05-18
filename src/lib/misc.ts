@@ -12,9 +12,12 @@ export function getStaticProps(cls: any) {
     .map((p) => [p, cls[p]]);
 }
 
-export async function importLocalModule(modulePath: string) {
+
+//? Bust import cache to ensure we always get the latest version of a module during hot reloads. This is necessary because Node's module caching can cause it to return an outdated version of a module after it's been updated on disk. By appending a query parameter with the current timestamp, we force Node to treat it as a new module and load the latest version from disk.
+const importCacheBust = true;
+export async function importLocalModule(modulePath: string): Promise<any> {
   return await import(
-    (process.platform == "win32" ? "file://" : "") + path.resolve(modulePath)
+    (process.platform == "win32" ? "file://" : "") + path.resolve(modulePath) + (importCacheBust ? `?cb=${Date.now()}` : "")
   );
 }
 
@@ -49,6 +52,8 @@ export function findFiles(
 }
 
 export function extendsClass(child: Function, parent: Function) {
+  if (!child || !parent) return false;
+
   let proto = child.prototype;
 
   while (proto) {

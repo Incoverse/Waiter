@@ -22,20 +22,45 @@ export default class WaiterReward {
     public logger: Console;
 
     public id: string | null = null; // Will be set by the manager
+    private idsByStreamer = new Map<string, string>();
+
+    public getId(streamer: TwitchClient): string | null {
+        return this.idsByStreamer.get(streamer.IAM.id) ?? this.id;
+    }
+
+    private setId(streamer: TwitchClient, id: string) {
+        this.idsByStreamer.set(streamer.IAM.id, id);
+        this.id = id;
+    }
+
+    private canUseChannelPoints(streamer: TwitchClient, action: string): boolean {
+        if (["affiliate", "partner"].includes(streamer.IAM.broadcaster_type)) {
+            return true;
+        }
+
+        streamer.logger.warn(`Skipping channel point ${action} for reward "${this.settings.name}" because ${streamer.IAM.display_name} is not an affiliate or partner`);
+        return false;
+    }
 
     public async enabled(streamer: TwitchClient) {
+        if (!this.canUseChannelPoints(streamer, "enabled-state check")) {
+            return false;
+        }
+
         if (this.cache.has(`${streamer.IAM.id}-enabled`)) {
             return this.cache.get(`${streamer.IAM.id}-enabled`);
         }
 
-        if (!this.id) {
+        const rewardId = this.getId(streamer);
+
+        if (!rewardId) {
             streamer.logger.error(`Cannot get enabled state of reward "${this.settings.name}" because it has no ID`);
             return false;
         }
-        return await streamer.getRewards(this.id).then((rewards) => {
-            const reward = rewards.find((r) => r.id === this.id);
+        return await streamer.getRewards(rewardId).then((rewards) => {
+            const reward = rewards.find((r) => r.id === rewardId);
             if (!reward) {
-                streamer.logger.error(`Reward with ID "${this.id}" not found when getting enabled state of reward "${this.settings.name}"`);
+                streamer.logger.error(`Reward with ID "${rewardId}" not found when getting enabled state of reward "${this.settings.name}"`);
                 return false;
             }
 
@@ -70,11 +95,17 @@ export default class WaiterReward {
     }
 
     public async modifyPrice(streamer: TwitchClient,price: number): Promise<boolean> {
-        if (!this.id) {
+        if (!this.canUseChannelPoints(streamer, "price update")) {
+            return false;
+        }
+
+        const rewardId = this.getId(streamer);
+
+        if (!rewardId) {
             streamer.logger.error(`Cannot modify price of reward "${this.settings.name}" because it has no ID`);
             return false;
         }
-        return streamer.updateReward(this.id, { cost: price }).then(() => {
+        return streamer.updateReward(rewardId, { cost: price }).then(() => {
             streamer.logger.debug(`Reward "${this.settings.name}" price modified to ${price}`);
             this.currentPrice = price;
             return true;
@@ -85,6 +116,9 @@ export default class WaiterReward {
     }
 
     public async register(streamer: TwitchClient, redemptions?: TwitchRedemption[], manageableRewards?: TwitchRedemption[], overridenEnabled?: boolean): Promise<boolean> {
+        if (!this.canUseChannelPoints(streamer, "registration")) {
+            return false;
+        }
 
         global.twitch.communication.on("stream.offline", async (streamer, data) => {
 
@@ -242,6 +276,7 @@ export default class WaiterReward {
             if (existing.manageable) {
                 this.id = existing.id;
                 streamer.logger.withPrefix(`[${streamer.IAM.login}]`).debug(`Reward "${this.settings.name}" already exists, using existing ID: ${this.id}`);
+                const rewardId = existing.id;
 
                 let needsUpdate =
                     this.settings.name !== existing.title ||
@@ -311,9 +346,10 @@ export default class WaiterReward {
                         updatePayload.is_max_per_user_per_stream_enabled = this.settings.redemptionLimit?.perUser != null;
                         updatePayload.max_per_user_per_stream = this.settings.redemptionLimit?.perUser || null;
                     }
-                    await streamer.updateReward(this.id, updatePayload);
+                    await streamer.updateReward(rewardId, updatePayload);
                     streamer.logger.debug(`Reward "${this.settings.name}" updated to match settings`);
                 }
+                this.setId(streamer, rewardId);
                 return true;
             } else {
                 streamer.logger.error(`Reward "${this.settings.name}" already exists but is not manageable, cannot register`);
@@ -335,22 +371,35 @@ export default class WaiterReward {
             max_per_user_per_stream: this.settings.redemptionLimit?.perUser || undefined,
         }).then((reward) => {
             streamer.logger.debug(`Reward "${this.settings.name}" registered with ID: ${reward.id}`);
-            this.id = reward.id;
+            this.setId(streamer, reward.id);
             this.cache.set(`${streamer.IAM.id}-enabled`, reward.is_enabled, 60000);
             return true;
         }).catch((error) => {
+            if (error?.response?.status === 403 || error?.response?.status === 404) {
+                streamer.logger.debug(`Skipping reward registration for "${this.settings.name}" on ${streamer.IAM.display_name} because it is unavailable (${error.response.status})`);
+                return false;
+            }
             streamer.logger.error(`Failed to register reward "${this.settings.name}": ${error.message}`);
             return false;
         })
     }
     public async unregister(streamer: TwitchClient) {
-        if (!this.id) {
+        if (!this.canUseChannelPoints(streamer, "unregistration")) {
+            return false;
+        }
+
+        const rewardId = this.getId(streamer);
+
+        if (!rewardId) {
             streamer.logger.error(`Cannot unregister reward "${this.settings.name}" because it has no ID`);
             return false
         }
-        return streamer.deleteReward(this.id).then(() => {
+        return streamer.deleteReward(rewardId).then(() => {
             streamer.logger.debug(`Reward "${this.settings.name}" unregistered successfully`);
-            this.id = null;
+            this.idsByStreamer.delete(streamer.IAM.id);
+            if (this.idsByStreamer.size === 0) {
+                this.id = null;
+            }
             this.cache.delete(`${streamer.IAM.id}-enabled`);
 
             return true;
@@ -360,7 +409,13 @@ export default class WaiterReward {
         });
     }
     public async enable(streamer: TwitchClient) {
-        if (!this.id) {
+        if (!this.canUseChannelPoints(streamer, "enable")) {
+            return false;
+        }
+
+        const rewardId = this.getId(streamer);
+
+        if (!rewardId) {
             streamer.logger.error(`Cannot enable reward "${this.settings.name}" because it has no ID`);
             return false;
         }
@@ -370,31 +425,40 @@ export default class WaiterReward {
             return true; // Already enabled, no action needed
         }
 
-        return streamer.updateReward(this.id, { is_enabled: true }).then(() => {
+        return streamer.updateReward(rewardId, { is_enabled: true }).then(() => {
             streamer.logger.debug(`Reward "${this.settings.name}" enabled successfully`);
             this.cache.set(`${streamer.IAM.id}-enabled`, true, 60000);
             return true;
         }).catch((error) => {
+            if (error?.response?.status === 403 || error?.response?.status === 404) {
+                streamer.logger.debug(`Skipping enable for reward "${this.settings.name}" on ${streamer.IAM.display_name} because it is unavailable (${error.response.status})`);
+                return false;
+            }
             streamer.logger.error(`Failed to enable reward "${this.settings.name}": ${error.message}`);
             return false;
         });
     }
     public async disable(streamer: TwitchClient) {
-        if (!this.id) {
+        if (!this.canUseChannelPoints(streamer, "disable")) {
+            return false;
+        }
+
+        const rewardId = this.getId(streamer);
+
+        if (!rewardId) {
             streamer.logger.error(`Cannot disable reward "${this.settings.name}" because it has no ID`);
             return false;
         }
 
-        if (!(await this.enabled(streamer))) {
-            streamer.logger.debug(`Reward "${this.settings.name}" is already disabled`);
-            return true; // Already disabled, no action needed
-        }
-
-        return streamer.updateReward(this.id, { is_enabled: false }).then(() => {
+        return streamer.updateReward(rewardId, { is_enabled: false }).then(() => {
             streamer.logger.debug(`Reward "${this.settings.name}" disabled successfully`);
             this.cache.set(`${streamer.IAM.id}-enabled`, false, 60000);
             return true;
         }).catch((error) => {
+            if (error?.response?.status === 403 || error?.response?.status === 404) {
+                streamer.logger.debug(`Skipping disable for reward "${this.settings.name}" on ${streamer.IAM.display_name} because it is unavailable (${error.response.status})`);
+                return false;
+            }
             streamer.logger.error(`Failed to disable reward "${this.settings.name}": ${error.message}`);
             return false;
         });

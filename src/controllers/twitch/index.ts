@@ -443,7 +443,14 @@ export default class TwitchController extends Controller {
         const normalizedEvent = deepSortObject(registration.event);
         const eventHash = crypto.createHash("sha256").update(JSON.stringify(normalizedEvent)).digest("hex");
 
-        await this.ensureSubscription(registration.client, registration.event, eventHash);
+        // Check if the event is installed before registering with Twitch
+        const isInstalled = event.isInstalled(registration.client);
+
+        if (isInstalled) {
+          await this.ensureSubscription(registration.client, registration.event, eventHash);
+        }
+        
+        // Always register the handler so the event is counted toward EventSub enablement
         this.registerHandler(registration.client, registration.event, handlerName, exec, eventHash);
       }
     }

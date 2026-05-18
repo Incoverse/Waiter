@@ -17,7 +17,7 @@
 > Waiter is actively evolving. It is stable for development/testing workflows, but not all planned features are finalized for production-grade use.
 
 Waiter is a multi-platform automation runtime for creators and communities.
-It combines Twitch, Spotify, Discord, web routes, and SurrealDB into one modular TypeScript codebase so cross-platform workflows can be built in one place.
+It combines Twitch, Spotify, Discord, the manager controller, web routes, and SurrealDB into one modular TypeScript codebase so cross-platform workflows can be built in one place.
 
 ## Table of Contents
 
@@ -54,7 +54,7 @@ Instead of maintaining separate bots/services for chat commands, account linking
 
 The initial purpose was to manage all five channels from one automation runtime while still giving each streamer room for custom behavior.
 
-Per-streamer customization is already implemented for Twitch commands and redemption triggers through config-backed enable/install flags, and broader per-streamer behavior is still planned for other parts of the stack.
+Per-streamer customization is already implemented for Twitch commands and redemption triggers through config-backed enable/install flags. In development, HMR also live-applies changes to those Twitch command and redemption trigger files.
 
 Waiter also bridges each streamer back to the shared Discord server, helping unify announcements, interactions, and tooling.
 
@@ -64,9 +64,10 @@ The long-term goal is ambitious automation across as many repetitive stream/comm
 
 | Domain | What Waiter provides | Current state |
 |---|---|---|
-| Twitch | Streamer clients, events, permission decorators, command execution, config-backed command and redemption trigger gating | Active |
+| Twitch | Streamer clients, events, permission decorators, command execution, config-backed command and redemption trigger gating, HMR for Twitch commands and redemption triggers in dev mode | Active |
 | Spotify | OAuth account linking, token refresh, typed API wrappers, playback/library tools | Active |
 | Discord | Slash command registration + interaction handling | Active |
+| Manager | Socket.IO manager client orchestration, streamer identity validation, controller status/control surface | Active |
 | Web | Express routes, HTML template rendering, URL shortener helper | Active |
 | Database | SurrealDB connectivity, schema/table bootstrap, reconnect logic | Active |
 
@@ -87,6 +88,7 @@ Stage execution is a strict barrier model: the `pre` stage must fully complete b
 | Concern | How Waiter handles it |
 |---|---|
 | Five-streamer coordination | One runtime tracks multiple channels while keeping streamer context separate |
+| Manager client orchestration | Socket.IO manager clients authenticate against streamer identity and connect to controller state |
 | Shared Discord bridge | Twitch and Spotify actions can be surfaced into a shared Discord experience |
 | Reliability and startup safety | Config validation occurs before platform controllers run |
 | Auth/token lifecycle | OAuth credentials are encrypted, validated, refreshed, and synced with DB records |
@@ -97,7 +99,7 @@ Stage execution is a strict barrier model: the `pre` stage must fully complete b
 ### 1) Install dependencies
 
 ```bash
-npm install
+bun install
 ```
 
 ### 2) Configure runtime
@@ -108,19 +110,21 @@ npm install
 ### 3) Run development loop
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 ### 4) Build and start compiled output
 
 ```bash
-npm run build
-npm run start
+bun run build
+bun run start
 ```
 
 ## Configuration
 
 Configuration is loaded from `src/config.ts` and validated using merged Zod schemas from all controllers.
+
+`config.hotReload.enabled` turns on HMR for Twitch commands and redemption triggers when Waiter runs from source. It is ignored in compiled runs.
 
 Waiter also creates and uses `.env.internal` for internal runtime state. That file stores the encryption key used to encrypt and decrypt sensitive database values such as auth tokens.
 
@@ -155,6 +159,11 @@ const config: WaiterConfig = {
 		authEndpoint: "/twitch/auth",
 		generatedCodeValidity: "15m"
 	},
+	manager: {
+		github: {
+			token: "github_pat_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+		}
+	},
 	database: {
 		uri: "wss://your-surreal-host:13244"
 	}
@@ -167,9 +176,9 @@ export default config satisfies WaiterConfig;
 
 | Script | Command | What it does |
 |---|---|---|
-| Build | `npm run build` | Compiles TS, resolves ts paths, copies templates/json to `dist` |
-| Start | `npm run start` | Starts compiled app from `dist/index.js` |
-| Dev | `npm run dev` | Watches sources and restarts on change |
+| Build | `bun run build` | Compiles TS, resolves ts paths, copies templates/json to `dist` |
+| Start | `bun run start` | Starts compiled app from `dist/index.js` |
+| Dev | `bun run dev` | Watches sources and restarts on change |
 
 ## Development Workflow
 
@@ -178,11 +187,29 @@ export default config satisfies WaiterConfig;
 tsc --noEmit
 
 # build + run compiled
-npm run build && npm run start
+bun run build && bun run start
 
 # live development loop
-npm run dev
+bun run dev
 ```
+
+## Hot Reload
+
+HMR is available for Twitch commands and redemption triggers when `config.hotReload.enabled` is `true` and Waiter is running from source.
+
+Behavior:
+
+- New command and trigger files are validated, loaded, and registered automatically.
+- Changed command files unload the old command and load the new one.
+- Changed redemption triggers unload the old trigger, then load the replacement. Internal rewards are disabled during changes and fully unregistered when a trigger file is removed.
+- Removed trigger files fully unregister their rewards.
+- Renamed files keep the existing in-memory instance and only update the tracked file path.
+- File matching is filtered by controller-specific suffixes so unrelated files do not trigger reload work.
+
+Notes:
+
+- HMR is disabled in compiled runs.
+- Add/remove/change behavior is applied after the watcher's initial scan completes.
 
 ## Repository Layout
 
@@ -194,7 +221,25 @@ npm run dev
 | `src/controllers/twitch` | Twitch auth/client lifecycle, events, commands, permissions |
 | `src/controllers/spotify` | Spotify auth/client lifecycle + typed API functions |
 | `src/controllers/discord` | Discord client + slash command registration/dispatch |
+| `src/controllers/manager` | Socket.IO manager clients, streamer validation, shared control/telemetry surface |
 | `src/lib` | Shared core utilities (logging, encryption, misc helpers, cache) |
+
+## Manager
+
+The Manager is a custom native client (a small executable) that connects to Waiter over Socket.IO and lets Waiter perform safe, machine-local actions on behalf of a registered streamer. In short: the Manager turns a streamer machine into a controllable, authenticated control surface for automation, telemetry and local utilities.
+
+- **Connection & auth:** Manager clients open a Socket.IO connection to the Waiter web server and authenticate by sending a Waiter user ID (WUID) in the handshake. Waiter validates the WUID against the `users` table in the DB and requires the WUID to belong to a registered streamer. Only one Manager client is allowed per user ID; duplicate connections are rejected. See [src/controllers/manager/index.ts](src/controllers/manager/index.ts#L1-L400) for the authentication and connection flow.
+- **Global surface:** When a manager client connects, Waiter populates `global.manager` with an object containing the active `io` server, a `clients` set and a `communication` EventEmitter. Waiter emits `manager.client_connected` and `manager.client_disconnected` events on this `communication` channel so other controllers can react to manager availability.
+- **Example capabilities:** The bundled `ManagerClient` class exposes higher-level helpers used by controllers to interact with the client. Notable methods include `runCommand(cmd, runner)` for executing shell commands on the manager host and `showMessageBox(...)` for native dialogs. These helpers are implemented with request/receipt semantics over Socket.IO and guarded by a `MinimumVersion` decorator so features are only used when the connected Manager supports them. See [src/controllers/manager/client.ts](src/controllers/manager/client.ts#L1-L200).
+- **Release & updates:** Waiter exposes an HTTP endpoint that can stream the latest Manager binary from GitHub (`/api/v1/manager/release/latest`). The controller uses the `manager.github` config (token + repo) to fetch release assets and stream them to clients. See the Manager controller's update endpoint in [src/controllers/manager/index.ts](src/controllers/manager/index.ts#L1-L400).
+- **Shutdown & cleanup:** Waiter registers process hooks (`beforeExit`, `SIGINT`, `SIGTERM`) to call `cleanupAllClients()` which gracefully disconnects manager sockets, clears the `clients` set and closes the Socket.IO server. The cleanup routine also runs Twitch client cleanup to ensure a clean shutdown sequence.
+- **Security & notes:**
+	- Manager clients must be registered streamers; unregistered connections are rejected.
+	- Only one manager connection per WUID is allowed to avoid conflicting local actions.
+	- Keep the `manager.github.token` secret (used to fetch private release assets).
+	- Use the `MinimumVersion` compatibility checks on controller calls to avoid executing features unsupported by an older Manager binary.
+
+Adding a Manager client to a streamer machine allows safe, auditable, and versioned local automation (commands, dialogs, and other host-specific workflows) while keeping authentication and control in the Waiter runtime.
 
 ## Roadmap
 

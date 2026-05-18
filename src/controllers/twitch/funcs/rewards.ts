@@ -1,7 +1,20 @@
 import TwitchClient from "@twitch/client";
 import type { TwitchRedemption } from "../types";
 
+function canUseChannelPoints(client: TwitchClient, action: string) {
+  if (["affiliate", "partner"].includes(client.IAM.broadcaster_type)) {
+    return true;
+  }
+
+  client.logger.warn(`Skipping channel point ${action} because ${client.IAM.display_name} is not an affiliate or partner`);
+  return false;
+}
+
 export async function completeRedemption(this: TwitchClient, redemption_id: string, reward_id: string) {
+  if (!canUseChannelPoints(this, "complete redemption")) {
+    return { status: 403 } as any;
+  }
+
   return await this.api.patch(`/channel_points/custom_rewards/redemptions`, {
     status: "FULFILLED"
   }, {
@@ -14,6 +27,10 @@ export async function completeRedemption(this: TwitchClient, redemption_id: stri
 }
 
 export async function cancelRedemption(this: TwitchClient, redemption_id: string, reward_id: string) {
+  if (!canUseChannelPoints(this, "cancel redemption")) {
+    return { status: 403 } as any;
+  }
+
   return await this.api.patch(`/channel_points/custom_rewards/redemptions`, {
     status: "CANCELED"
   }, {
@@ -26,6 +43,10 @@ export async function cancelRedemption(this: TwitchClient, redemption_id: string
 }
 
 export async function getRewards(this: TwitchClient, id: string | null = null, only_manageable: boolean = false): Promise<TwitchRedemption[]> {
+  if (!canUseChannelPoints(this, "fetch rewards")) {
+    return [];
+  }
+
   return await this.api.get(`/channel_points/custom_rewards`, {
     params: {
       broadcaster_id: this.IAM.id,
@@ -53,6 +74,10 @@ export async function updateReward(this: TwitchClient, id: string, settings: {
     global_cooldown_seconds?: number;
     should_redemptions_skip_request_queue?: boolean;
 }) {
+  if (!canUseChannelPoints(this, "update reward")) {
+    return { status: 403 } as any;
+  }
+
   return await this.api.patch(`/channel_points/custom_rewards`, settings, {
     params: {
       id: id,
@@ -76,6 +101,9 @@ export async function createReward(this: TwitchClient, settings: {
     global_cooldown_seconds?: number;
     should_redemptions_skip_request_queue?: boolean;
 }) {
+  if (!canUseChannelPoints(this, "create reward")) {
+    return { id: "" } as any;
+  }
 
     return await this.api.post(`/channel_points/custom_rewards`, {
         title: settings.title,
@@ -102,6 +130,10 @@ export async function createReward(this: TwitchClient, settings: {
 
 
 export async function deleteReward(this: TwitchClient, id: string) {
+  if (!canUseChannelPoints(this, "delete reward")) {
+    return { status: 403 } as any;
+  }
+
   return await this.api.delete(`/channel_points/custom_rewards`, {
     params: {
       broadcaster_id: this.IAM.id,

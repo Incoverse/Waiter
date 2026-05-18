@@ -110,6 +110,8 @@ const controllers: Controller[] = importedControllers
     return a.priority - b.priority;
   })
 
+const allControllers = [...controllers];
+
 
 console.debug(`${controllers.length} controller${controllers.length !== 1 ? "s" : ""} ready to be executed:`);
 for (const controller of controllers) {
@@ -120,6 +122,9 @@ for (const controller of controllers) {
 let configSchema = z.object({
   publicUrl: z.url().default("http://localhost:9999")
     .describe("The public URL for the application, used for OAuth callbacks and shortened URLs. Must be a valid URL."),
+  hotReload: z.object({
+    enabled: z.boolean().default(false).describe("Whether to enable hot reloading of controllers and commands. When enabled, changes to controller and command files will be automatically applied without needing to restart the application."),
+  }).default({ enabled: false }).describe("Hot reload configuration options."),
 });
 
 for (const controller of controllers) {
@@ -129,7 +134,7 @@ for (const controller of controllers) {
   }
 }
 
-configSchema = configSchema.default({ publicUrl: "http://localhost:9999" }) as any;
+configSchema = configSchema.default({ publicUrl: "http://localhost:9999", hotReload: { enabled: false } }) as any;
 
 
 
@@ -307,7 +312,7 @@ const s2r = performance.measure("start_to_ready", "app_start", "app_ready");
 console.debug("---------------------------------")
 console.debug(`Startup times:`);
 console.debug(`  - Waiter: ${chalk.cyanBright.bold(prettyMilliseconds(s2r.duration))}`);
-for (const controller of controllers) {
+for (const controller of allControllers) {
   if (failedControllers.has(controller.abbr)) {
     console.debug(`  - ${controller.constructor.name} (${controller.abbr}): ${chalk.redBright.bold("FAILED TO START")}`);
     continue;

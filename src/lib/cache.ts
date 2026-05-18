@@ -4,11 +4,13 @@ type CacheManagerSettings = {
   name?: string; // For logging purposes, not used internally
   logger?: Console; // Optional custom logger, defaults to global console
   loggingEnabled?: boolean; // Whether to enable logging, default: true
+
+  maxSize?: number; // Optional maximum size of the cache. When exceeded, oldest entries will be evicted.
 }
 let defaultSettings: CacheManagerSettings = {
   name: "CacheManager",
   logger: console,
-  loggingEnabled: true,
+  loggingEnabled: true
 }
 
 export default class CacheManager<K = string, V = any> {
@@ -37,7 +39,7 @@ export default class CacheManager<K = string, V = any> {
     for (const [key, entry] of this.cache.entries()) {
       if (entry.expires && entry.expires.getTime() < now) {
         if (this.settings.loggingEnabled) {
-          this.settings.logger?.warn(`[${this.settings.name}] Cache entry expired - ${String(key)}`);
+          this.settings.logger?.trace(`[${this.settings.name}] Cache entry expired - ${String(key)}`);
         }
         this.cache.delete(key);
       }
@@ -48,21 +50,21 @@ export default class CacheManager<K = string, V = any> {
     const entry = this.cache.get(key);
     if (!entry) {
       if (this.settings.loggingEnabled) {
-        this.settings.logger?.debug(`[${this.settings.name}] Cache miss - ${String(key)} (not found)`);
+        this.settings.logger?.trace(`[${this.settings.name}] Cache miss - ${String(key)} (not found)`);
       }
       return null;
     };
     if (this.isExpired(entry)) {
       this.cache.delete(key);
       if (this.settings.loggingEnabled) {
-        this.settings.logger?.debug(`[${this.settings.name}] Cache miss - ${String(key)} (expired)`);
+        this.settings.logger?.trace(`[${this.settings.name}] Cache miss - ${String(key)} (expired)`);
       }
       return null;
     }
 
 
     if (this.settings.loggingEnabled) {
-      this.settings.logger?.debug(`[${this.settings.name}] Cache hit[${prettyMilliseconds((entry.expires?.getTime() ?? 0) - Date.now())} left] - ${String(key)}`);
+      this.settings.logger?.trace(`[${this.settings.name}] Cache hit[${prettyMilliseconds((entry.expires?.getTime() ?? 0) - Date.now())} left] - ${String(key)}`);
     }
     return entry.value;
   }
@@ -71,14 +73,14 @@ export default class CacheManager<K = string, V = any> {
     const entry = this.cache.get(key);
     if (!entry) {
       if (this.settings.loggingEnabled) {
-        this.settings.logger?.debug(`[${this.settings.name}] Tag miss - ${String(key)} (not found)`);
+        this.settings.logger?.trace(`[${this.settings.name}] Tag miss - ${String(key)} (not found)`);
       }
       return null;
     };
     if (this.isExpired(entry)) {
       this.cache.delete(key);
       if (this.settings.loggingEnabled) {
-        this.settings.logger?.debug(`[${this.settings.name}] Tag miss - ${String(key)} (expired)`);
+        this.settings.logger?.trace(`[${this.settings.name}] Tag miss - ${String(key)} (expired)`);
       }
       return null;
     }
@@ -89,33 +91,33 @@ export default class CacheManager<K = string, V = any> {
     const entry = this.cache.get(key);
     if (!entry) {
       if (this.settings.loggingEnabled) {
-        this.settings.logger?.debug(`[${this.settings.name}] Tag miss - ${String(key)} (not found)`);
+        this.settings.logger?.trace(`[${this.settings.name}] Tag miss - ${String(key)} (not found)`);
       }
       return false;
     };
     if (this.isExpired(entry)) {
       this.cache.delete(key);
       if (this.settings.loggingEnabled) {
-        this.settings.logger?.debug(`[${this.settings.name}] Tag miss - ${String(key)} (expired)`);
+        this.settings.logger?.trace(`[${this.settings.name}] Tag miss - ${String(key)} (expired)`);
       }
       return false;
     }
     if (this.settings.loggingEnabled) {
-      this.settings.logger?.debug(`[${this.settings.name}] Tag hit - ${String(key)}`);
+      this.settings.logger?.trace(`[${this.settings.name}] Tag hit - ${String(key)}`);
     }
     return true;
   }
 
   clear(): void {
     if (this.settings.loggingEnabled) {
-      this.settings.logger?.debug(`[${this.settings.name}] Cache cleared`);
+      this.settings.logger?.trace(`[${this.settings.name}] Cache cleared`);
     }
     this.cache.clear();
   }
 
   delete(key: K): boolean {
     if (this.settings.loggingEnabled) {
-      this.settings.logger?.debug(`[${this.settings.name}] Cache invalidate - ${String(key)}`);
+      this.settings.logger?.trace(`[${this.settings.name}] Cache invalidate - ${String(key)}`);
     }
     return this.cache.delete(key);
   }
@@ -146,14 +148,41 @@ export default class CacheManager<K = string, V = any> {
 
   set(key: K, value: V, expires: number | Date | null): this {
     let expiresAt: Date | null = null;
+
     if (expires instanceof Date) {
       expiresAt = expires;
-    } else if (typeof expires === 'number') {
+    } else if (typeof expires === "number") {
       expiresAt = new Date(Date.now() + expires);
     }
-    if (this.settings.loggingEnabled) {
-      this.settings.logger?.debug(`[${this.settings.name}] Cache set${expiresAt ? ` (expires in ${prettyMilliseconds(expiresAt.getTime() - Date.now())})` : ""} - ${String(key)}`);
+
+    this.cleanupExpired();
+
+    const max = this.settings.maxSize;
+    if (max && this.cache.size >= max && !this.cache.has(key)) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+
+        if (this.settings.loggingEnabled) {
+          this.settings.logger?.trace(
+            `[${this.settings.name}] Cache evicted (maxSize reached) - ${String(firstKey)}`
+          );
+        }
+      }
     }
+
+    if (this.settings.loggingEnabled) {
+      this.settings.logger?.trace(
+        `[${this.settings.name}] Cache set${
+          expiresAt
+            ? ` (expires in ${prettyMilliseconds(
+                expiresAt.getTime() - Date.now()
+              )})`
+            : ""
+        } - ${String(key)}`
+      );
+    }
+
     this.cache.set(key, { value, expires: expiresAt });
     return this;
   }

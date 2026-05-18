@@ -4,6 +4,8 @@ import WaiterReward from "../lib/base/WaiterReward";
 
 export default class TestTrigger extends WaiterRedemptionTrigger {
 
+  public override defaultInstalled: boolean = true;
+
   public override settings: RedemptionSettings = {
     type: "internal",
     reward: new WaiterReward({

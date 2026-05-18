@@ -28,6 +28,8 @@ export default abstract class WaiterEvent {
     protected logger: Console;
 
     public loaded: boolean = false;
+    public defaultInstalled: boolean = true;
+    public canBeConfigured: boolean = true;
 
     public constructor(bot: TwitchClient) {
       this.bot = bot;
@@ -35,6 +37,16 @@ export default abstract class WaiterEvent {
       this.cache.setLogger(this.logger);
     }
 
+    public getConfigKey(): string {
+      return `evt${this.constructor.name.replace(/evt$/i, "")}-installed`;
+    }
+
+    public isInstalled(sender: TwitchClient): boolean {
+      if (!this.canBeConfigured) {
+        return this.defaultInstalled;
+      }
+      return sender.config?.[this.getConfigKey()] ?? this.defaultInstalled;
+    }
 
     //! Event trigger
     public abstract eventTrigger: (params: BroadcasterSender) => EventInfo; 

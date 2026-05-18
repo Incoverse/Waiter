@@ -38,5 +38,6 @@
       "@discord/*": ["./src/controllers/discord/*"],
       "@manager/*": ["./src/controllers/manager/*"],
     }
-  }
+  },
+  "include": ["src", "src/**/*.d.ts"]
 }

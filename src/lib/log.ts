@@ -47,6 +47,7 @@ export type LoggedConsole = {
   prefix: string | null; // Prefix to include in log messages (e.g. [MyApp])
 
   line: (...args: any[]) => void;
+  trace: (...args: any[]) => void;
   debug: (...args: any[]) => void;
   log: (...args: any[]) => void;
   info: (...args: any[]) => void;
@@ -64,6 +65,7 @@ export type LoggedConsole = {
 
   originalConsole: {
     line: (...args: any[]) => void;
+    trace: (...args: any[]) => void;
     debug: (...args: any[]) => void;
     log: (...args: any[]) => void;
     info: (...args: any[]) => void;
@@ -73,6 +75,7 @@ export type LoggedConsole = {
 };
 
 export enum LOGLEVEL {
+  TRACE = 11,
   DEBUG = 10,
   LOG = 9,
   INFO = 8,
@@ -87,6 +90,7 @@ export enum LOGLEVEL {
 }
 
 const LOGTYPE: { [key in LOGLEVEL]?: string } = {
+  [LOGLEVEL.TRACE]: "trace",
   [LOGLEVEL.DEBUG]: "debug",
   [LOGLEVEL.LOG]: "log",
   [LOGLEVEL.INFO]: "info",
@@ -174,6 +178,7 @@ export default class WaiterLog {
     console.prefix = config?.prefix ?? null;
     console.originalConsole = {
       line: console.line,
+      trace: console.trace,
       debug: console.debug,
       log: console.log,
       info: console.info,
@@ -206,6 +211,15 @@ export default class WaiterLog {
         logger.origLog(...args);
       }
     };
+
+    console.trace = function (this: Console, ...args: any[]) {
+      if (this.logLevel >= LOGLEVEL.TRACE) {
+        this.line(
+          ...logger.fmt(this, LOGLEVEL.TRACE),
+          ...colorIfStr(chalk.gray, ...[...(!!this.prefix ? [this.prefix] : []), ...args]),
+        );
+      };
+    }
 
     console.debug = function (this: Console, ...args: any[]) {
       if (this.logLevel >= LOGLEVEL.DEBUG) {
@@ -328,6 +342,7 @@ export default class WaiterLog {
 
   private fmt(logConsole: Console, lvl: LOGLEVEL, sender?: string): any[] {
     const clrMap = {
+      [LOGLEVEL.TRACE]: chalk.magenta,
       [LOGLEVEL.DEBUG]: chalk.cyan,
       [LOGLEVEL.LOG]: chalk.gray,
       [LOGLEVEL.INFO]: chalk.white,

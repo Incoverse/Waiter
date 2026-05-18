@@ -1,6 +1,9 @@
+import { hmr } from "@/lib/hmr";
 import { extendsClass, findFiles, importLocalModule } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type ChannelMessage, type MessageBasedOnScope } from "@twitch/lib/base/WaiterCommand";
+import chalk from "chalk";
+import path from "path";
 import WaiterEvent, { type BroadcasterSender, type EventInfo, type TwitchEventInfo } from "../lib/base/WaiterEvent";
 import { isChannelChatMessage, type ChannelChatMessage, type UserWhisperMessage } from "../types";
 
@@ -36,8 +39,11 @@ export default class TCMD extends WaiterEvent {
   }
 
   private commands: WaiterCommand[] = [];
+  private commandsByFile = new Map<string, WaiterCommand>();
+  private setupClients: TwitchClient[] = [];
 
   public override async setup(clients: TwitchClient[], reason: "initial" | "catch-up" | "other" = "initial"): Promise<boolean | null> {
+    this.setupClients = clients;
 
     if (reason === "catch-up") {
       console.debug("Running catch-up setup for commands...");
@@ -53,8 +59,10 @@ export default class TCMD extends WaiterEvent {
       return true;
     }
 
+    const commandFiles = findFiles(global.isCompiled ? "dist" : "src", /[\\/]twitch[\\/].*\.cmd\..s$/)
+
     const commands = (await Promise.all(
-      findFiles(global.isCompiled ? "dist" : "src", /[\\/]twitch[\\/].*\.cmd\..s$/)
+      commandFiles
         .map(importLocalModule)        
     ))
       .map((mod) => mod.default)
@@ -62,7 +70,14 @@ export default class TCMD extends WaiterEvent {
 
     this.logger.info(`Found ${commands.length} command(s). Setting up...`);
 
-    for (const cmd of commands) {
+    for (const cmdIndex in commands) {
+      const cmd = commands[cmdIndex];
+
+      if (!cmd) {
+        this.logger.warn(`Failed to load command from file ${commandFiles[cmdIndex]}. Skipping.`);
+        continue;
+      }
+
       const commandInstance = new cmd(this.bot);
       const setupResult = await commandInstance.setup(clients, reason);
 
@@ -73,10 +88,144 @@ export default class TCMD extends WaiterEvent {
         continue
       }
 
+      const filePath = commandFiles[cmdIndex];
+      this.commandsByFile.set(filePath, commandInstance);
       this.commands.push(commandInstance);
     }
 
+    // Note: we can't track file paths for initially loaded commands since we only have class references,
+    // but hot-reload will track them as they're added/modified
+
     globalCommandHandler = this;
+
+    if (global.config.hotReload.enabled && !global.isCompiled) {
+
+      const root = "./src/controllers/twitch/commands";
+
+      hmr.setupHMR({
+        root,
+        filter: (file) => {
+          return /\.cmd\..s$/.test(file);
+        },
+
+        events: {
+          typeError: (file, errors) => {
+            this.logger.warn(`Failed to hot-reload command from ${path.relative(root, file)} due to ${errors.length} validation error(s):`);
+            errors.forEach((error) => {
+              this.logger.warn(`  - ${path.relative(root, file)}:${error.line}:${error.column} - TS${error.code}: ${error.message}`);
+            });
+          },
+
+          add: async (file, mod) => {            
+            if (!mod.default) return;
+            const instance = mod.default;
+            if (!extendsClass(instance, WaiterCommand)) return;
+
+            const commandInstance = new instance(this.bot);
+            const setupResult = await commandInstance.setup(this.setupClients, "initial");
+            const relativeFile = path.relative(root, file);
+
+            if (setupResult === false) {
+              this.logger.warn(`Failed to setup hot-reloaded command ${chalk.bold(instance.name)} from file ${relativeFile}.`);
+              return;
+            }
+
+
+            this.commands.push(commandInstance);
+            this.commandsByFile.set(file, commandInstance);
+            this.logger.info(`Loaded new command from ${relativeFile}: ${chalk.bold(instance.name)}`);
+          },
+
+          change: async (file, mod) => {
+            // Remove old command if it exists
+            const oldCommand = this.commandsByFile.get(file);
+            if (oldCommand) {
+              const index = this.commands.indexOf(oldCommand);
+              if (index !== -1) {
+                this.commands.splice(index, 1);
+              }
+              if (typeof oldCommand.unload === "function") {
+                await oldCommand.unload(this.setupClients);
+              }
+            }
+            this.commandsByFile.delete(file);
+
+            // Add new command
+            if (!mod.default) return;
+            const instance = mod.default;
+            if (!extendsClass(instance, WaiterCommand)) return;
+
+            const commandInstance = new instance(this.bot);
+            const setupResult = await commandInstance.setup(this.setupClients, "initial");
+            const relativeFile = path.relative(root, file);
+
+            if (setupResult === false) {
+              this.logger.warn(`Failed to setup hot-reloaded command ${chalk.bold(instance.name)} from file ${relativeFile}.`);
+              return;
+            }
+
+            this.commands.push(commandInstance);
+            this.commandsByFile.set(file, commandInstance);
+            this.logger.info(`Reloaded command from ${relativeFile}: ${chalk.bold(instance.name)}`);
+          },
+
+          remove: async (file) => {
+            const command = this.commandsByFile.get(file);
+            if (command) {
+              const index = this.commands.indexOf(command);
+              if (index !== -1) {
+                this.commands.splice(index, 1);
+              }
+              if (typeof command.unload === "function") {
+                await command.unload(this.setupClients);
+              }
+            }
+            this.commandsByFile.delete(file);
+
+            const relativeFile = path.relative(root, file);
+            this.logger.info(`Removed command ${command?.constructor.name ?? "[unknown]"} from ${relativeFile}`);
+          },
+
+          rename: (oldFile, newFile) => {
+            const command = this.commandsByFile.get(oldFile);
+            if (command) {
+              this.commandsByFile.delete(oldFile);
+              this.commandsByFile.set(newFile, command);
+            }
+            const relativeOldFile = path.relative(root, oldFile);
+            const relativeNewFile = path.relative(root, newFile);
+
+            const commandName = command ? command.constructor.name : "unknown command";
+
+            this.logger.info(`File for command ${chalk.bold(commandName)} was renamed from ${relativeOldFile} to ${relativeNewFile}`);
+          },
+        },
+
+        validate: async (file, mod) => {
+          // Example: enforce plugin structure
+
+          if (!mod.default) {
+            return {
+              success: false,
+              reason: "Missing default export",
+            };
+          }
+
+          const instance = mod.default;
+
+          const extendsCommand = extendsClass(instance, WaiterCommand);
+          if (!extendsCommand) {
+            return {
+              success: false,
+              reason: "Class must extend WaiterCommand",
+            };
+          }
+
+          return { success: true };
+        },
+      });
+    }
+
     return super.setup(clients, reason);
 
   }
