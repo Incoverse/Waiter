@@ -5,6 +5,7 @@ import { RecordId } from "surrealdb";
 import { ToWords } from 'to-words';
 import { z, ZodObject, type ZodJSONSchema } from "zod";
 import CacheManager from "./cache";
+import moment from "moment-timezone";
 
 export function getStaticProps(cls: any) {
   return Object.getOwnPropertyNames(cls)
@@ -93,7 +94,14 @@ export function schedule(cron: string, runImmediately = false, announce=true) {
     };
 
 
-    new CronJob(cron, descriptor.value.bind(target), null, true, undefined, null, runImmediately);
+    CronJob.from({
+      cronTime: cron,
+      onTick: descriptor.value.bind(target),
+      start: true,
+      runOnInit: runImmediately,
+      threshold: 3000,
+      timeZone: moment.tz.guess()
+    });
     return descriptor;
   };
 }
@@ -113,6 +121,33 @@ export function schemaParse(schema: ZodJSONSchema, data: any) {
     console.error("Error parsing data with schema:", error);
     throw error;
   }
+}
+
+export function relativeDate(targetDate: Date): string {
+  // support "in x y" and "x y ago" based on whether the target date is in the future or past
+  const now = new Date();
+  const diff = targetDate.getTime() - now.getTime();
+  const absDiff = Math.abs(diff);
+
+  const units = [
+    { label: "year", ms: 1000 * 60 * 60 * 24 * 365 },
+    { label: "month", ms: 1000 * 60 * 60 * 24 * 30 },
+    { label: "week", ms: 1000 * 60 * 60 * 24 * 7 },
+    { label: "day", ms: 1000 * 60 * 60 * 24 },
+    { label: "hour", ms: 1000 * 60 * 60 },
+    { label: "minute", ms: 1000 * 60 },
+    { label: "second", ms: 1000 },
+    { label: "millisecond", ms: 1 }
+  ];
+
+  for (const unit of units) {
+    const count = Math.floor(absDiff / unit.ms);
+    if (count > 0) {
+      return diff > 0 ? `in ${count} ${unit.label}${count > 1 ? "s" : ""}` : `${count} ${unit.label}${count > 1 ? "s" : ""} ago`;
+    }
+  }
+
+  return "just now";
 }
 
 

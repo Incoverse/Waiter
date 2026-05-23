@@ -40,32 +40,32 @@ export default class MessageBoxRTGR extends WaiterRedemptionTrigger {
 
   public override async exec(streamer: TwitchClient, data: RedemptionInfo) {
 
-      const managerClient = getManagerClient(streamer.waiterUserId);
+    const managerClient = getManagerClient(streamer.waiterUserId);
 
-      if (!managerClient) {
-        this.bot.channel(streamer).sendMessage(`This redemption requires the streamer's manager to be connected.`);
-        return streamer.cancelRedemption(data.redemption.id, data.reward_id);
-        }
-
-      const input = data.redemption.user_input;
-
-      const args = input ? parameterize(input) : {};
-
-      if (!args.message) {
-        this.bot.channel(streamer).sendMessage(`Invalid input! Please provide a message to display in the message box. Example input: title="Hello" message="This is a message box" icon="info"`);
-        return streamer.cancelRedemption(data.redemption.id, data.reward_id);
-      }
-
-      await managerClient.showMessageBox({
-        title: args.title || `Message from ${data.redeemer.display_name}`,
-        message: args.message,
-        icon: (args.icon ?? "info") as "none" | "info" | "warning" | "error" | "question",
-        buttons: args.buttons as "OK" | "OKCancel" | "AbortRetryIgnore" | "YesNoCancel" | "YesNo" | "RetryCancel" || "OK",
-        defaultButton: args.default ? parseInt(args.default) : 1,
-      })
-      
-      await this.bot.channel(streamer).sendMessage(`Message box shown!`);
-      return streamer.completeRedemption(data.redemption.id, data.reward_id);
-
+    if (!managerClient) {
+      this.bot.channel(streamer).sendMessage(`This redemption requires the streamer's manager to be connected.`);
+      return streamer.cancelRedemption(data.redemption.id, data.reward_id);
     }
+
+    const input = data.redemption.user_input;
+
+    const args = input ? parameterize(input) : {};
+
+    if (!args.message) {
+      this.bot.channel(streamer).sendMessage(`Invalid input! Please provide a message to display in the message box. Example input: title="Hello" message="This is a message box" icon="info"`);
+      return streamer.cancelRedemption(data.redemption.id, data.reward_id);
+    }
+
+    await managerClient.showMessageBox({
+      title: args.title || `Message from ${data.redeemer.display_name}`,
+      message: args.message,
+      icon: (args.icon ?? "info") as "none" | "info" | "warning" | "error" | "question",
+      buttons: args.buttons as "OK" | "OKCancel" | "AbortRetryIgnore" | "YesNoCancel" | "YesNo" | "RetryCancel" || "OK",
+      defaultButton: args.default ? parseInt(args.default) : 1,
+    }, async () => {
+      await this.bot.channel(streamer).sendMessage(`Message box shown!`);
+    });
+
+    return streamer.completeRedemption(data.redemption.id, data.reward_id);
+  }
 }

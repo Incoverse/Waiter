@@ -94,7 +94,7 @@ export const conditionUtils = {
     return message.badges.some(badge => badge.set_id === "moderator" || badge.set_id === "lead_moderator");
   },
   isHelper: (message: ChannelMessage, modCheck = false): boolean => {
-    return (modCheck && message.badges.some(badge => badge.set_id === "moderator"));
+    return (modCheck && message.badges.some(badge => badge.set_id === "moderator" || badge.set_id === "lead_moderator"));
   },
   isDeveloper: (message: Message): boolean => {
     return ("chatter_user_id" in message ? message.chatter_user_id : message.from_user_id) === "230887728"; // Inimi's Twitch user ID

@@ -35,9 +35,30 @@ export async function getGame(this: TwitchClient, idOrName: string) {
     .then(ResDataData0);
 }
 
-export async function getVideos(this: TwitchClient, settings: any) {
+export async function getVideos(this: TwitchClient, settings: any): Promise<{
+  id: string;
+  stream_id: string;
+  user_id: string;
+  user_login: string;
+  user_name: string;
+  title: string;
+  description: string;
+  created_at: string;
+  published_at: string;
+  url: string;
+  thumbnail_url: string;
+  viewable: "public"
+  view_count: number;
+  language: string;
+  type: "upload" | "archive" | "highlight";
+  duration: string; // ISO 8601 duration format (3m21s)
+  muted_segments: null | {
+    duration: number; // in seconds
+    offset: number; // in seconds
+  }[];
+}[]> {
   let params: any = { first: 100, ...settings };
   const res = await this.api.get(`/videos`, { params });
   const data = await paginateData(this.api, `/videos`, params, { all: settings.all })(res);
-  return data;
+  return data as any;
 }

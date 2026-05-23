@@ -15,6 +15,7 @@
   * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { parseDuration, relativeDate } from "@/lib/misc";
 import type TwitchClient from "@twitch/client";
 import WaiterCommand, { type ChannelMessage } from "@twitch/lib/base/WaiterCommand";
 import { StreamerIsLive } from "../lib/conditions";
@@ -41,11 +42,52 @@ export default class ShoutoutCMD extends WaiterCommand {
       });
     }
     
-    const colors = ["purple", "blue"]
+    if (user.id === this.bot.IAM.id) {
+      return await this.bot.channel(channel).sendMessage(`I appreciate the sentiment, but I don't think I need a shoutout!`, {
+        replyTo: message
+      });
+    } else if (user.id === channel.IAM.id) {
+      const broadcasterIsSender = message.chatter_user_id === channel.IAM.id;
 
-    const msg = `Go check out ${user.display_name} at https://twitch.tv/${user.login}!`;
+      if (broadcasterIsSender) {
+        return await this.bot.channel(channel).sendMessage(`I don't think you need a shoutout, ${channel.IAM.display_name}! You're the star of the show!`, {
+          replyTo: message
+        });
+      } else {
+        return await this.bot.channel(channel).sendMessage(`I don't think ${channel.IAM.display_name} needs a shoutout! They're the star of the show!`, {
+          replyTo: message
+        });
+      }
+    }
+
+    const colors = ["purple", "blue", "orange"]
+
+    let metadata = "";
+
+    const streamInformation = (await this.bot.channel(user.id).getStreamInfo())[0];
+    if (streamInformation) {
+      metadata = `They are currently streaming ${streamInformation.game_name}!`;
+    } else {
+      const channelInfo = await this.bot.channel(user.id).getChannelInfo();
+      const lastVod = (await this.bot.getVideos({
+        user_id: user.id,
+        type: "archive",
+        first: 1,
+        sort: "time",
+        period: "week"
+      }))[0];
+
+      if (lastVod) {
+        const endDate = new Date(new Date(lastVod.created_at).getTime() + parseDuration(lastVod.duration))
+          
+        metadata = `They were last seen streaming ${channelInfo.game_name} ${relativeDate(endDate)}!`;
+      }
+    }
+
+
+    const msg = `Go check out ${user.display_name} at https://twitch.tv/${user.login}! ${metadata}`.trim();
     try {
-      await this.bot.channel(channel).announce(msg, colors[Math.floor(Math.random() * colors.length)] as "purple" | "blue");
+      await this.bot.channel(channel).announce(msg, colors[Math.floor(Math.random() * colors.length)] as "purple" | "blue" | "orange");
     } catch (error) {
       await this.bot.channel().sendMessage(msg, { replyTo: message });
     }

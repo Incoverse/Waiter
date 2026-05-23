@@ -55,7 +55,19 @@ export async function updateColor(this: ChannelSpecificWrapper, color: string) {
 }
 
 
-export async function get(this: ChannelSpecificWrapper, broadcaster_id: string = this.channelId) {
+export async function get(this: ChannelSpecificWrapper, broadcaster_id: string = this.channelId): Promise<{
+  broadcaster_id: string;
+  broadcaster_login: string;
+  broadcaster_name: string;
+  broadcaster_language: string;
+  game_id: string;
+  game_name: string;
+  title: string;
+  delay: number;
+  tags: string[];
+  content_classification_labels: ("DrugsIntoxication"|"SexualThemes"|"ViolentGraphic"|"Gambling"|"ProfanityVulgarity")[];
+  is_branded_content: boolean;
+}> {
   return await this.twcl.api.get(`/channels`, {
     params: {
       broadcaster_id

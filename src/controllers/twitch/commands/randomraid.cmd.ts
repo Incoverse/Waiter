@@ -40,7 +40,7 @@ export default class RandomRaidCMD extends WaiterCommand {
       DEFINE FIELD OVERWRITE streamer ON raid_weights TYPE record<users>;
       DEFINE FIELD OVERWRITE target ON raid_weights TYPE record<twitch_users>;
       DEFINE FIELD OVERWRITE weight ON raid_weights TYPE int;
-      DEFINE FIELD OVERWRITE metadata ON raid_weights TYPE string;
+      DEFINE FIELD OVERWRITE metadata ON raid_weights TYPE option<string>;
 
       DEFINE INDEX OVERWRITE streamer_target_idx ON raid_weights FIELDS streamer, target UNIQUE;
     `).catch(console.error.bind(console))
@@ -56,11 +56,14 @@ export default class RandomRaidCMD extends WaiterCommand {
       source?: "all" | "list" | "random";
       type?: "random" | "top";
       randomSize?: number;
+      game?: string;
+      ignoreCollaborators?: boolean;
     } = {
       test: false,
       source: "all",
       type: "top",
       randomSize: 10,
+      ignoreCollaborators: true,
       ...(argsStr ? parameterize(argsStr) : {})
     };
 
@@ -76,7 +79,7 @@ export default class RandomRaidCMD extends WaiterCommand {
 
     await this.bot.channel(channel).sendMessage("Finding a suitable target for a raid...", { replyTo: message })
 
-    const streamersChannelInfo = await channel.channel().getStreamInfo()[0] as any;
+    const streamersChannelInfo = (await channel.channel().getStreamInfo())[0];
 
     //? Allowed Languages: English, Swedish
     //? Required game for a selection chance boost: Stream game
@@ -88,7 +91,7 @@ export default class RandomRaidCMD extends WaiterCommand {
 
     const raidable = await this.findRaidTarget(channel, {
       allowedLanguages: ["en", "sv"],
-      boostGameId: streamersChannelInfo?.game_id ?? (await this.bot.getGame("Valorant")).id,
+      boostGameId: (args.game ? await this.bot.getGame(args.game) : null)?.id ?? streamersChannelInfo?.game_id ?? (await this.bot.getGame("Valorant")).id,
       minViewers: 0,
       maxViewers: Math.max(100, (streamersChannelInfo?.viewer_count ?? 0) * 8),
       boostMinViewers: (streamersChannelInfo?.viewer_count ?? 1),
@@ -97,6 +100,7 @@ export default class RandomRaidCMD extends WaiterCommand {
       source: args.source,
       determineType: args.type,
       randomSize: args.randomSize,
+      ignoreCollaborators: args.ignoreCollaborators,
 
       filter: (stream) => {
         return channel.IAM.id !== stream.user_id
@@ -104,7 +108,7 @@ export default class RandomRaidCMD extends WaiterCommand {
     })
 
     if (!raidable) {
-      await this.bot.channel().sendMessage("I couldn't find a suitable target for a raid!", { replyTo: message });
+      await this.bot.channel(channel).sendMessage("I couldn't find a suitable target for a raid!", { replyTo: message });
       return;
     }
 
@@ -288,6 +292,8 @@ export default class RandomRaidCMD extends WaiterCommand {
     source?: "all" | "list" | "random",
     determineType?: "random" | "top",
     randomSize?: number,
+
+    ignoreCollaborators?: boolean;
     filter?: (streamer:any)=>boolean
   } = {}): Promise<(StreamInfo & { metadata: string | null, points: number }) | null> {
 
@@ -305,6 +311,8 @@ export default class RandomRaidCMD extends WaiterCommand {
       source: "all",
       determineType: "random",
       randomSize: 10,
+
+      ignoreCollaborators: true,
       filter: ()=>true,
       ...settings
     }
@@ -334,7 +342,9 @@ export default class RandomRaidCMD extends WaiterCommand {
       metadata: string | null
     }
 
-    const weightedList: WeightedEntry[] = ["all", "list"].includes(settings.source ?? "")
+    const collaborators = settings.ignoreCollaborators ? await this.bot.channel(channel).getSharedChatParticipants() : null;
+
+    let weightedList: WeightedEntry[] = ["all", "list"].includes(settings.source ?? "")
       ? await global.db.query(
           `SELECT target, weight, metadata FROM raid_weights WHERE streamer = $channel FETCH target`
           .trim(), { channel: new RecordId("users", channel.waiterUserId) })
@@ -343,6 +353,18 @@ export default class RandomRaidCMD extends WaiterCommand {
 
     this.logger.debug(`[RAID DEBUG] Retrieved ${weightedList.length} weighted targets from raid_weights.`);
 
+    if (collaborators && collaborators.participants.length > 0) {
+      weightedList = weightedList.filter(entry => {
+        if (settings.ignoreCollaborators) {
+          return !collaborators?.participants.includes(entry.target.id.id.toString());
+        }
+        return true;
+      })
+    }
+
+    if (settings.ignoreCollaborators && collaborators) {
+      this.logger.debug(`[RAID DEBUG] After filtering out collaborators, ${weightedList.length} targets remain in the weighted list.`);
+    }
 
     let streamers: StreamInfo[]  = [];
     const pointLeaderboard: Record<string, number> = {};

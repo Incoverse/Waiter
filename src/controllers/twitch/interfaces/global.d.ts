@@ -1,5 +1,6 @@
 import type Communication from "@/lib/communication";
 import type TwitchClient from "@twitch/client";
+import type { Counter } from "@twitch/commands/counter-mng.cmd";
 import type TwitchController from "..";
 import type { TwitchEventInfo } from "../lib/base/WaiterEvent";
 
@@ -24,6 +25,8 @@ declare global {
         lurkedUsers: { id: string; login: string; display_name: string }[];
         /** Twitch events that require affiliate/partner status and are waiting to be registered. */
         pendingAffiliateEvents: TwitchEventInfo[];
+        /** Counters */
+        counters: Map<string, Counter>;
       }>;
     }
     /** Bypasses that are set by the Waiter developer. */

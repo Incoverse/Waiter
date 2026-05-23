@@ -480,7 +480,7 @@ export default class TwitchController extends Controller {
       }
 
       if (info.type === "Twitch:event" && !client.isBot && isAffiliateEvent(info.event.name) && !this.isAffiliateOrPartner(client)) {
-        this.logger.warn(`Skipping affiliate-only Twitch event '${info.event.name}' for ${client.IAM.display_name} (${client.IAM.id}) because they are not an affiliate or partner.`);
+        this.logger.warn(`Skipping affiliate-only Twitch event '${info.event.name}' for ${client.IAM.display_name} (ID: ${client.IAM.id}) because they are not an affiliate or partner.`);
         this.addPendingAffiliateEvent(client, info.event);
         return;
       }

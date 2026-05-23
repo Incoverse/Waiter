@@ -1232,6 +1232,8 @@ export class ChannelSpecificWrapper {
   public getChannelInfo = this.bindChannelFn(Channel.get)
   /** Get information about the channel's stream */
   public getStreamInfo = this.bindChannelFn(Channel.getStreamInfo)
+  /** Get shared chat participants. */
+  public getSharedChatParticipants = this.bindChannelFn(Chat.getSharedChatParticipants)
 
   /** Modify the channel's information. Requires broadcaster or editor rights. */
   public modifyChannelInfo = this.bindChannelFn(Channel.modify)

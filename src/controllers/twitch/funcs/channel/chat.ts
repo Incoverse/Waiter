@@ -206,3 +206,29 @@ export async function announce(this: ChannelSpecificWrapper, message: string, co
     }
   })
 }
+
+export async function getSharedChatParticipants(this: ChannelSpecificWrapper): Promise<{
+  session_id: string;
+  host_broadcaster_id: string;
+  participants: string[];
+  created_at: string;
+  updated_at: string;
+} | null> {
+  return this.twcl.api.get(`/shared_chat/session`, {
+    params: {
+      broadcaster_id: this.channelId,
+    }
+  }).then(ResDataData0).then((data) => {
+    if (!data) {
+      return null;
+    }
+
+    return {
+      session_id: data.session_id,
+      host_broadcaster_id: data.host_broadcaster_id,
+      participants: data.participants.map((p: any) => p.broadcaster_id),
+      created_at: data.created_at,
+      updated_at: data.updated_at
+    }
+  }).catch(() => null);
+}

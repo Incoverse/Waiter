@@ -35,7 +35,7 @@ export default class ManagerClient {
   }
 
   @MinimumVersion("1.0.1")
-  public async runCommand(cmd: string, runner: "pwsh" | "cmd" = "cmd"): Promise<{ success: boolean; output: string }> {
+  public async runCommand(cmd: string, runner: "pwsh" | "cmd" = "cmd", onAck?: () => void): Promise<{ success: boolean; output: string }> {
     return new Promise((resolve) => {
       const requestId = crypto.randomBytes(8).toString("hex")
   
@@ -44,6 +44,7 @@ export default class ManagerClient {
       const responseHandler = (({status, data}: { status: "pending" | "success" | "failed"; data: { output: string } }) => {
         if (status === "pending") {
           this.logger.debug("Command acknowledged by Manager, waiting for response...");
+          if (onAck) onAck();
           return;
         } else if (status === "success") {
           this.logger.debug(`Received command response from Manager with status '${status}' and output:`, data.output);
@@ -52,10 +53,10 @@ export default class ManagerClient {
           this.logger.warn(`Command execution failed on Manager with status '${status}' and output:`, data.output);
           resolve({ success: false, output: data.output || "" });
         }
-        this.socket.off("receipt." + requestId, responseHandler);
+        this.socket.off(`receipt.${requestId}`, responseHandler);
       }).bind(this);
 
-      this.socket.on("receipt." + requestId, responseHandler);
+      this.socket.on(`receipt.${requestId}`, responseHandler);
     });
   }
 
@@ -66,7 +67,7 @@ export default class ManagerClient {
     icon?: "none" | "info" | "warning" | "error" | "question";
     buttons?: "OK" | "OKCancel" | "AbortRetryIgnore" | "YesNoCancel" | "YesNo" | "RetryCancel";
     defaultButton?: number;
-  }): Promise<"OK" | "Cancel" | "Abort" | "Retry" | "Ignore" | "Yes" | "No"> {
+  }, onAck?: () => void): Promise<"OK" | "Cancel" | "Abort" | "Retry" | "Ignore" | "Yes" | "No"> {
     return new Promise((resolve) => {
       const requestId = crypto.randomBytes(8).toString("hex")
       
@@ -81,15 +82,16 @@ export default class ManagerClient {
       const responseHandler = (({status, data}: { status: "pending" | "success" | "failed"; data: { result: string } }) => {
         if (status === "pending") {
           this.logger.debug("Message box command acknowledged by Manager, waiting for response...");
+          if (onAck) onAck();
           return;
         } else {
           this.logger.debug(`Received message box response from Manager with status '${status}' and result:`, data.result);
           resolve(data.result as "OK" | "Cancel" | "Abort" | "Retry" | "Ignore" | "Yes" | "No");
-          this.socket.off("receipt." + requestId, responseHandler);
+          this.socket.off(`receipt.${requestId}`, responseHandler);
         }
       }).bind(this);
       
-      this.socket.on("receipt." + requestId, responseHandler);
+      this.socket.on(`receipt.${requestId}`, responseHandler);
     });
   }
 }

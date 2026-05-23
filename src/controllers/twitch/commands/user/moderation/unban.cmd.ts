@@ -1,0 +1,53 @@
+/*
+  * Copyright (c) 2026 Inimi | InimicalPart | Incoverse
+  *
+  * This program is free software: you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation, either version 3 of the License, or
+  * (at your option) any later version.
+  *
+  * This program is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  * GNU General Public License for more details.
+  *
+  * You should have received a copy of the GNU General Public License
+  * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { parameterize, RequiresPermission, TwitchPermissions } from "@/controllers/twitch/lib/misc";
+import type TwitchClient from "@twitch/client";
+import WaiterCommand, { type ChannelMessage } from "@twitch/lib/base/WaiterCommand";
+
+
+export default class UnbanCMD extends WaiterCommand {
+  public messageTrigger: RegExp = /^!unban\s+(?<args>.+)$/;
+
+  @RequiresPermission(TwitchPermissions.Moderator)
+  public async exec(channel: TwitchClient, message: ChannelMessage): Promise<any> {
+    const argsString = this.getArgs(message, "args")!;
+    const args = parameterize(argsString, ["user"]);
+
+    const username = args.user;
+
+    if (!username) {
+      await this.bot.channel(channel).sendMessage("You must specify a user to unban. Usage: !unban user=<username> [reason=<reason>]", { replyTo: message });
+      return;
+    }
+
+    const user = await this.bot.fetchUser(username);
+
+    if (!user) {
+      await this.bot.channel(channel).sendMessage(`Could not find a user with the name "${username}". Please check the username and try again.`, { replyTo: message });
+      return;
+    }
+
+    try {
+      await this.bot.channel(channel).unban(user.id);
+      await this.bot.channel(channel).sendMessage(`User "${user.display_name}" has been unbanned.`, { replyTo: message });
+    } catch (error) {
+      this.logger.error("Error unbanning user:", error);
+      await this.bot.channel(channel).sendMessage(`Failed to unban user "${user.display_name}". They may not exist or I may not have permission to unban them.`, { replyTo: message });
+    }
+  }
+}

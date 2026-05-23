@@ -23,7 +23,7 @@ import { RequiresPermission, TwitchPermissions } from "../lib/misc";
 
 
 export default class RunAdCMD extends WaiterCommand {
-  public messageTrigger: RegExp = /^!runad\s+(?<time>.+)$/;
+  public messageTrigger: RegExp = /^!run-?ad\s+(?<time>.+)$/;
 
   @RequiresPermission(TwitchPermissions.Moderator)
   @StreamerIsLive()

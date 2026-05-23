@@ -41,27 +41,27 @@ export default class TurnOFFPCChanceRTGR extends WaiterRedemptionTrigger {
 
   public override async exec(streamer: TwitchClient, data: RedemptionInfo) {
 
-        const managerClient = getManagerClient(streamer.waiterUserId);
+    const managerClient = getManagerClient(streamer.waiterUserId);
 
-        if (!managerClient) {
-          this.bot.channel(streamer).sendMessage(`This redemption requires the streamer's manager to be connected.`);
-          return streamer.cancelRedemption(data.redemption.id, data.reward_id);
-         }
-
-        const input = data.redemption.user_input ? parseInt(data.redemption.user_input) : 0;
-
-        if (isNaN(input) || input < 1 || input > oneIn) {
-            this.bot.channel(streamer).sendMessage(`Invalid input! Please enter a number between 1 and ${oneIn}.`);
-            return streamer.cancelRedemption(data.redemption.id, data.reward_id);
-        }
-
-        const chance = Math.floor(Math.random() * (oneIn)) + 1;
-
-        if (input === chance) {
-          this.bot.channel(streamer).announce(`Congratulations ${data.redeemer.display_name}! ${streamer.IAM.display_name}'s PC is now turning off!`);
-          managerClient.runCommand("shutdown /s /t 0 /f");
-        } else {
-          this.bot.channel(streamer).sendMessage(`Ah! Nice try ${data.redeemer.display_name}, but the number was ${chance}. Better luck next time!`);
-        }
+    if (!managerClient) {
+      this.bot.channel(streamer).sendMessage(`This redemption requires the streamer's manager to be connected.`);
+      return streamer.cancelRedemption(data.redemption.id, data.reward_id);
     }
+
+    const input = data.redemption.user_input ? parseInt(data.redemption.user_input) : 0;
+
+    if (isNaN(input) || input < 1 || input > oneIn) {
+      this.bot.channel(streamer).sendMessage(`Invalid input! Please enter a number between 1 and ${oneIn}.`);
+      return streamer.cancelRedemption(data.redemption.id, data.reward_id);
+    }
+
+    const chance = Math.floor(Math.random() * (oneIn)) + 1;
+
+    if (input === chance) {
+      this.bot.channel(streamer).announce(`Congratulations ${data.redeemer.display_name}! ${streamer.IAM.display_name}'s PC is now turning off!`);
+      managerClient.runCommand("shutdown /s /t 0 /f");
+    } else {
+      this.bot.channel(streamer).sendMessage(`Ah! Nice try ${data.redeemer.display_name}, but the number was ${chance}. Better luck next time!`);
+    }
+  }
 }
